@@ -1,0 +1,940 @@
+PROMPT UNTUK CLAUDE CODE
+Project: VANGUARD Fleet / GPS / TRAMOS-inspired Control Tower
+Tujuan: Rombak dan sempurnakan UI/UX, navigasi, konten, dan kelengkapan fitur agar project terasa seperti aplikasi operasional fleet monitoring yang matang, bukan mockup AI.
+
+================================================================================
+0. KONTEKS BESAR
+================================================================================
+
+Kamu sedang mengerjakan project web VANGUARD di folder:
+/Users/vdr/Documents/GPS
+
+Project ini adalah aplikasi fleet monitoring / GPS tracking / task monitoring yang terinspirasi dari TRAMOS Systems.
+
+TRAMOS adalah web tracking monitoring safety untuk armada kendaraan. Secara garis besar, TRAMOS dipakai oleh dispatcher, supervisor, admin transport, dan tim safety untuk:
+- Memantau kendaraan realtime di peta.
+- Melihat status kendaraan: driving, idle, parking, offline, delayed update.
+- Mengelola dan memantau task pengiriman.
+- Melihat route yang sudah dilalui driver dan route yang sudah ditentukan.
+- Mengecek notification/alarm seperti speeding, GPS delayed, geofence event, camera event.
+- Membuka history perjalanan.
+- Membuat report trip, idle, stop, speeding, working time, fuel, geofence.
+- Melihat camera snapshot dan dashcam monitor.
+- Mengelola unit, driver, user, alert, webhook, dan database melalui control panel.
+
+Dokumen knowledge base TRAMOS sudah ada di:
+docs/tramos_knowledge_base.txt
+
+Baca dokumen itu sebagai referensi domain, istilah, modul, dan cara kerja TRAMOS. Namun jangan copy desain TRAMOS secara mentah karena desain asli TRAMOS terasa tua. Ambil struktur fitur dan pola operasionalnya, lalu buat VANGUARD lebih modern, jelas, rapi, dan demo-ready.
+
+================================================================================
+1. MASALAH PROJECT SAAT INI
+================================================================================
+
+Project sudah punya banyak halaman, tapi UI/UX masih perlu disempurnakan besar-besaran.
+
+Masalah utama:
+1. Banyak komponen terasa berantakan dan tidak konsisten.
+2. Banyak button terlihat bisa diklik tetapi belum punya action yang jelas.
+3. Beberapa fitur overlap / double fungsi.
+4. Struktur menu belum sepenuhnya menjelaskan perbedaan antar halaman.
+5. Beberapa halaman masih terasa seperti placeholder, bukan aplikasi operasional beneran.
+6. Ada page yang kontennya kurang lengkap dibanding kebutuhan sistem tracking seperti TRAMOS.
+7. Layout table/map/detail panel harus dibuat lebih ergonomis untuk dispatcher.
+8. Design harus putih, jelas, maskulin, fleet/logistics, modern, tidak ramai, tidak terlalu “AI-generated”.
+9. Dark mode tetap harus ada dan rapi.
+10. Semua page di sidebar harus bisa dibuka, punya konten, dan semua action utama harus merespon.
+11. Jangan ada menu mati seperti href "#", kecuali memang jelas disabled dengan label "Soon"; lebih baik implement minimal page/settings agar tidak ada dead menu.
+
+================================================================================
+2. TUJUAN AKHIR
+================================================================================
+
+Buat VANGUARD menjadi aplikasi control tower fleet monitoring yang:
+- Rapi dan profesional.
+- Terasa seperti software operasional yang dipakai perusahaan logistik/transport.
+- Mengikuti konsep fitur TRAMOS, tapi visualnya lebih modern.
+- Semua sidebar menu punya halaman dan fungsi dasar.
+- Semua button utama punya feedback/action/navigasi.
+- Tidak ada duplikasi fungsi yang membingungkan.
+- Table, map, detail panel, report, dan form tertata jelas.
+- Bahasa UI konsisten: gunakan istilah operasional TRAMOS.
+- Konten lengkap untuk demo ke perusahaan.
+- Tidak terlihat seperti dashboard template AI.
+- Tidak banyak emoji.
+- Tidak menggunakan dekorasi tidak perlu.
+- Tidak terlalu kaku, tetapi tetap serius dan bisa dipercaya.
+
+================================================================================
+3. STYLE DESIGN YANG DIINGINKAN
+================================================================================
+
+Tema:
+- Fleet control tower.
+- Logistics / truck / GPS / monitoring.
+- Maskulin, tegas, bersih.
+- Dominan light mode / putih.
+- Dark mode sebagai toggle dan harus tetap polished.
+
+Warna:
+- Base: putih, off-white, steel gray.
+- Accent: hijau/emerald untuk live/progress/healthy.
+- Accent kedua: orange/red untuk warning, speeding, offline.
+- Boleh pakai biru secukupnya untuk link/map/route, tapi jangan dominan.
+- Hindari warna ungu, gradient AI, glassmorphism berlebihan, pastel berlebihan, neon berlebihan.
+- Hindari tampilan terlalu satu warna yang membosankan; tetap satu tone tapi punya hierarchy jelas.
+
+Layout:
+- Sidebar fixed di kiri.
+- Topbar ringkas.
+- Halaman operasional seperti Realtime Monitor dan Task Monitor boleh full-height dengan toolbar + table/map.
+- Dashboard harus ringkas, bukan landing page.
+- Jangan pakai hero besar.
+- Jangan buat card bertumpuk di dalam card.
+- Jangan terlalu banyak grid kecil yang membuat mata capek.
+- Table harus readable, dense, dan bisa discan.
+- Detail panel kanan harus konsisten di map pages.
+
+Typography:
+- Font system/Inter sudah cukup.
+- Jangan pakai headline terlalu besar kecuali page title.
+- Jangan letter spacing berlebihan.
+- Label kecil boleh uppercase, tetapi secukupnya.
+- Gunakan bahasa singkat dan operasional.
+
+Komponen:
+- Button harus jelas primary/secondary/danger.
+- Icon gunakan lucide-react yang sudah ada.
+- Segmented control untuk Table/Map.
+- Toggle untuk layer map.
+- Search/filter jelas.
+- Status badge konsisten.
+- Empty state harus ada.
+- Loading state harus ada.
+- Error/degraded state harus ada.
+
+================================================================================
+4. STRUKTUR PROJECT YANG ADA
+================================================================================
+
+Frontend:
+frontend/src/app/(app)/dashboard/page.tsx
+frontend/src/app/(app)/tracking/page.tsx
+frontend/src/app/(app)/tasks/page.tsx
+frontend/src/app/(app)/vehicles/page.tsx
+frontend/src/app/(app)/drivers/page.tsx
+frontend/src/app/(app)/history/page.tsx
+frontend/src/app/(app)/reports/page.tsx
+frontend/src/app/(app)/snapshots/page.tsx
+frontend/src/app/(app)/dashcam/page.tsx
+frontend/src/app/(app)/geofences/page.tsx
+frontend/src/app/(app)/locate/page.tsx
+frontend/src/app/(app)/accidents/page.tsx
+frontend/src/app/(app)/control/page.tsx
+frontend/src/components/layout/AppShell.tsx
+frontend/src/components/layout/Sidebar.tsx
+frontend/src/components/map/TrackingMap.tsx
+frontend/src/components/map/TaskRouteMap.tsx
+frontend/src/components/ThemeProvider.tsx
+frontend/src/app/globals.css
+frontend/tailwind.config.ts
+
+Backend:
+backend/main.py
+backend/models.py
+backend/schemas.py
+backend/database.py
+backend/routers
+
+Gunakan struktur yang ada. Jangan rewrite project dari nol jika tidak perlu. Rapikan, ekstrak komponen reusable, dan pastikan build tetap jalan.
+
+================================================================================
+5. PENJELASAN TRAMOS SEBAGAI REFERENSI PRODUK
+================================================================================
+
+TRAMOS bukan sekadar dashboard biasa. TRAMOS adalah operational monitoring system.
+
+Modul-modul penting TRAMOS:
+
+1. Dashboard / Vehicle Status Summary
+   Ringkasan armada:
+   - Total unit.
+   - Driving.
+   - Idle.
+   - Parking/Stop.
+   - Offline.
+   - Delayed update.
+   - No GPS data.
+   - No RFID Driver.
+   - In private/public area.
+   Tujuan dashboard adalah melihat kondisi armada secara cepat dan menentukan unit mana yang perlu dicek.
+
+2. Realtime Monitor
+   Map realtime untuk melihat lokasi kendaraan saat ini.
+   Fitur:
+   - Map/table toggle.
+   - Search unit/driver.
+   - Filter status.
+   - Vehicle list.
+   - Marker kendaraan.
+   - Detail unit.
+   - Status GPS/websocket.
+   - Layer control.
+   - Event/notification.
+
+3. Task Monitor / TMS
+   Ini halaman penting. Fokusnya bukan sekadar daftar kendaraan, tapi task pengiriman.
+   Table view:
+   - No.
+   - Vehicle.
+   - Driver.
+   - Group.
+   - Time.
+   - Trip Type.
+   - Status.
+   - Task.
+   - Task Ref.
+   - Trip.
+   - Origin.
+   - Destination.
+   Map view:
+   - Peta.
+   - Route yang sudah dilalui driver.
+   - Route yang sudah ditentukan/planned.
+   - Marker origin, current vehicle, destination.
+   - Panel kanan berisi state, speed, task, schedule, trip, type, origin, destination, distance, traveled, estimated.
+   - Notification speeding di bawah sebagai alert, bukan bagian route.
+   Toolbar:
+   - Table/Map.
+   - Order By.
+   - Refresh.
+   - History.
+   - Manage.
+   - Customize Column.
+   - Zoom to All.
+   - Ungroup Vehicles.
+
+4. History
+   Untuk melihat perjalanan masa lalu:
+   - Unit/driver selector.
+   - Date range.
+   - Map replay.
+   - Timeline.
+   - Detail.
+   - Engine.
+   - Driving.
+   - Idle.
+   - Stop.
+   - Speeding.
+   - Event.
+   - Reverse.
+   - Geofence.
+   - Export CSV.
+
+5. Report
+   Untuk laporan operasional:
+   - Trip Summary.
+   - Idle Report.
+   - Stop Report.
+   - Working Time.
+   - Reverse Summary.
+   - DIMS / Driver Improvement.
+   - Monthly Summary.
+   - Fatigue Summary.
+   - Mileage Day.
+   - Alarm Video.
+   - Speeding.
+   - Fuel Usage.
+   - Geofence Events.
+
+6. Camera Snapshot / PhotoCam
+   Bukti visual event:
+   - Arrival proof.
+   - Speed alert.
+   - Fuel stop.
+   - Stop/parking.
+   - Geofence entry/exit.
+
+7. Dashcam Monitor
+   Video monitor:
+   - Channel front/cabin/rear.
+   - Live/review/offline.
+   - Event list.
+   - Snapshot/download/fullscreen.
+
+8. Geofence
+   Area virtual:
+   - Warehouse.
+   - Depot.
+   - Customer.
+   - Port.
+   - Pool.
+   - Rest area.
+   - Loading/unloading.
+   Digunakan untuk enter/exit notification dan report.
+
+9. Control Panel
+   Administrasi:
+   - Vehicle master.
+   - Driver master.
+   - User & role.
+   - GPS device pairing.
+   - Telegram alert.
+   - API webhook.
+   - Database/retention.
+   - Notification rules.
+
+================================================================================
+6. MENU DAN NAVIGASI YANG HARUS JELAS
+================================================================================
+
+Sidebar final yang disarankan:
+
+MONITOR
+- Dashboard -> /dashboard
+- Realtime Monitor -> /tracking
+- Locate -> /locate
+- Geofence -> /geofences
+
+OPERATION
+- Task Monitor -> /tasks
+- Vehicle -> /vehicles
+- Driver -> /drivers
+- History -> /history
+- Accident -> /accidents
+
+EVIDENCE
+- Report -> /reports
+- Camera Snapshot -> /snapshots
+- Dashcam Monitor -> /dashcam
+
+ADMIN
+- Control Panel -> /control
+- Settings -> /settings
+
+Catatan:
+- Jangan biarkan Settings href "#". Buat halaman /settings minimal.
+- Setiap menu harus clickable.
+- Active state harus benar.
+- Jika route belum ada, buat page-nya.
+- Jika fitur belum full, berikan functional mock yang terlihat realistis, bukan "coming soon" kosong.
+
+================================================================================
+7. PRIORITAS PERBAIKAN PER HALAMAN
+================================================================================
+
+7.1 Dashboard
+Tujuan:
+Dashboard harus jadi ringkasan status armada dan shortcut masuk ke modul penting.
+
+Improve:
+- Buat header ringkas: Vehicle Status Summary.
+- Tampilkan KPI:
+  - Total Vehicle.
+  - Driving.
+  - Idle.
+  - Parking.
+  - Offline.
+  - Delayed Update.
+  - No GPS Data.
+  - No RFID Driver.
+- Tampilkan "Exception Monitor":
+  - Speeding.
+  - Low fuel.
+  - GPS delayed.
+  - Offline.
+- Tampilkan mini table "Vehicle list by last activity".
+- Tampilkan quick access ke Realtime Monitor, Task Monitor, History, Report, Camera Snapshot, Dashcam.
+- Pastikan semua quick access clickable.
+- Jangan terlalu banyak card.
+- Jangan pakai konten marketing.
+
+7.2 Realtime Monitor (/tracking)
+Tujuan:
+Halaman utama untuk live vehicle monitoring.
+
+Improve:
+- Full-height layout: toolbar atas, sidebar list kiri, map kanan, detail panel/popup.
+- Toolbar:
+  - Map/Table toggle.
+  - Search unit/driver.
+  - Status filter.
+  - Layer button.
+  - Refresh.
+  - Websocket status.
+- Table mode:
+  - Unit.
+  - Driver.
+  - Vehicle model.
+  - Speed.
+  - Fuel.
+  - Status.
+  - Last GPS.
+  - Action Locate/View.
+- Map mode:
+  - Marker kendaraan.
+  - Popup detail.
+  - Vehicle list.
+  - Detail card saat marker dipilih.
+  - Layer control: traffic/geofence/track/checkpoint mock.
+- Semua button harus berfungsi minimal:
+  - Map/Table toggle.
+  - Search filter.
+  - Status filter.
+  - Refresh update timestamp.
+  - Layer membuka panel.
+  - Row/marker memilih unit.
+
+7.3 Task Monitor (/tasks)
+Tujuan:
+Halaman paling mirip TRAMOS TMS.
+
+Improve:
+- Table/Map toggle harus jelas.
+- Table harus dense dan readable.
+- Row click memilih task.
+- Row double click membuka map.
+- Search/filter bawah atau atas berfungsi.
+- Order By berfungsi.
+- Refresh berfungsi.
+- History navigasi ke /history dengan selected unit/task jika memungkinkan.
+- Manage membuka panel action:
+  - Assign driver.
+  - Change schedule.
+  - Mark unloading.
+  - Close task.
+  Tidak perlu benar-benar save ke backend jika belum siap, tapi harus ada feedback toast/status.
+- Customize Column membuka panel checkbox kolom.
+- Map view harus pakai peta Leaflet/OpenStreetMap.
+- Map view harus menampilkan:
+  - Rute sudah dilalui.
+  - Rute yang ditentukan.
+  - Marker origin.
+  - Marker current vehicle.
+  - Marker destination.
+  - Panel kanan detail task.
+  - Speeding notification sebagai overlay bawah.
+  - Layer toggles.
+- Jangan jadikan speeding notification sebagai route.
+- Buat data task cukup banyak agar table terasa nyata.
+
+7.4 Vehicle (/vehicles)
+Tujuan:
+Asset registry / master kendaraan, bukan duplicate tracking.
+
+Improve:
+- Fokus pada data kendaraan:
+  - Plate number.
+  - Brand/model/year.
+  - Type.
+  - GPS device ID.
+  - SIM card.
+  - Vendor.
+  - Ownership.
+  - KIR due.
+  - Service due.
+  - Odometer.
+  - Device health.
+  - Last maintenance.
+- Action:
+  - Add vehicle.
+  - Edit.
+  - Export CSV.
+  - Filter status.
+  - Search plate/vendor.
+- Jangan tampilkan map utama di sini.
+
+7.5 Driver (/drivers)
+Tujuan:
+Master driver dan safety profile.
+
+Improve:
+- Driver list/table lebih rapi.
+- Data:
+  - Name.
+  - Phone.
+  - License/SIM.
+  - RFID.
+  - Assigned vehicle.
+  - Status active/off-duty/on-leave.
+  - Safety score.
+  - Incidents.
+  - Last trip.
+- Action:
+  - Add driver.
+  - Assign vehicle.
+  - View profile.
+  - Filter status.
+  - Search.
+- Hindari card grid besar kalau membuat scanning sulit. Lebih baik table + side detail.
+
+7.6 History (/history)
+Tujuan:
+Trip replay dan investigasi masa lalu.
+
+Improve:
+- Filter panel:
+  - Unit.
+  - Driver/group.
+  - Date range.
+  - Search/load.
+  - Export CSV.
+- View:
+  - Map replay mock.
+  - Timeline.
+  - Detail table.
+  - Tabs: Timeline, Detail, Engine, Driving, Idle, Stop, Speeding, Events, Reverse, Geofence.
+- Button tab harus berfungsi mengganti konten.
+- Replay control minimal:
+  - Play/Pause.
+  - Speed selector.
+  - Reset.
+
+7.7 Report (/reports)
+Tujuan:
+Report center yang lengkap dan mudah dipakai.
+
+Improve:
+- Filter report:
+  - Report type.
+  - Unit/group.
+  - Date range.
+  - Generate.
+  - Export.
+- Report cards/list:
+  - Trip Summary.
+  - Idle Report.
+  - Stop Report.
+  - Working Time.
+  - Reverse Summary.
+  - DIMS.
+  - Monthly Summary.
+  - Fatigue Summary.
+  - Mileage Day.
+  - Alarm Video.
+  - Speeding.
+  - Fuel Usage.
+  - Geofence Events.
+- Generate button harus mengubah preview table.
+- Export button harus memberi feedback.
+- Jangan hanya cards statis. Harus ada preview/report queue.
+
+7.8 Camera Snapshot (/snapshots)
+Tujuan:
+Evidence photo.
+
+Improve:
+- Gallery + table/list.
+- Filter:
+  - Unit.
+  - Event type.
+  - Date.
+  - Search location.
+- Snapshot card:
+  - Image mock yang terlihat seperti camera frame.
+  - Unit.
+  - Event.
+  - Time.
+  - Location.
+  - Action Review/Download.
+- Review membuka modal/detail panel.
+
+7.9 Dashcam Monitor (/dashcam)
+Tujuan:
+Video monitoring.
+
+Improve:
+- Main video area.
+- Channel list kanan/kiri.
+- Event list.
+- Status Live/Review/Offline.
+- Controls:
+  - Play/Pause.
+  - Snapshot.
+  - Mute.
+  - Fullscreen mock.
+  - Change channel.
+- Channel click mengganti selected camera.
+
+7.10 Geofence (/geofences)
+Tujuan:
+Kelola dan monitor area virtual.
+
+Improve:
+- Map with geofence shapes mock.
+- List geofence:
+  - Name.
+  - Type.
+  - Radius.
+  - Units inside.
+  - Alert count.
+- Action:
+  - Add geofence.
+  - Edit.
+  - Delete.
+  - Toggle visible.
+- Filter type: warehouse/depot/customer/port/pool.
+- Detail panel saat geofence dipilih.
+
+7.11 Locate (/locate)
+Tujuan:
+Mencari satu unit dengan cepat.
+
+Improve:
+- Search prominent.
+- Result list.
+- Map focus.
+- Unit details.
+- Recent searches.
+- Action:
+  - Locate.
+  - Open in Realtime Monitor.
+  - Open History.
+  - Copy coordinates.
+
+7.12 Accident (/accidents)
+Tujuan:
+Safety/incident log.
+
+Improve:
+- Incident table:
+  - Time.
+  - Unit.
+  - Driver.
+  - Severity.
+  - Location.
+  - Status.
+  - Evidence.
+- Detail side panel.
+- Filter severity/status/date.
+- Actions:
+  - Review.
+  - Mark resolved.
+  - Open evidence.
+
+7.13 Control Panel (/control)
+Tujuan:
+Admin and system configuration.
+
+Improve:
+- Split into modules:
+  - Units.
+  - Drivers.
+  - Users & Roles.
+  - Telegram Alerts.
+  - API Webhook.
+  - Database.
+  - Notification Rules.
+- Each module clickable and opens detail panel.
+- Add mock forms for key settings.
+- No dead cards.
+
+7.14 Settings (/settings)
+Tujuan:
+Hapus dead menu.
+
+Create page if missing:
+- Account preferences.
+- Theme.
+- Notification preferences.
+- Map defaults.
+- Table density.
+- Language.
+- Save button with feedback.
+
+================================================================================
+8. BUTTON DAN INTERAKSI WAJIB
+================================================================================
+
+Semua button yang terlihat harus salah satu dari:
+1. Navigasi ke route.
+2. Toggle state.
+3. Open modal/panel/dropdown.
+4. Update filter/search.
+5. Trigger mock action dengan feedback.
+6. Disabled dengan alasan jelas.
+
+Jangan ada button kosong yang tidak melakukan apa-apa.
+
+Minimum feedback:
+- Toast/status text sederhana.
+- Timestamp berubah.
+- Panel terbuka.
+- Selected row berubah.
+- Filter result berubah.
+- Modal muncul.
+
+Button yang harus dicek:
+- Search.
+- Filter.
+- Refresh.
+- Export.
+- Add.
+- Edit.
+- Review.
+- Download.
+- Manage.
+- Customize Column.
+- Map/Table toggle.
+- Layer toggle.
+- Zoom to All.
+- Open History.
+- Open Realtime Monitor.
+- Assign Driver.
+- Save Settings.
+
+================================================================================
+9. KONSISTENSI BAHASA UI
+================================================================================
+
+Pakai istilah yang konsisten. Jangan campur terlalu banyak kata template.
+
+Gunakan:
+- Dashboard.
+- Realtime Monitor.
+- Task Monitor.
+- Vehicle.
+- Driver.
+- History.
+- Report.
+- Camera Snapshot.
+- Dashcam Monitor.
+- Geofence.
+- Control Panel.
+- Settings.
+- Driving.
+- Idle.
+- Parking.
+- Offline.
+- Delayed Update.
+- No GPS Data.
+- No RFID Driver.
+- Progress.
+- Waiting.
+- Unloading.
+- Origin.
+- Destination.
+- Trip Ref.
+- Route yang sudah dilalui.
+- Route yang ditentukan.
+
+Hindari istilah terlalu generatif:
+- Fleet Control Briefing.
+- Attention queue.
+- AI Insight.
+- Smart dashboard.
+- Magical automation.
+- Predictive genius.
+
+Kalau perlu bahasa Indonesia, gunakan untuk penjelasan kecil. Untuk label table bisa English seperti TRAMOS.
+
+================================================================================
+10. DATA MOCK YANG HARUS DIBUAT LEBIH REALISTIS
+================================================================================
+
+Buat data mock terpusat jika belum ada, misalnya:
+frontend/src/lib/mock-data.ts
+atau tambahkan file:
+frontend/src/lib/operations-data.ts
+
+Data sebaiknya mencakup:
+- vehicles.
+- drivers.
+- tasks.
+- trips.
+- route points.
+- reports.
+- snapshots.
+- dashcam channels.
+- geofences.
+- accidents.
+- notifications.
+
+Gunakan contoh kendaraan Indonesia:
+- B9068NU (ECFS)
+- B9218GV
+- B9544SYO
+- BA8329QY (ECFS)
+- B9001SXS
+- B9002SXS
+- B9997SXR
+- BG8221NK (BDL)
+- BG8292NK (BDL)
+
+Gunakan contoh task:
+- PLI - DEPOK
+- TNF - BEKASI
+- PLI - JKT1
+- BKS - PURBALINGGA
+- CIK - KEDIRI
+- KLN - SURABAYA
+- BKS - LAMPUNG
+
+Gunakan contoh status:
+- Progress.
+- Unloading.
+- Waiting.
+- Driving.
+- Idle.
+- Parking.
+- Offline.
+
+================================================================================
+11. ARSITEKTUR KOMPONEN YANG DISARANKAN
+================================================================================
+
+Kalau perlu, ekstrak komponen reusable:
+
+components/ui/Button.tsx
+components/ui/StatusBadge.tsx
+components/ui/SearchInput.tsx
+components/ui/SegmentedControl.tsx
+components/ui/Toolbar.tsx
+components/ui/DataTable.tsx
+components/ui/SidePanel.tsx
+components/ui/Modal.tsx
+components/ui/Toast.tsx
+components/ui/EmptyState.tsx
+components/ui/PageHeader.tsx
+components/ui/KpiCard.tsx
+
+components/operations/VehicleStatusBadge.tsx
+components/operations/TaskStatusBadge.tsx
+components/operations/RouteLegend.tsx
+components/operations/NotificationCard.tsx
+components/operations/TaskDetailPanel.tsx
+components/operations/VehicleDetailPanel.tsx
+
+Jangan over-engineer. Ekstrak hanya jika benar-benar membuat code lebih rapi.
+
+================================================================================
+12. BACKEND DAN ERROR HANDLING
+================================================================================
+
+Project punya backend FastAPI. Jangan rombak backend besar-besaran kecuali perlu.
+
+Frontend harus handle:
+- API gagal.
+- Data kosong.
+- WebSocket offline.
+- Loading state.
+- Last known data.
+
+Jika API tidak tersedia:
+- Tetap tampilkan mock data.
+- Tampilkan status "Using fallback data" atau "Connection degraded" secara halus.
+
+Jangan sampai halaman blank hanya karena backend mati.
+
+================================================================================
+13. TESTING DAN VERIFIKASI WAJIB
+================================================================================
+
+Setelah implement:
+
+1. Jalankan build:
+cd frontend
+npm run build
+
+2. Jalankan dev server:
+npm run dev -- -p 3000
+
+3. Cek semua route:
+/dashboard
+/tracking
+/tasks
+/vehicles
+/drivers
+/history
+/reports
+/snapshots
+/dashcam
+/geofences
+/locate
+/accidents
+/control
+/settings
+
+4. Gunakan Playwright atau browser untuk test:
+- Semua sidebar link bisa diklik.
+- Semua page tidak error.
+- Semua button utama memberi respon.
+- Table/map toggle jalan.
+- Search/filter jalan.
+- Dark mode toggle jalan.
+- Tidak ada text overflow.
+- Tidak ada panel/tab/button saling tabrakan.
+- Map render dan tidak blank.
+- Responsive minimal desktop 1440x900 dan laptop 1280x800.
+
+5. Jangan lupa setelah npm run build, Next dev server kadang perlu restart bersih:
+kill process next dev lama, rm -rf .next, lalu npm run dev -- -p 3000.
+
+================================================================================
+14. ACCEPTANCE CRITERIA
+================================================================================
+
+Pekerjaan dianggap selesai jika:
+
+- Semua route sidebar hidup.
+- Tidak ada href "#".
+- Tidak ada button utama yang mati.
+- Dashboard rapi dan tidak seperti landing page.
+- Realtime Monitor punya map/table dan filter berfungsi.
+- Task Monitor punya table/map dengan route aktual dan route plan.
+- Speeding tampil sebagai notification, bukan bagian route.
+- Vehicle page fokus ke asset registry.
+- Driver page fokus ke driver profile.
+- History punya filter, tabs, dan replay controls.
+- Report punya generator/preview/export feedback.
+- Snapshot punya review/download.
+- Dashcam punya selected channel dan controls.
+- Geofence punya map/list/detail/actions.
+- Locate bisa cari unit dan buka action terkait.
+- Accident bisa review/resolve mock.
+- Control Panel punya detail module.
+- Settings ada dan bisa save mock preferences.
+- Dark mode tetap bagus.
+- Build sukses.
+- UI terlihat modern, jelas, tidak berantakan, tidak generik AI.
+
+================================================================================
+15. RUANG KREATIF UNTUK CLAUDE
+================================================================================
+
+Kamu boleh menggunakan ide desain sendiri selama:
+- Tetap mengikuti domain TRAMOS/fleet monitoring.
+- Tetap rapi dan operasional.
+- Tidak mengubah project menjadi landing page.
+- Tidak membuat desain terlalu dekoratif.
+- Tidak mengorbankan keterbacaan table/map.
+- Tidak menghilangkan fitur penting yang sudah ada.
+- Tidak membuat layout yang membingungkan dispatcher.
+
+Kamu boleh:
+- Mengubah spacing.
+- Mengubah layout page.
+- Mengekstrak reusable components.
+- Menambah mock data.
+- Membuat modal/panel/toast.
+- Menambah /settings.
+- Memperbaiki nama menu.
+- Menghapus duplikasi fungsi.
+- Memindahkan fungsi ke halaman yang lebih tepat.
+- Menambah detail yang membuat demo lebih meyakinkan.
+
+Jangan terlalu strict mengikuti prompt ini jika kamu menemukan solusi UX yang lebih baik. Tapi semua perubahan harus tetap menjawab tujuan utama: aplikasi fleet monitoring yang lengkap, jelas, rapi, dan mirip workflow TRAMOS modern.
+
+================================================================================
+16. OUTPUT YANG DIHARAPKAN
+================================================================================
+
+Setelah selesai, berikan ringkasan:
+- File utama yang diubah.
+- Halaman yang diperbaiki.
+- Button/action yang sudah dibuat berfungsi.
+- Route yang sudah diverifikasi.
+- Hasil build/test.
+- Sisa improvement yang masih bisa dilakukan nanti.
+
+Mulai dengan audit singkat project, lalu implement bertahap. Jangan hanya memberi saran; lakukan perubahan langsung di code.
