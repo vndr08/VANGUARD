@@ -1,0 +1,544 @@
+================================================================================
+VANGUARD - Fleet Control Tower
+Fleet Monitoring & GPS Tracking Application
+================================================================================
+
+DESKRIPSI PROJECT
+--------------------------------------------------------------------------------
+
+VANGUARD adalah aplikasi web fleet monitoring dan GPS tracking yang dirancang untuk
+memonitor dan mengelola armada kendaraan operasional secara realtime. Aplikasi ini
+terinspirasi dari TRAMOS Systems dan dibangun dengan teknologi modern untuk
+menyediakan pengalaman yang lebih clean, professional, dan user-friendly.
+
+Aplikasi ini berfungsi sebagai "control tower" bagi dispatcher, supervisor,
+admin transport, dan tim operasional untuk:
+
+
+  - Memantau posisi kendaraan secara realtime
+  - Mengelola task pengiriman dan assignment kendaraan
+  - Melihat route yang sudah dilalui dan route yang direncanakan
+  - Menerima notifikasi event seperti speeding, geofence, GPS delayed
+  - Membuat laporan operasional
+  - Melihat bukti kamera dari camera snapshot dan dashcam
+  - Mengelola data kendaraan, driver, dan user
+
+
+================================================================================
+FITUR UTAMA
+================================================================================
+
+1. MONITORING
+-------------
+
+   1.1 Dashboard
+       - Ringkasan status armada (total, driving, idle, parking, offline)
+       - Vehicle status summary
+       - Attention alerts (GPS delayed, low fuel, overspeed)
+       - Quick access ke modul penting
+       - Status distribution dengan visualisasi progress bar
+
+   1.2 Realtime Monitor
+       - Peta realtime dengan marker kendaraan
+       - Table view untuk scanning cepat
+       - Filter berdasarkan status kendaraan
+       - Search unit atau driver
+       - Detail panel untuk kendaraan terpilih
+       - Layer control (track, geofence, checkpoint)
+       - WebSocket support untuk live updates
+
+   1.3 Task Monitor (TMS)
+       - Table view dengan kolom lengkap (vehicle, driver, group, time, status, task, origin, destination)
+       - Map view dengan route visualization
+       - Status task: Progress, Unloading, Waiting, Assigned
+       - Filter dan search
+       - Sortable columns
+       - Detail panel dengan informasi trip lengkap
+       - Double-click untuk buka vehicle di map
+       - Toolbar: Table/Map toggle, Refresh, Order By, Manage, Customize Column
+
+   1.4 Locate
+       - Pencarian unit cepat
+       - Recent searches
+       - Detail posisi terakhir kendaraan
+       - Copy coordinates
+       - Navigasi ke Realtime Monitor dan History
+
+   1.5 Geofence
+       - Daftar zone dengan filter type (Depot, Customer, Port, Checkpoint)
+       - Map visualization dengan circle markers
+       - Toggle visibility per zone
+       - Detail panel dengan koordinat
+       - Add, Edit, Delete geofence
+
+
+2. OPERATION
+-----------
+
+   2.1 Vehicle Registry
+       - Master data kendaraan
+       - Informasi GPS device (ID, SIM)
+       - Ownership (Company/Vendor)
+       - KIR due date tracking
+       - Service due monitoring
+       - Odometer tracking
+       - Device health status
+       - Sortable dan filterable table
+       - Export functionality
+
+   2.2 Driver Registry
+       - Master data supir
+       - Safety score tracking
+       - License/SIM management
+       - RFID pairing
+       - Trip count dan total KM
+       - Incident history
+       - Detail panel dengan profile lengkap
+       - Sortable columns
+
+   2.3 History
+       - Trip replay dan investigasi
+       - Timeline view dengan visualisasi route
+       - Detail view dalam format table
+       - Tab categories: Timeline, Detail, Engine, Driving, Idle, Stop, Speeding, Events, Reverse, Geofence
+       - Playback controls (1x, 2x, 4x speed)
+       - Date range selector
+       - Unit/Driver filter
+       - Export CSV
+
+   2.4 Accident Log
+       - Catatan insiden dan safety events
+       - Severity classification (High, Medium, Low)
+       - Status tracking (Review, Action, Closed)
+       - Evidence management
+       - Filter by severity dan status
+       - Review evidence functionality
+       - Mark as resolved
+
+
+3. EVIDENCE
+-----------
+
+   3.1 Report Center
+       - 13 jenis report:
+         * Trip Summary
+         * Idle Report
+         * Stop Report
+         * Working Time
+         * Reverse Summary
+         * DIMS (Driver Improvement)
+         * Monthly Summary
+         * Fatigue Summary
+         * Mileage Day
+         * Alarm Video
+         * Speeding
+         * Fuel Usage
+         * Geofence Events
+       - Report generator dengan preview
+       - Export PDF/CSV
+       - Report queue
+       - Supervisor review stats
+
+   3.2 Camera Snapshot
+       - Gallery dengan thumbnail
+       - Event types: Arrival proof, Speed alert, Fuel stop, Engine off, Customer gate, Geofence entry
+       - Filter by event type
+       - Search unit/location
+       - Review modal dengan detail lengkap
+       - Download full resolution
+
+   3.3 Dashcam Monitor
+       - Video player interface
+       - Multi-channel support (Front, Cabin, Rear)
+       - Status: Live, Review, Offline
+       - Playback controls
+       - Play/Pause, Skip, Mute
+       - Snapshot capture
+       - Fullscreen mode
+       - Channel selector
+       - Recent events list
+
+
+4. ADMINISTRATION
+----------------
+
+   4.1 Control Panel
+       - Units Configuration
+       - Drivers Configuration
+       - Users & Roles Management
+       - Telegram Alerts Configuration
+       - API Webhook Settings
+       - Database Retention Policy
+       - Smart handling rules display
+
+   4.2 Settings
+       - Theme preference (Light/Dark/System)
+       - Table density (Compact/Comfortable)
+       - Map preferences (Tile provider, Zoom level)
+       - Notification settings (Speeding, Geofence, Offline, Idle, Fuel)
+       - Sound alerts toggle
+       - Auto-refresh interval
+       - Account information
+       - Session status
+
+
+================================================================================
+TEKNOLOGI STACK
+================================================================================
+
+FRONTEND
+--------
+  - Framework: Next.js 14 (App Router)
+  - Language: TypeScript
+  - Styling: Tailwind CSS
+  - UI Components: Custom components dengan Lucide React icons
+  - Maps: Leaflet dengan React-Leaflet
+  - State Management: React hooks (useState, useMemo, useEffect)
+  - Dark Mode: CSS custom properties + Tailwind dark mode
+
+BACKEND
+--------
+  - Framework: FastAPI (Python)
+  - Database: SQLite (development), PostgreSQL (production ready)
+  - WebSocket: Native FastAPI WebSocket
+  - API: RESTful endpoints
+  - ORM: SQLAlchemy
+
+INFRASTRUCTURE
+--------------
+  - Container: Docker & Docker Compose
+  - Services: FastAPI, PostgreSQL, Redis (optional cache)
+
+
+================================================================================
+STRUCTURE PROJECT
+================================================================================
+
+VANGUARD/
+├── frontend/                    # Next.js frontend
+│   ├── src/
+│   │   ├── app/
+│   │   │   ├── (app)/         # App routes dengan layout
+│   │   │   │   ├── dashboard/
+│   │   │   │   ├── tracking/
+│   │   │   │   ├── tasks/
+│   │   │   │   ├── vehicles/
+│   │   │   │   ├── drivers/
+│   │   │   │   ├── history/
+│   │   │   │   ├── reports/
+│   │   │   │   ├── snapshots/
+│   │   │   │   ├── dashcam/
+│   │   │   │   ├── geofences/
+│   │   │   │   ├── locate/
+│   │   │   │   ├── accidents/
+│   │   │   │   ├── control/
+│   │   │   │   └── settings/
+│   │   │   ├── globals.css
+│   │   │   ├── layout.tsx
+│   │   │   └── page.tsx
+│   │   ├── components/
+│   │   │   ├── layout/
+│   │   │   │   ├── AppShell.tsx
+│   │   │   │   └── Sidebar.tsx
+│   │   │   ├── map/
+│   │   │   │   ├── TrackingMap.tsx
+│   │   │   │   └── TaskRouteMap.tsx
+│   │   │   ├── ui/
+│   │   │   │   └── Toast.tsx
+│   │   │   └── ThemeProvider.tsx
+│   │   ├── lib/
+│   │   │   ├── api.ts
+│   │   │   └── mock-data.ts
+│   │   └── types/
+│   │       └── index.ts
+│   ├── public/
+│   ├── package.json
+│   ├── tailwind.config.ts
+│   └── tsconfig.json
+│
+├── backend/                     # FastAPI backend
+│   ├── main.py                  # FastAPI app entry
+│   ├── models.py                 # SQLAlchemy models
+│   ├── schemas.py               # Pydantic schemas
+│   ├── database.py             # Database connection
+│   ├── routers/
+│   │   ├── dashboard.py
+│   │   ├── vehicles.py
+│   │   ├── telemetry.py
+│   │   └── ws.py              # WebSocket router
+│   ├── requirements.txt
+│   └── ...
+│
+├── docs/
+│   ├── tramos_knowledge_base.txt
+│   └── ...
+│
+├── docker-compose.yml
+├── .gitignore
+└── README.md
+
+
+================================================================================
+DESIGN SYSTEM
+================================================================================
+
+COLOR PALETTE
+-------------
+  Primary:       #171d1c (zinc-900)     - Dark accents, primary buttons
+  Background:    #ffffff (white)         - Light mode background
+  Background DM:  #0a0a0a (zinc-950)    - Dark mode background
+  Surface:        #f5f5f5 (zinc-100)     - Cards, panels
+  Surface DM:     #18181b (zinc-900)     - Dark mode surfaces
+  Border:         #e5e5e5 (zinc-200)     - Borders
+  Border DM:      #27272a (zinc-800)     - Dark mode borders
+  Text Primary:   #171717 (zinc-900)     - Main text
+  Text Muted:    #71717a (zinc-500)      - Secondary text
+  Text Inverse:   #fafafa (zinc-50)      - Text on dark
+
+  Status Colors:
+  - Emerald: #059669 - Success, Driving, Online
+  - Amber:   #d97706 - Warning, Idle, Attention
+  - Red:     #dc2626 - Danger, Offline, Alert
+  - Blue:    #2563eb - Info, Progress
+  - Zinc:    #71717a - Neutral, Parking
+
+TYPOGRAPHY
+-----------
+  Font Family: System font stack (Inter if available)
+  - Headings: bold, tracking-wide
+  - Body: regular, 14px base
+  - Labels: uppercase, 11px, font-semibold
+  - Mono: tabular-nums for numbers
+
+SPACING
+-------
+  - Page padding: 8 (32px)
+  - Section gap: 6 (24px)
+  - Card padding: 5 (20px)
+  - Button padding: 2-3 (8-12px)
+  - Table cell padding: 3-4 (12-16px)
+
+BORDERS
+-------
+  - Card border-radius: 8px
+  - Button border-radius: 6px
+  - Badge border-radius: 9999px (full)
+  - Input border-radius: 6px
+
+SHADOWS
+-------
+  - Cards: 0 1px 2px rgba(0,0,0,0.04)
+  - Popups: 0 8px 32px rgba(0,0,0,0.12)
+
+
+================================================================================
+DATA MOCK
+================================================================================
+
+VEHICLES (10 units sample)
+-------------------------
+  - B 9068 NU (ECFS) - Nana Sutrisna
+  - B 9218 GV - Ahmad Dahlan
+  - B 9544 SYO - Budi Santoso
+  - BA 8329 QY (ECFS) - Cahyo Wibowo
+  - B 9001 SXS - Dedi Kurniawan
+  - B 9002 SXS - Eko Prasetyo
+  - B 9997 SXR - Fajar Ramadhan
+  - BG 8221 NK (BDL) - Gunawan Hadi
+  - BG 8292 NK (BDL) - Hendra Wijaya
+  - B 9068 NU - Irfan Hakim
+
+TASKS (10 tasks sample)
+------------------------
+  - PLI - DEPOK
+  - TNF - BEKASI
+  - PLI - JKT1
+  - BKS - LAMPUNG
+  - CIK - KEDIRI
+  - KLN - SURABAYA
+  - BKS - PURBALINGGA
+  - CIK - JOGJA
+  - TNG - SEMARANG
+  - JKT - BANDUNG
+
+STATUS
+-------
+  - Driving: kendaraan bergerak
+  - Idle: mesin hidup tapi tidak bergerak
+  - Stopped/Parking: kendaraan berhenti
+  - Offline: tidak mengirim data GPS
+  - Delayed: data GPS terlambat
+
+TASK STATUS
+-----------
+  - Progress: task sedang berjalan
+  - Unloading: kendaraan di destination
+  - Waiting: task belum mulai
+  - Assigned: sudah ditugaskan
+
+
+================================================================================
+API ENDPOINTS (Backend)
+================================================================================
+
+GET  /api/vehicles              - List all vehicles
+GET  /api/vehicles/{id}        - Get vehicle detail
+GET  /api/dashboard/stats       - Dashboard statistics
+GET  /api/telemetry             - Latest telemetry data
+WS   /ws/tracking              - WebSocket for live updates
+
+Request/Response examples:
+
+GET /api/vehicles
+Response:
+[
+  {
+    "id": 1,
+    "plate_number": "B 9068 NU",
+    "brand": "Hino",
+    "model": "FT 80 XD",
+    "year": 2022,
+    "status": "driving",
+    "speed": 58,
+    "latitude": -6.1751,
+    "longitude": 106.8650,
+    "heading": 45,
+    "fuel_level": 72,
+    "driver_name": "Nana Sutrisna",
+    "last_update": "2026-06-20T10:30:00Z"
+  },
+  ...
+]
+
+GET /api/dashboard/stats
+Response:
+{
+  "total_vehicles": 10,
+  "driving": 5,
+  "idle": 2,
+  "stopped": 2,
+  "offline": 1,
+  "total_drivers": 10,
+  "avg_speed": 52,
+  "alerts": 3
+}
+
+
+================================================================================
+PENGGUNA TARGET
+================================================================================
+
+1. DISPATCHER
+   - Memantau kendaraan yang sedang menjalankan task
+   - Mencari unit tertentu
+   - Memvalidasi task delivery
+
+2. SUPERVISOR OPERASIONAL
+   - Monitoring status armada
+   - Mengecek exception (speeding, delayed)
+   - Validasi task completion
+
+3. ADMIN TRANSPORT
+   - Mengelola data kendaraan dan driver
+   - Konfigurasi sistem
+   - User management
+
+4. TIM SAFETY / COMPLIANCE
+   - Monitoring speeding dan harsh driving
+   - Review camera evidence
+   - Accident investigation
+
+5. MANAGEMENT
+   - Laporan operasional
+   - Performance metrics
+   - Fleet utilization
+
+
+================================================================================
+CARA MENJALANKAN
+================================================================================
+
+MENGGUNAKAN DOCKER (Recommended)
+--------------------------------
+1. Pastikan Docker dan Docker Compose terinstall
+2. Clone repository
+3. Jalankan:
+   docker-compose up
+
+   Atau untuk development:
+   docker-compose up --build
+
+   Frontend: http://localhost:3000
+   Backend API: http://localhost:8000
+   API Docs: http://localhost:8000/docs
+
+
+MENGGUNAKAN LOCAL DEVELOPMENT
+-----------------------------
+1. Clone repository
+2. Setup frontend:
+   cd frontend
+   npm install
+   npm run dev
+
+3. Setup backend (optional untuk mock data):
+   cd backend
+   python -m venv venv
+   source venv/bin/activate  # Windows: venv\Scripts\activate
+   pip install -r requirements.txt
+   python -m uvicorn main:app --reload
+
+4. Buka browser:
+   http://localhost:3000
+
+
+================================================================================
+REFERENSI PRODUK (TRAMOS)
+================================================================================
+
+VANGUARD terinspirasi dari TRAMOS Systems yang merupakan web tracking monitoring
+safety untuk armada kendaraan. Fitur-fitur utama diambil dari konsep TRAMOS:
+
+  - Realtime vehicle monitoring
+  - Task monitoring untuk pengiriman
+  - Route tracking (actual vs planned)
+  - Status kendaraan: driving, idle, parking, offline
+  - Notification system untuk speeding, geofence, GPS delayed
+  - Camera snapshot dan dashcam monitor
+  - Report center untuk berbagai laporan operasional
+  - History trip replay
+  - Control panel untuk administrasi
+
+Namun VANGUARD dibangun dengan UI/UX yang lebih modern, clean, dan
+professional dengan design system yang konsisten.
+
+
+================================================================================
+LICENSE
+================================================================================
+
+Project ini adalah contoh/demo untuk fleet monitoring application.
+Silakan modify dan customize sesuai kebutuhan.
+
+
+================================================================================
+VERSION HISTORY
+================================================================================
+
+v1.0.0 - Initial Release (2026-06-20)
+  - Complete UI/UX redesign
+  - 14 pages implemented
+  - Professional zinc-based design system
+  - Dark mode support
+  - All buttons functional with toast feedback
+  - Mock data untuk demo
+
+
+================================================================================
+CONTACT
+================================================================================
+
+Repository: https://github.com/vndr08/VANGUARD
+Author: vndr08
+
+================================================================================
