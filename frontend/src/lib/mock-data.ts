@@ -1,4 +1,5 @@
-import type { Vehicle } from "@/types";
+import type { Vehicle, TelemetryUpdate } from "@/types";
+import type { MapVehicle, TaskInfo, RouteMarker, LngLat } from "@/components/map/types";
 
 export const MOCK_VEHICLES: Vehicle[] = [
   { id: 1, plate_number: "B 1234 KJT", vehicle_type: "truck", brand: "Hino", model: "Ranger FL 235 JW", year: 2022, status: "driving", speed: 67.2, latitude: -6.2088, longitude: 106.8456, heading: 45, engine_on: true, fuel_level: 72.5, odometer: 145230, last_update: new Date().toISOString(), driver_name: "Ahmad Sudirman" },
@@ -38,3 +39,189 @@ export const MOCK_STATS = {
   avg_speed: Math.round(MOCK_VEHICLES.filter((v) => v.status === "driving").reduce((sum, v) => sum + v.speed, 0) / MOCK_VEHICLES.filter((v) => v.status === "driving").length * 10) / 10,
   alerts: 3,
 };
+
+/* ─── Extended mock: MapVehicle (with interpolated positions) ─────────────── */
+export function toMapVehicle(v: Vehicle): MapVehicle {
+  return {
+    ...v,
+    displayLng: v.longitude ?? 0,
+    displayLat: v.latitude ?? 0,
+    displayHeading: v.heading,
+    displayStatus: v.status as MapVehicle["displayStatus"],
+    taskLabel: getTaskLabel(v.id),
+    routePlanned: VEHICLE_ROUTES[v.id]?.planned,
+    routeActual: VEHICLE_ROUTES[v.id]?.actual,
+    deviationPoints: VEHICLE_ROUTES[v.id]?.deviation,
+  };
+}
+
+function getTaskLabel(id: number): string | undefined {
+  const labels: Record<number, string> = {
+    1: "[PLI - DEPOK]",
+    2: "[BDG - BEKASI]",
+    4: "[SMG - SOLO]",
+    6: "[TSM - BGR]",
+    8: "[CKG - JKT]",
+    13: "[BKS - JKT]",
+    15: "[KTA - JKT]",
+    17: "[PWT - JKT]",
+    19: "[MLG - JKT]",
+    21: "[DPK - JKT]",
+    23: "[CLG - JKT]",
+  };
+  return labels[id];
+}
+
+/* ─── Route data per vehicle ─────────────────────────────────────────────── */
+interface VehicleRoute {
+  planned: LngLat[];
+  actual: LngLat[];
+  deviation: LngLat[];
+}
+
+export const VEHICLE_ROUTES: Record<number, VehicleRoute> = {
+  1: {
+    planned: [
+      { lng: 106.8825, lat: -6.4021 },
+      { lng: 106.8440, lat: -6.3038 },
+      { lng: 106.8456, lat: -6.2088 },
+      { lng: 106.9911, lat: -6.1432 },
+      { lng: 106.9178, lat: -6.2356 },
+      { lng: 106.8305, lat: -6.4021 },
+    ],
+    actual: [
+      { lng: 106.8825, lat: -6.4021 },
+      { lng: 106.8500, lat: -6.3600 },
+      { lng: 106.8440, lat: -6.3038 },
+      { lng: 106.8456, lat: -6.2088 },
+    ],
+    deviation: [{ lng: 106.8456, lat: -6.2530 }],
+  },
+  2: {
+    planned: [
+      { lng: 107.1514, lat: -6.3020 },
+      { lng: 107.0200, lat: -6.2400 },
+      { lng: 106.8800, lat: -6.2000 },
+      { lng: 106.7600, lat: -6.1800 },
+      { lng: 106.6500, lat: -6.1500 },
+    ],
+    actual: [
+      { lng: 107.1514, lat: -6.3020 },
+      { lng: 107.0200, lat: -6.2400 },
+    ],
+    deviation: [],
+  },
+  4: {
+    planned: [
+      { lng: 110.4196, lat: -6.9666 },
+      { lng: 110.3000, lat: -7.0100 },
+      { lng: 110.1500, lat: -7.0800 },
+      { lng: 110.0500, lat: -7.1500 },
+      { lng: 110.4196, lat: -7.5756 },
+    ],
+    actual: [
+      { lng: 110.4196, lat: -6.9666 },
+      { lng: 110.3000, lat: -7.0100 },
+      { lng: 110.1500, lat: -7.0800 },
+    ],
+    deviation: [{ lng: 110.2000, lat: -7.0150 }],
+  },
+  6: {
+    planned: [
+      { lng: 108.5523, lat: -6.7320 },
+      { lng: 108.4000, lat: -6.6000 },
+      { lng: 108.2000, lat: -6.4500 },
+      { lng: 108.0000, lat: -6.3500 },
+      { lng: 106.8500, lat: -6.2088 },
+    ],
+    actual: [
+      { lng: 108.5523, lat: -6.7320 },
+      { lng: 108.4000, lat: -6.6000 },
+    ],
+    deviation: [],
+  },
+  8: {
+    planned: [
+      { lng: 106.9020, lat: -6.1850 },
+      { lng: 106.8700, lat: -6.2000 },
+      { lng: 106.8000, lat: -6.2100 },
+      { lng: 106.7200, lat: -6.1800 },
+      { lng: 106.6500, lat: -6.1500 },
+    ],
+    actual: [
+      { lng: 106.9020, lat: -6.1850 },
+      { lng: 106.8700, lat: -6.2000 },
+    ],
+    deviation: [],
+  },
+};
+
+/* ─── Task info (TRAMOS §8.7 pattern) ──────────────────────────────────── */
+export const MOCK_TASKS: Record<number, TaskInfo> = {
+  1: {
+    taskRef: "5410297202",
+    taskName: "PLI - DEPOK",
+    scheduleStart: "2026-06-20 08:00",
+    scheduleEnd: "2026-06-20 18:00",
+    vehiclePlate: "B 1234 KJT",
+    vehicleBrand: "Hino Ranger FL 235 JW",
+    driverName: "Ahmad Sudirman",
+    trips: [
+      {
+        tripName: "PLI - DEPOK",
+        tripType: "Main Task",
+        origin: "PTT PLI",
+        destination: "DC DEPOK",
+        distance: 23.4,
+        status: "Progress",
+      },
+    ],
+  },
+  2: {
+    taskRef: "5410297203",
+    taskName: "BDG - BEKASI",
+    scheduleStart: "2026-06-20 07:00",
+    scheduleEnd: "2026-06-20 16:00",
+    vehiclePlate: "B 5678 TGP",
+    vehicleBrand: "Mitsubishi Colt Diesel FE 74 HD",
+    driverName: "Budi Santoso",
+    trips: [
+      {
+        tripName: "BDG2 - BEKASI",
+        tripType: "Pre Task",
+        origin: "PTT BDG2",
+        destination: "DC BEKASI",
+        distance: 124.85,
+        status: "Progress",
+      },
+    ],
+  },
+};
+
+/* ─── Route markers per vehicle ──────────────────────────────────────────── */
+export function getRouteMarkers(vehicleId: number): RouteMarker[] {
+  const route = VEHICLE_ROUTES[vehicleId];
+  if (!route || route.planned.length < 2) return [];
+  const task = MOCK_TASKS[vehicleId];
+  return [
+    { type: "start", label: task?.trips[0].origin ?? "Origin", coord: route.planned[0] },
+    { type: "end", label: task?.trips[0].destination ?? "Destination", coord: route.planned[route.planned.length - 1] },
+  ];
+}
+
+/* ─── Telemetry update generator (for WebSocket simulation) ──────────────── */
+export function generateTelemetryUpdate(vehicle: Vehicle): TelemetryUpdate {
+  const drift = () => (Math.random() - 0.5) * 0.001;
+  return {
+    vehicle_id: vehicle.id,
+    plate_number: vehicle.plate_number,
+    latitude: (vehicle.latitude ?? 0) + drift(),
+    longitude: (vehicle.longitude ?? 0) + drift(),
+    speed: vehicle.status === "driving" ? Math.max(30, vehicle.speed + (Math.random() - 0.5) * 10) : vehicle.speed,
+    heading: (vehicle.heading + (Math.random() - 0.5) * 5 + 360) % 360,
+    status: vehicle.status,
+    engine_on: vehicle.engine_on,
+    fuel_level: Math.max(0, vehicle.fuel_level - Math.random() * 0.1),
+    last_update: new Date().toISOString(),
+  };
+}

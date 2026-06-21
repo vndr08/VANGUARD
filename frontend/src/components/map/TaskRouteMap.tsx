@@ -1,18 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useRef, useMemo, useState } from "react";
+import maplibregl, { Map as MLMap, Marker } from "maplibre-gl";
+import "maplibre-gl/dist/maplibre-gl.css";
 import {
-  MapContainer,
-  Marker,
-  Polyline,
-  Popup,
-  TileLayer,
-  useMap,
-  ZoomControl,
-} from "react-leaflet";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
+  GRAPHITE_DARK_STYLE,
+  LngLat,
+} from "./types";
 
+/* ─── TaskRouteMap ──────────────────────────────────────────────────────── */
 export interface TaskRoutePoint {
   label: string;
   coord: [number, number];
@@ -31,98 +27,190 @@ export interface TaskRouteData {
   traveledRoute: [number, number][];
 }
 
-function markerIcon(type: "start" | "current" | "end") {
-  const colors = {
-    start: "#2563eb",
-    current: "#e84d1f",
-    end: "#059669",
-  };
-
-  return L.divIcon({
-    className: "",
-    html: `
-      <div style="position:relative;width:28px;height:28px;display:flex;align-items:center;justify-content:center;">
-        <div style="width:${type === "current" ? 18 : 14}px;height:${type === "current" ? 18 : 14}px;border-radius:${type === "current" ? 4 : 999}px;background:${colors[type]};border:3px solid white;box-shadow:0 2px 10px rgba(11,15,14,.28);"></div>
-      </div>
-    `,
-    iconSize: [28, 28],
-    iconAnchor: [14, 14],
-    popupAnchor: [0, -14],
-  });
+interface TaskRouteMapProps {
+  task: TaskRouteData;
 }
 
-function FitTaskRoute({ route }: { route: [number, number][] }) {
-  const map = useMap();
-  const fitted = useRef(false);
+/* ─── Marker colors ─────────────────────────────────────────────────────── */
+const MARKER_COLORS = {
+  start: "#22C55E",   // green
+  current: "#F97316", // orange
+  end: "#3B82F6",     // brand blue
+};
 
+export default function TaskRouteMap({ task }: TaskRouteMapProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<MLMap | null>(null);
+  const [isReady, setIsReady] = useState(false);
+  const markersRef = useRef<Marker[]>([]);
+
+  /* ── Init ─────────────────────────────────────────────────────────────── */
   useEffect(() => {
-    if (fitted.current || route.length === 0) return;
-    map.fitBounds(L.latLngBounds(route), { padding: [64, 64], maxZoom: 12 });
-    fitted.current = true;
-  }, [map, route]);
+    if (!containerRef.current || mapRef.current) return;
 
-  return null;
-}
+    const bounds: [number, number, number, number] = [
+      Math.min(task.origin.coord[0], task.destination.coord[0], task.current.coord[0]) - 0.1,
+      Math.min(task.origin.coord[1], task.destination.coord[1], task.current.coord[1]) - 0.1,
+      Math.max(task.origin.coord[0], task.destination.coord[0], task.current.coord[0]) + 0.1,
+      Math.max(task.origin.coord[1], task.destination.coord[1], task.current.coord[1]) + 0.1,
+    ];
 
-export default function TaskRouteMap({ task }: { task: TaskRouteData }) {
-  const boundsRoute = useMemo(
-    () => [task.origin.coord, ...task.plannedRoute, task.destination.coord],
-    [task.destination.coord, task.origin.coord, task.plannedRoute]
-  );
+    const map = new MLMap({
+      container: containerRef.current,
+      style: GRAPHITE_DARK_STYLE,
+      bounds,
+      fitBoundsOptions: { padding: 64, maxZoom: 12 },
+    });
+
+    map.addControl(new maplibregl.NavigationControl(), "top-right" as maplibregl.ControlPosition);
+
+    map.on("load", () => {
+      // ── Planned route (dashed gray) ───────────────────────────────
+      if (task.plannedRoute.length > 0) {
+        map.addSource("planned-route", {
+          type: "geojson",
+          data: {
+            type: "Feature",
+            geometry: {
+              type: "LineString",
+              coordinates: task.plannedRoute,
+            },
+            properties: {},
+          },
+        });
+
+        map.addLayer({
+          id: "planned-route-line",
+          type: "line",
+          source: "planned-route",
+          paint: {
+            "line-color": "#5E6773",
+            "line-width": 3,
+            "line-opacity": 0.7,
+            "line-dasharray": [4, 4],
+          },
+        });
+      }
+
+      // ── Actual route (solid green → cyan) ─────────────────────────
+      if (task.traveledRoute.length > 0) {
+        map.addSource("actual-route", {
+          type: "geojson",
+          data: {
+            type: "Feature",
+            geometry: {
+              type: "LineString",
+              coordinates: task.traveledRoute,
+            },
+            properties: {},
+          },
+        });
+
+        map.addLayer({
+          id: "actual-route-line",
+          type: "line",
+          source: "actual-route",
+          paint: {
+            "line-color": "#10B981",
+            "line-width": 4,
+            "line-opacity": 0.9,
+          },
+        });
+
+        // Animate draw-on for actual route (stroke-dashoffset)
+        const totalLength = (document.querySelector("#actual-route-line") as SVGPathElement)?.getTotalLength?.() ?? 1000;
+        map.setPaintProperty("actual-route-line", "line-dasharray", [0, totalLength]);
+        map.setPaintProperty("actual-route-line", "line-dasharray", [0, 2, totalLength]);
+      }
+
+      // ── Route markers [START] [END] ─────────────────────────────
+      const addMarker = (coord: [number, number], label: string, type: "start" | "end" | "current") => {
+        const el = document.createElement("div");
+        const color = type === "start" ? MARKER_COLORS.start
+          : type === "end" ? MARKER_COLORS.end
+          : MARKER_COLORS.current;
+
+        el.style.cssText = `
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          background: var(--surface-1, #14181D);
+          border: 2px solid ${color};
+          border-radius: 6px;
+          padding: 4px 10px;
+          font-family: var(--font-mono, monospace);
+          font-size: 10px;
+          font-weight: 700;
+          color: ${color};
+          white-space: nowrap;
+          box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+          cursor: pointer;
+        `;
+        el.innerHTML = `<span style="opacity:0.6;font-weight:400;">[</span>${label}<span style="opacity:0.6;font-weight:400;">]</span>`;
+
+        const marker = new Marker({ element: el, anchor: "center" })
+          .setLngLat(coord)
+          .addTo(map);
+
+        markersRef.current.push(marker);
+      };
+
+      addMarker(task.origin.coord, task.origin.label, "start");
+      addMarker(task.destination.coord, task.destination.label, "end");
+      addMarker(task.current.coord, task.vehicle, "current");
+
+      setIsReady(true);
+    });
+
+    mapRef.current = map;
+
+    return () => {
+      markersRef.current.forEach((m) => m.remove());
+      markersRef.current = [];
+      map.remove();
+      mapRef.current = null;
+    };
+  }, [task]);
 
   return (
-    <MapContainer
-      center={task.current.coord}
-      zoom={11}
-      className="h-full w-full"
-      zoomControl={false}
-    >
-      <ZoomControl position="topleft" />
-      <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>'
-        url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-      />
-      <FitTaskRoute route={boundsRoute} />
+    <div className="relative h-full w-full overflow-hidden">
+      <div ref={containerRef} className="absolute inset-0" />
 
-      <Polyline
-        positions={task.plannedRoute}
-        pathOptions={{ color: "#64748b", weight: 7, opacity: 0.38, dashArray: "10 10" }}
-      />
-      <Polyline
-        positions={task.traveledRoute}
-        pathOptions={{ color: "#10b981", weight: 8, opacity: 0.78 }}
-      />
-
-      <Marker position={task.origin.coord} icon={markerIcon("start")}>
-        <Popup>
-          <strong>Origin</strong>
-          <br />
-          {task.origin.label}
-        </Popup>
-      </Marker>
-      <Marker position={task.destination.coord} icon={markerIcon("end")}>
-        <Popup>
-          <strong>Destination</strong>
-          <br />
-          {task.destination.label}
-        </Popup>
-      </Marker>
-      <Marker position={task.current.coord} icon={markerIcon("current")}>
-        <Popup>
-          <strong>{task.vehicle}</strong>
-          <br />
-          {task.driver}
-          <br />
-          {task.task} - {task.speed} km/h
-        </Popup>
-      </Marker>
-
-      <div className="leaflet-bottom leaflet-left">
-        <div className="leaflet-control rounded-md border border-steel-200 bg-white px-3 py-2 text-xs font-bold text-steel-700 shadow-sm">
-          <div className="flex items-center gap-2"><span className="h-2 w-5 rounded-full bg-emerald-500" /> Traveled route</div>
-          <div className="mt-1 flex items-center gap-2"><span className="h-2 w-5 rounded-full bg-steel-500 opacity-50" /> Planned route</div>
+      {/* Loading */}
+      {!isReady && (
+        <div className="absolute inset-0 flex items-center justify-center bg-bg">
+          <div className="flex flex-col items-center gap-3">
+            <div className="h-8 w-8 rounded-full border-2 border-brand border-t-transparent animate-spin" />
+            <span className="text-sm text-muted">Loading route...</span>
+          </div>
         </div>
-      </div>
-    </MapContainer>
+      )}
+
+      {/* Route legend */}
+      {isReady && (
+        <div className="absolute bottom-4 left-4 z-dock">
+          <div className="glass rounded-lg border border-border px-3 py-2 space-y-1.5">
+            <LegendRow color="#10B981" label="Traveled Route" />
+            <LegendRow color="#5E6773" label="Planned Route" dashed />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function LegendRow({ color, label, dashed = false }: { color: string; label: string; dashed?: boolean }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span
+        className="h-0.5 flex-1 rounded-full"
+        style={{
+          background: dashed
+            ? `repeating-linear-gradient(to right, ${color} 0, ${color} 4px, transparent 4px, transparent 8px)`
+            : color,
+        }}
+      />
+      <span className="text-[10px] text-muted w-24">{label}</span>
+    </div>
   );
 }
