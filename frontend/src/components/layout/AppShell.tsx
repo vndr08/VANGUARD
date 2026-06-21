@@ -2,11 +2,9 @@
 
 import Sidebar from "./Sidebar";
 import { Bell, Search } from "lucide-react";
-import { ToastProvider, ToastContainer } from "@/components/ui/Toast";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   return (
-    <ToastProvider>
       <div className="flex min-h-screen bg-zinc-50 dark:bg-zinc-950">
         <Sidebar />
         <div className="flex-1 pl-[260px]">
@@ -48,7 +46,5 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <main className="min-h-[calc(100vh-4rem)]">{children}</main>
         </div>
       </div>
-      <ToastContainer />
-    </ToastProvider>
   );
 }
