@@ -821,6 +821,8 @@
 | P1-5 | CRUD master data hilang setelah reload | `vehicles/page.tsx`, `drivers/page.tsx` |
 | P1-6 | Tidak ada indikator stale atau offline per unit | Dashboard exception list, Tracking list |
 | P1-7 | Dua pustaka peta terpasang bersamaan. Dependency leaflet, react-leaflet, dan @types/leaflet masih ada di frontend/package.json, dan blok override Leaflet masih ada di frontend/src/app/globals.css sekitar baris 736 sampai 786, sedangkan peta yang dipakai adalah MapLibre GL | frontend/package.json, frontend/src/app/globals.css |
+| P1-8 | Konstanta lebar sidebar ditulis dua kali sebagai W_EXPANDED bernilai 248 di components/layout/Sidebar.tsx baris 69 dan components/layout/AppShell.tsx baris 61, sehingga ada dua sumber kebenaran untuk satu nilai layout | Sidebar.tsx, AppShell.tsx |
+| P1-9 | Lebar panel tidak memakai skala yang disepakati. Terdapat lima nilai berbeda yaitu 220, 320, 360, 380, dan 420 piksel | docs/_evidence/width-inventory.txt |
 
 ### P2: Mengurangi kualitas yang dirasakan
 
@@ -1133,3 +1135,55 @@ Nilai apa pun yang tidak tercantum di sini harus diukur ulang sebelum dipakai.
 Catatan metode: pencarian lebar wajib mencakup pola w-[...], min-w-[...],
 max-w-[...], dan grid-cols-[...]. Inventaris pertama hanya memakai pola w-[...]
 sehingga melewatkan kolom tetap yang ditulis sebagai grid template.
+
+### Anggaran ruang Tracking berdasarkan angka terverifikasi
+
+Sidebar melebar 248 piksel menurut W_EXPANDED di Sidebar.tsx baris 69. Daftar
+kendaraan 280 piksel menurut grid-cols pada tracking/page.tsx baris 534. Panel
+detail 380 piksel menurut DetailPanel.tsx baris 88.
+
+| Lebar layar | Panel detail tertutup | Panel detail terbuka |
+|-------------|----------------------|----------------------|
+| 1366 | 838 piksel untuk peta | 458 piksel untuk peta |
+| 1440 | 912 piksel untuk peta | 532 piksel untuk peta |
+| 1920 | 1392 piksel untuk peta | 1012 piksel untuk peta |
+
+Pada 1366 dengan panel terbuka, peta hanya menyisakan sepertiga lebar layar.
+Inilah penyebab utama kesan sempit pada modul yang paling sering dipakai.
+Lebar rail saat menyempit adalah 64 piksel menurut W_RAIL di Sidebar.tsx
+baris 70 dan AppShell.tsx baris 62.
+
+| Lebar layar | Rail 64, panel tertutup | Rail 64, panel terbuka |
+|-------------|-------------------------|------------------------|
+| 1366 | 1022 piksel untuk peta | 642 piksel untuk peta |
+| 1440 | 1096 piksel untuk peta | 716 piksel untuk peta |
+| 1920 | 1576 piksel untuk peta | 1196 piksel untuk peta |
+
+Menyempitkan rail memberi tambahan 184 piksel. Ini berarti perilaku rail
+otomatis pada halaman peta adalah salah satu perbaikan ruang termurah yang
+tersedia.
+
+Pada Trip History, kolom kanan 420 piksel melalui grid-cols-[1fr_420px] di
+history/page.tsx baris 685 menyisakan 698 piksel pada 1366 dengan sidebar
+melebar.
+
+### Skala lebar panel yang dipakai sekarang
+
+| Nilai piksel | Lokasi | Jenis |
+|--------------|--------|-------|
+| 220 | settings/page.tsx baris 168 | navigasi dalam halaman |
+| 280 | tracking/page.tsx baris 534 | grid template daftar kendaraan |
+| 320 | dashcam/page.tsx baris 347, control/page.tsx baris 420, geofences/page.tsx baris 605 | sidebar dan overlay |
+| 360 | locate/page.tsx baris 208 | sidebar hasil pencarian |
+| 380 | components/map/DetailPanel.tsx baris 88, tasks/page.tsx baris 273 | panel detail dan grid template task |
+| 420 | geofences/page.tsx baris 501, history/page.tsx baris 685 | sidebar dan grid template kolom kanan |
+
+Enam nilai berbeda untuk peran yang serupa, semuanya ditulis manual di
+halamannya masing-masing. Tidak ada satu skala bersama.
+
+Lebar konten maksimum max-w-[1600px] hanya diterapkan di dashboard/page.tsx
+baris 167, sehingga halaman lain melebar tanpa batas pada layar besar.
+
+Konstanta lebar sidebar terduplikasi: W_EXPANDED bernilai 248 dan W_RAIL
+bernilai 64 ditulis di Sidebar.tsx baris 69 dan 70 serta AppShell.tsx baris
+61 dan 62.
