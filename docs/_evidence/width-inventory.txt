@@ -1,0 +1,15 @@
+   8 min-w-[72px]
+   6 min-w-[200px]
+   3 w-[320px]
+   2 w-[18px]
+   1 w-[420px]
+   1 w-[380px]
+   1 w-[360px]
+   1 w-[220px]
+   1 w-96
+   1 w-56
+   1 min-w-[180px]
+   1 max-w-[200px]
+   1 max-w-[160px]
+   1 max-w-[1600px]
+   1 max-w-[150px]

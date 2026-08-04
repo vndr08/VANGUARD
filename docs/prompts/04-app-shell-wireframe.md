@@ -21,6 +21,22 @@ dan pastikan hasilnya bersih.
 6. frontend/src/components/layout/Sidebar.tsx
 7. komponen command palette yang ada sekarang
 
+## FAKTA TERVERIFIKASI YANG WAJIB DITANGANI
+
+1. Angka fleet palsu berada di app shell, yaitu Overview 103 units di
+   components/layout/AppShell.tsx baris 42 dan 103 units online di
+   components/layout/Sidebar.tsx baris 235, 248, dan 260. Rancangan app shell
+   harus menetapkan bahwa angka apa pun di shell dihitung dari data, bukan
+   ditulis manual.
+2. Sisa pustaka Leaflet masih ada di frontend/package.json dan pada blok override
+   di frontend/src/app/globals.css sekitar baris 736 sampai 786, padahal peta yang
+   dipakai MapLibre GL. Catat pembersihannya di Implementation Notes.
+3. Terdapat 277 kemunculan teks kecil atau uppercase pada dua puluh file. Rancangan
+   shell harus menetapkan skala teks minimum dan aturan pemakaian uppercase.
+4. Deteksi kecepatan sudah berupa hooks/useSpeedingMonitor.ts. Notification inbox
+   pada shell harus dirancang untuk membaca alert sebagai entity data, bukan hasil
+   perhitungan sesaat.
+
 ## KEPUTUSAN TERKUNCI
 
 1. Enam primary navigation: Overview, Live, Operations, Safety, Reports, Administration.
@@ -111,8 +127,17 @@ operasional dan tidak teknis.
 ## BAGIAN 10 SPACE BUDGET
 
 Hitung alokasi ruang pada 1366, 1440, dan 1920 untuk rail, inspector, konten,
-dan padding. Bandingkan dengan kondisi sekarang yaitu daftar 280px ditambah panel
-400px. Tentukan berapa maksimal panel yang boleh terbuka bersamaan.
+dan padding.
+
+Ukur kondisi sekarang HANYA dari nilai nyata di dalam kode. Bacalah
+docs/_evidence/width-inventory.txt dan docs/_evidence/layout-widths-core.txt.
+Nilai yang sudah terverifikasi: panel detail 380px, sidebar 320px pada halaman
+dashcam dan control, overlay 320px pada geofences. Jangan memakai angka 280px
+atau 400px karena tidak ada di dalam kode.
+
+Untuk setiap halaman utama, tulis lebar sekarang, lebar yang diusulkan, dan
+selisih ruang kerja yang didapat. Tentukan berapa maksimal panel yang boleh
+terbuka bersamaan.
 
 ## BAGIAN 11 ANTI AI SLOP CHECK
 

@@ -642,7 +642,7 @@
 
 ### Panel Map Lebar
 
-**Tracking:** 280px sidebar + 400px detail panel = 680px untuk konten, 680px untuk map pada 1440p
+**Nilai terverifikasi.** Lebar panel dan sidebar yang benar-benar ada di kode berada di `docs/_evidence/width-inventory.txt` dan `docs/_evidence/layout-widths-core.txt`. Yang terkonfirmasi: panel detail `w-[380px]` di `components/map/DetailPanel.tsx`, sidebar `w-[320px]` di `dashcam/page.tsx` dan `control/page.tsx`, serta overlay `w-[320px]` di `geofences/page.tsx`. Nilai 280px dan 400px yang disebut pada versi audit sebelumnya TIDAK ADA di dalam kode dan tidak boleh dipakai sebagai dasar perhitungan anggaran ruang.
 
 ### Row Height Tidak Terkendali
 
@@ -804,11 +804,11 @@
 | # | Masalah | Bukti lokasi | Dampak demo | Perbaikan tanpa backend baru |
 |---|---------|--------------|-------------|------------------------------|
 | P0-1 | Demo data tidak punya single source of truth | `MOCK_STATS`, `MOCK_VEHICLES` di `lib/mock-data.ts`; `TASKS` di `tasks/page.tsx`; `REPLAY_VEHICLES` di `history/page.tsx`; data snapshot dan dashcam terpisah | Angka dan status berbeda antarhalaman untuk kendaraan yang sama | Satu demo data store berisi 25 kendaraan, driver, task, trip, alert, evidence, geofence; semua halaman membacanya |
-| P0-2 | Alert dihitung ad-hoc dari kondisi kecepatan | `tracking/page.tsx` deteksi `speed > 80` | Alert muncul dan hilang tidak terduga saat demo dijalankan | Alert menjadi entity yang dideklarasikan dengan severity, waktu, kendaraan, evidence, dan review state |
+| P0-2 | Alert dihitung ad-hoc dari kondisi kecepatan pada `hooks/useSpeedingMonitor.ts`, sehingga alert tidak memiliki identitas, severity, maupun review state | Alert muncul dan hilang tidak terduga saat demo dijalankan | Alert menjadi entity yang dideklarasikan dengan severity, waktu, kendaraan, evidence, dan review state |
 | P0-3 | Search hanya membaca sebagian fleet | `CommandPalette` memakai `MOCK_VEHICLES.slice(0, 8)` | Kendaraan urutan 9-25 tidak dapat ditemukan sehingga search terasa rusak | Search membaca seluruh demo data store dengan scope Vehicle, Driver, Task, Location, Geofence |
 | P0-4 | URL state memakai ID numerik | `/tracking?focus=1`, `/history?vehicle=2` | Link tidak dapat dibagikan dan konteks hilang saat berpindah halaman | Gunakan plate slug canonical, contoh `?vehicle=b1234kjt` |
 | P0-5 | Export report tidak menghasilkan apa pun | `reports/page.tsx` memakai `setTimeout` lalu mengubah status menjadi selesai | Klaim keberhasilan yang palsu, kelas kesalahan paling berbahaya | Export menghasilkan file nyata di sisi klien dengan label sample report |
-| P0-6 | Angka fleet hardcoded dan tidak konsisten | lihat `docs/_evidence/hardcoded-counts.txt` | Angka pada layar bertentangan satu sama lain di depan calon klien | Seluruh angka dihitung dari demo data store |
+| P0-6 | Angka fleet hardcoded dan tidak konsisten. Terverifikasi di empat tempat pada app shell: `components/layout/AppShell.tsx:42` menulis Overview 103 units, dan `components/layout/Sidebar.tsx` baris 235, 248, serta 260 menulis 103 units online | Angka pada layar bertentangan satu sama lain di depan calon klien | Seluruh angka dihitung dari demo data store |
 
 ### P1: Mengganggu workflow utama
 
@@ -1064,7 +1064,7 @@ diubah menjadi Operational UI, atau dihapus dari tampilan.
 
 ### Lima penyebab utama tampilan sempit
 
-1. Daftar 280px ditambah panel 400px menyisakan ruang kerja yang kecil.
+1. Panel detail 380px dan sidebar 320px dipakai bersamaan tanpa aturan berapa panel yang boleh terbuka sekaligus. Nilai pasti berada di docs/_evidence/width-inventory.txt.
 2. Tabel kendaraan memuat sembilan kolom sekaligus.
 3. Rail navigasi 248px tidak pernah menyempit sendiri saat halaman membutuhkan ruang.
 4. Toolbar peta memuat lebih dari dua belas kontrol.
@@ -1093,3 +1093,29 @@ Tidak ada item backend baru di P0. Seluruh pekerjaan backend berada di Backlog P
 6. Peta dengan toolbar yang jauh lebih ringkas.
 7. Anggaran ruang yang membuktikan area kerja lebih luas dari kondisi sekarang.
 8. Wireframe untuk 1366, 1440, dan tablet.
+
+---
+
+## 14. Angka Terverifikasi dari Basis Kode
+
+Bagian ini hanya memuat nilai yang dibuktikan melalui pencarian pada basis kode.
+Nilai apa pun yang tidak tercantum di sini harus diukur ulang sebelum dipakai.
+
+| Temuan | Nilai terverifikasi | Bukti |
+|--------|---------------------|-------|
+| Angka fleet palsu | empat kemunculan angka 103 di app shell | AppShell.tsx baris 42, Sidebar.tsx baris 235, 248, 260 |
+| Panel detail peta | w-[380px] | components/map/DetailPanel.tsx baris 88 |
+| Sidebar halaman dashcam dan control | w-[320px] | dashcam/page.tsx baris 347, control/page.tsx baris 420 |
+| Overlay geofence | w-[320px] | geofences/page.tsx baris 605 |
+| Teks kecil dan uppercase | 277 kemunculan pada 20 file, terbanyak history 39, locate 21, geofences 21 | docs/_evidence/small-text.txt |
+| Aksi berbasis notifikasi dan timer | 16 kemunculan, terbanyak accidents 8 | docs/_evidence/toast-only-actions.txt |
+| Sumber data mock | 80 kemunculan pada 20 file, terbanyak lib/mock-data.ts 9 dan lib/api.ts 8 | docs/_evidence/mock-sources.txt |
+| Sisa pustaka Leaflet | tiga dependency di package.json dan sebelas blok override di globals.css baris 736 sampai 786 | docs/_evidence/leaflet-traces.txt |
+| Deteksi kecepatan | sudah diekstrak menjadi hooks/useSpeedingMonitor.ts | docs/_evidence/mock-sources.txt |
+
+### Koreksi terhadap versi audit sebelumnya
+
+1. Nilai 280px dan 400px tidak ditemukan di dalam kode dan dibatalkan.
+2. Deteksi kecepatan bukan loop inline di halaman, melainkan hook tersendiri.
+3. Angka fleet palsu berada di app shell, bukan di halaman, sehingga perbaikannya
+   masuk pekerjaan app shell.
