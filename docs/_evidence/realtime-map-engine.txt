@@ -1,0 +1,17 @@
+15:    "leaflet": "^1.9.4",
+17:    "maplibre-gl": "^5.24.0",
+22:    "react-leaflet": "^4.2.1",
+26:    "@types/leaflet": "^1.9.12",
+739:.leaflet-container {
+744:.dark .leaflet-container {
+748:.leaflet-control-zoom a {
+754:.leaflet-control-zoom a:hover {
+758:.dark .leaflet-control-zoom a {
+763:.leaflet-popup-content-wrapper {
+771:.leaflet-popup-content {
+777:.leaflet-popup-tip {
+781:.leaflet-control-attribution {
+786:.dark .leaflet-control-attribution {
+837:   Problem: MapLibre's internal maplibregl-map and maplibregl-canvas-container divs
+842:.maplibregl-map,
+843:.maplibregl-canvas-container {

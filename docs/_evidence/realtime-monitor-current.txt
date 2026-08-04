@@ -1,0 +1,113 @@
+frontend/src/app/(app)/tracking/page.tsx:57:import { toCanonicalStatus, CANONICAL_STATUSES } from "@/lib/status";
+frontend/src/app/(app)/tracking/page.tsx:58:type FilterStatus = "all" | "driving" | "idle" | "stop" | "offline" | "delayed";
+frontend/src/app/(app)/tracking/page.tsx:70:/* ─── Inline status icons (match Badge.tsx) ─────────────────────────────── */
+frontend/src/app/(app)/tracking/page.tsx:119:  offline:   { label: "Offline",     icon: <OfflineIcon />, colorVar: "var(--st-offline)" },
+frontend/src/app/(app)/tracking/page.tsx:124:type SortKey = "plate_number" | "driver_name" | "status" | "speed" | "last_update";
+frontend/src/app/(app)/tracking/page.tsx:130:  speed: number;
+frontend/src/app/(app)/tracking/page.tsx:137:  const searchParams = useSearchParams();
+frontend/src/app/(app)/tracking/page.tsx:144:  const [search, setSearch] = useState("");
+frontend/src/app/(app)/tracking/page.tsx:145:  const [filter, setFilter] = useState<FilterStatus>("all");
+frontend/src/app/(app)/tracking/page.tsx:160:  /** Track which status groups are collapsed (true = collapsed/hidden) */
+frontend/src/app/(app)/tracking/page.tsx:173:  const [speeding, setSpeeding] = useState<SpeedingInfo | null>(null);
+frontend/src/app/(app)/tracking/page.tsx:177:    const focus = searchParams.get("focus");
+frontend/src/app/(app)/tracking/page.tsx:185:  }, [searchParams]);
+frontend/src/app/(app)/tracking/page.tsx:197:    const fast = vehicles.find((v) => toCanonicalStatus(v.status) === "driving" && v.speed > 80);
+frontend/src/app/(app)/tracking/page.tsx:201:        speed: fast.speed,
+frontend/src/app/(app)/tracking/page.tsx:204:      const t = setTimeout(() => setSpeeding(null), 6000);
+frontend/src/app/(app)/tracking/page.tsx:212:  const filteredVehicles = useMemo(() => {
+frontend/src/app/(app)/tracking/page.tsx:213:    const q = search.trim().toLowerCase();
+frontend/src/app/(app)/tracking/page.tsx:214:    return vehicles.filter((v) => {
+frontend/src/app/(app)/tracking/page.tsx:215:      // Normalize status so "stopped" → "stop" matches filter "stop"
+frontend/src/app/(app)/tracking/page.tsx:216:      const canonical = toCanonicalStatus(v.status);
+frontend/src/app/(app)/tracking/page.tsx:217:      const matchesFilter = filter === "all" || canonical === filter;
+frontend/src/app/(app)/tracking/page.tsx:224:  }, [vehicles, filter, search]);
+frontend/src/app/(app)/tracking/page.tsx:227:    return [...filteredVehicles].sort((a, b) => {
+frontend/src/app/(app)/tracking/page.tsx:233:        case "status":        av = a.status; bv = b.status; break;
+frontend/src/app/(app)/tracking/page.tsx:234:        case "speed":         av = String(a.speed); bv = String(b.speed); break;
+frontend/src/app/(app)/tracking/page.tsx:235:        case "last_update":   av = a.last_update; bv = b.last_update; break;
+frontend/src/app/(app)/tracking/page.tsx:240:  }, [filteredVehicles, sortKey, sortDir]);
+frontend/src/app/(app)/tracking/page.tsx:242:  /* ── Counts per status ─────────────────────────────────────────────────── */
+frontend/src/app/(app)/tracking/page.tsx:245:      all: vehicles.length, driving: 0, idle: 0, stop: 0, offline: 0, delayed: 0,
+frontend/src/app/(app)/tracking/page.tsx:248:      const canonical = toCanonicalStatus(v.status);
+frontend/src/app/(app)/tracking/page.tsx:257:    filteredVehicles.forEach((v) => {
+frontend/src/app/(app)/tracking/page.tsx:258:      const canonical = toCanonicalStatus(v.status);
+frontend/src/app/(app)/tracking/page.tsx:263:  }, [filteredVehicles]);
+frontend/src/app/(app)/tracking/page.tsx:265:  const GROUP_ORDER: FilterStatus[] = ["driving", "idle", "stop", "offline", "delayed"];
+frontend/src/app/(app)/tracking/page.tsx:290:    setTimeout(() => {
+frontend/src/app/(app)/tracking/page.tsx:298:    if (!search.trim()) {
+frontend/src/app/(app)/tracking/page.tsx:419:              type="search"
+frontend/src/app/(app)/tracking/page.tsx:420:              value={search}
+frontend/src/app/(app)/tracking/page.tsx:430:            id="tsb-filter"
+frontend/src/app/(app)/tracking/page.tsx:434:              const allFilters: FilterStatus[] = ["all", "driving", "idle", "stop", "offline"];
+frontend/src/app/(app)/tracking/page.tsx:435:              const currentIdx = allFilters.indexOf(filter);
+frontend/src/app/(app)/tracking/page.tsx:442:            {STATUS_META[filter].label}
+frontend/src/app/(app)/tracking/page.tsx:514:              if (key !== "all") info("Filter status", STATUS_META[key].label);
+frontend/src/app/(app)/tracking/page.tsx:517:              filter === key
+frontend/src/app/(app)/tracking/page.tsx:521:            aria-pressed={filter === key}
+frontend/src/app/(app)/tracking/page.tsx:534:        <div className="grid flex-1 grid-cols-[280px_1fr] overflow-hidden">
+frontend/src/app/(app)/tracking/page.tsx:539:                Unit ({filteredVehicles.length})
+frontend/src/app/(app)/tracking/page.tsx:544:              {GROUP_ORDER.filter((g) => groupedVehicles[g]?.length).map((groupKey) => {
+frontend/src/app/(app)/tracking/page.tsx:595:                                  status={v.status as any}
+frontend/src/app/(app)/tracking/page.tsx:609:                                  <span className="tabular-nums">{v.speed} km/j</span>
+frontend/src/app/(app)/tracking/page.tsx:626:            {filteredVehicles.length === 0 && (
+frontend/src/app/(app)/tracking/page.tsx:630:                  description="Coba ubah filter atau kata kunci pencarian."
+frontend/src/app/(app)/tracking/page.tsx:639:              vehicles={filteredVehicles}
+frontend/src/app/(app)/tracking/page.tsx:661:              description="Periksa filter atau kata kunci pencarian Anda."
+frontend/src/app/(app)/tracking/page.tsx:687:                    sorted={sortKey === "speed" ? sortDir ?? false : false}
+frontend/src/app/(app)/tracking/page.tsx:688:                    onClick={() => handleSort("speed")}
+frontend/src/app/(app)/tracking/page.tsx:695:                    sorted={sortKey === "status" ? sortDir ?? false : false}
+frontend/src/app/(app)/tracking/page.tsx:696:                    onClick={() => handleSort("status")}
+frontend/src/app/(app)/tracking/page.tsx:702:                    sorted={sortKey === "last_update" ? sortDir ?? false : false}
+frontend/src/app/(app)/tracking/page.tsx:703:                    onClick={() => handleSort("last_update")}
+frontend/src/app/(app)/tracking/page.tsx:732:                          {v.speed} <span className="text-muted">km/j</span>
+frontend/src/app/(app)/tracking/page.tsx:743:                                  ? "var(--st-offline)"
+frontend/src/app/(app)/tracking/page.tsx:754:                        <StatusPill status={v.status as any} />
+frontend/src/app/(app)/tracking/page.tsx:758:                          {timeAgo(v.last_update)}
+frontend/src/app/(app)/tracking/page.tsx:772:        {speeding && (
+frontend/src/app/(app)/tracking/page.tsx:774:            id="speeding-popup"
+frontend/src/app/(app)/tracking/page.tsx:783:            className="fixed bottom-6 right-6 z-toast flex items-start gap-3 rounded-xl border border-st-delayed/40 bg-surface-1 px-4 py-3 shadow-elev-3 max-w-xs"
+frontend/src/app/(app)/tracking/page.tsx:795:                {speeding.plate_number} · {speeding.speed} km/j
+frontend/src/app/(app)/tracking/page.tsx:798:                {speeding.address}
+frontend/src/components/map/DetailPanel.tsx:25:interface DetailPanelProps {
+frontend/src/components/map/DetailPanel.tsx:33:/* ─── DetailPanel ──────────────────────────────────────────────────────── */
+frontend/src/components/map/DetailPanel.tsx:34:export function DetailPanel({ vehicle, visibility, onToggleLayer, onClose, className = "" }: DetailPanelProps) {
+frontend/src/components/map/DetailPanel.tsx:48:    const status = vehicle.displayStatus;
+frontend/src/components/map/DetailPanel.tsx:55:        duration: formatDuration(vehicle.last_update),
+frontend/src/components/map/DetailPanel.tsx:56:        avgSpeed: status === "driving" ? Math.round(vehicle.speed) : 0,
+frontend/src/components/map/DetailPanel.tsx:88:          className={`glass absolute top-0 right-0 bottom-0 z-dock flex w-[380px] max-w-full flex-col overflow-hidden border-l border-border shadow-elev-3 ${className}`}
+frontend/src/components/map/DetailPanel.tsx:131:              <DetailRow label="Speed" value={`${vehicle.speed} km/h`} mono />
+frontend/src/components/map/DetailPanel.tsx:156:                          style={{ background: STATUS_BG[trip.status === "Completed" ? "driving" : "idle"], color: trip.status === "Completed" ? STATUS_COLORS.driving : STATUS_COLORS.idle }}
+frontend/src/components/map/DetailPanel.tsx:158:                          {trip.status}
+frontend/src/components/map/DetailPanel.tsx:177:              <div className="grid grid-cols-3 gap-2">
+frontend/src/components/map/DetailPanel.tsx:191:              <div className="grid grid-cols-3 gap-2">
+frontend/src/components/map/DetailPanel.tsx:236:              <div className="grid grid-cols-2 gap-3">
+frontend/src/components/map/DetailPanel.tsx:245:                          background: vehicle.fuel_level < 25 ? "var(--st-offline)" : "var(--st-driving)",
+frontend/src/components/map/DetailPanel.tsx:357:function formatDuration(lastUpdate: string): string {
+frontend/src/components/map/DetailPanel.tsx:358:  const diff = Date.now() - new Date(lastUpdate).getTime();
+frontend/src/hooks/useSpeedingMonitor.ts:29:  const { speedingAlertEnabled } = useAppContext();
+frontend/src/hooks/useSpeedingMonitor.ts:31:  const router = useRouter();
+frontend/src/hooks/useSpeedingMonitor.ts:33:  const intervalRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+frontend/src/hooks/useSpeedingMonitor.ts:36:    const driving = MOCK_VEHICLES.filter(v => v.status === "driving");
+frontend/src/hooks/useSpeedingMonitor.ts:40:    const speedLimit = randomBetween(60, 90);
+frontend/src/hooks/useSpeedingMonitor.ts:41:    const actualSpeed = randomBetween(speedLimit + 2, speedLimit + 30);
+frontend/src/hooks/useSpeedingMonitor.ts:52:    intervalRef.current = setTimeout(() => {
+frontend/src/hooks/useSpeedingMonitor.ts:59:    if (!speedingAlertEnabled) {
+frontend/src/hooks/useSpeedingMonitor.ts:68:    const init = setTimeout(scheduleNext, 3000);
+frontend/src/hooks/useSpeedingMonitor.ts:73:  }, [speedingAlertEnabled, scheduleNext]);
+frontend/src/hooks/useMapHooks.ts:34:        status: v.displayStatus,
+frontend/src/hooks/useMapHooks.ts:35:        speed: v.speed,
+frontend/src/hooks/useMapHooks.ts:38:        isMoving: v.status === "driving",
+frontend/src/hooks/useMapHooks.ts:54:            status: v.displayStatus,
+frontend/src/hooks/useMapHooks.ts:55:            speed: v.speed,
+frontend/src/hooks/useMapHooks.ts:58:            isMoving: v.status === "driving",
+frontend/src/hooks/useMapHooks.ts:72:     * Previously prevRef was stale (from the previous animation run), causing a visible
+frontend/src/hooks/useMapHooks.ts:100:              status: v.displayStatus,
+frontend/src/hooks/useMapHooks.ts:101:              speed: v.speed,
+frontend/src/hooks/useMapHooks.ts:104:              isMoving: v.status === "driving",
+frontend/src/hooks/useMapHooks.ts:125:            status: v.displayStatus,
+frontend/src/hooks/useMapHooks.ts:126:            speed: v.speed,
+frontend/src/hooks/useMapHooks.ts:129:            isMoving: v.status === "driving",
+frontend/src/hooks/useMapHooks.ts:225:    duration: formatDuration(vehicle.last_update),
+frontend/src/hooks/useMapHooks.ts:226:    avgSpeed: vehicle.status === "driving" ? vehicle.speed : 0,
+frontend/src/hooks/useMapHooks.ts:243:function formatDuration(lastUpdate: string): string {
+frontend/src/hooks/useMapHooks.ts:244:  const diff = Date.now() - new Date(lastUpdate).getTime();
