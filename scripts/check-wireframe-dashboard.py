@@ -83,6 +83,12 @@ if "DWELL_THRESHOLD" not in text:
 if "driving + idle + stopped + offline + unknown" not in text:
     errors.append("Validasi distribusi Fleet State belum lengkap")
 
+dwell_count = text.count("dwellRisk = activeTasks.filter")
+if dwell_count != 1:
+    errors.append(
+        f"Formula dwellRisk harus muncul tepat satu kali, ditemukan {dwell_count}"
+    )
+
 if errors:
     print("GAGAL:")
     for error in errors:

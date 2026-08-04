@@ -211,23 +211,14 @@ unknown = vehicles.filter(v => !["driving","idle","stopped","offline"].includes(
 // Jangan memaksa hasil menjadi 25 secara visual
 
 // Operations Pulse
-// isOperationallyActive menggunakan normalized demo-store adapter
-// normalizedPhase mencegah halaman bergantung pada variasi status mentah
-activeTasks = tasks.filter(task => isOperationallyActive(task)).length
+activeTasks = tasks.filter(task =>
+  isOperationallyActive(task)
+)
 
-// Forecast Late hanya menghitung task aktif
 forecastLate = activeTasks.filter(task =>
   task.estimatedArrival > task.targetArrival
-).length
+)
 
-// Dwell Risk mencakup loading dan unloading
-// DWELL_THRESHOLD harus berasal dari demo-store configuration
-dwellRisk = activeTasks.filter(task =>
-  ["loading","unloading"].includes(task.normalizedPhase)
-  && now - task.dwellStart > DWELL_THRESHOLD
-).length
-
-// Completed today menggunakan Asia/Jakarta timezone
 dwellRisk = activeTasks.filter(task =>
   ["loading", "unloading"].includes(task.normalizedPhase)
   && now - task.dwellStart > DWELL_THRESHOLD
@@ -236,7 +227,7 @@ dwellRisk = activeTasks.filter(task =>
 completedToday = tasks.filter(task =>
   task.status === "completed"
   && isToday(task.completedAt, "Asia/Jakarta")
-).length
+)
 ```
 
 ---
