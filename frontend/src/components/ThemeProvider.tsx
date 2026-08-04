@@ -53,13 +53,8 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     const savedTheme = localStorage.getItem("vanguard-theme") as Theme | null;
     const savedDensity = localStorage.getItem("vanguard-density") as Density | null;
 
-    // Check system preference
-    const systemPrefersDark = window.matchMedia(
-      "(prefers-color-scheme: dark)"
-    ).matches;
-
-    // Theme: saved > system
-    const initialTheme = savedTheme ?? (systemPrefersDark ? "dark" : "light");
+    // Light-first baseline. A valid saved preference remains respected.
+    const initialTheme: Theme = savedTheme === "dark" ? "dark" : "light";
     setThemeState(initialTheme);
 
     // Density: saved > default (compact for cockpit)
@@ -70,24 +65,15 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     setReducedMotion(motionQuery.matches);
 
     // Listen for changes
-    const handleThemeChange = (e: MediaQueryListEvent) => {
-      if (!localStorage.getItem("vanguard-theme")) {
-        setThemeState(e.matches ? "dark" : "light");
-      }
-    };
-
     const handleMotionChange = (e: MediaQueryListEvent) => {
       setReducedMotion(e.matches);
     };
 
-    const themeQuery = window.matchMedia("(prefers-color-scheme: dark)");
-    themeQuery.addEventListener("change", handleThemeChange);
     motionQuery.addEventListener("change", handleMotionChange);
 
     setMounted(true);
 
     return () => {
-      themeQuery.removeEventListener("change", handleThemeChange);
       motionQuery.removeEventListener("change", handleMotionChange);
     };
   }, []);

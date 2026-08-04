@@ -2,7 +2,7 @@ import type { Config } from "tailwindcss";
 
 /*
  * VANGUARD Design System — Tailwind Extension
- * Source: DESIGN.md tokens
+ * Source: docs/VISUAL-DIRECTION.md
  *
  * Usage:
  * - Colors: bg-surface-1, text-brand, border-st-driving, bg-st-driving-bg
@@ -20,7 +20,8 @@ const config: Config = {
     extend: {
       /* ─── Colors ──────────────────────────────────────────────────────── */
       colors: {
-        // Surface hierarchy
+        // Canonical surfaces
+        canvas: "var(--canvas)",
         bg: "var(--bg)",
         background: "var(--bg)",
         surface: {
@@ -29,37 +30,69 @@ const config: Config = {
           3: "var(--surface-3)",
         },
 
-        // Border
+        // Canonical borders
         border: {
           DEFAULT: "var(--border)",
+          subtle: "var(--border-subtle)",
+          default: "var(--border-default)",
           strong: "var(--border-strong)",
         },
 
-        // Text
-        foreground: "var(--text)",
+        // Canonical text
+        foreground: "var(--text-primary)",
+        secondary: "var(--text-secondary)",
         muted: "var(--text-muted)",
         faint: "var(--text-faint)",
+        disabled: "var(--text-disabled)",
 
         // Brand
         brand: {
           DEFAULT: "var(--brand)",
           hover: "var(--brand-hover)",
           soft: "var(--brand-soft)",
+          50: "var(--brand-50)",
+          100: "var(--brand-100)",
+          600: "var(--brand-600)",
+          700: "var(--brand-700)",
         },
 
-        // Signal (hi-vis amber)
+        // Canonical semantic colors
+        healthy: {
+          DEFAULT: "var(--healthy)",
+          soft: "var(--healthy-soft)",
+        },
+        information: {
+          DEFAULT: "var(--information)",
+          soft: "var(--information-soft)",
+        },
+        warning: {
+          DEFAULT: "var(--warning)",
+          soft: "var(--warning-soft)",
+        },
+        critical: {
+          DEFAULT: "var(--critical)",
+          soft: "var(--critical-soft)",
+        },
+        offline: {
+          DEFAULT: "var(--offline)",
+          soft: "var(--offline-soft)",
+        },
+        unknown: {
+          DEFAULT: "var(--unknown)",
+          soft: "var(--unknown-soft)",
+        },
+
+        // Legacy semantic aliases
         signal: {
           DEFAULT: "var(--signal)",
           soft: "var(--signal-soft)",
         },
-
-        // HUD (technical cyan)
         hud: {
           DEFAULT: "var(--hud)",
           soft: "var(--hud-soft)",
         },
 
-        // Vehicle status
+        // Vehicle status compatibility
         st: {
           driving: {
             DEFAULT: "var(--st-driving)",
@@ -83,7 +116,7 @@ const config: Config = {
           },
         },
 
-        // Task status
+        // Task status compatibility
         task: {
           waiting: "var(--task-waiting)",
           assigned: "var(--task-assigned)",
@@ -110,18 +143,74 @@ const config: Config = {
 
       /* ─── Typography ───────────────────────────────────────────────────── */
       fontSize: {
-        display: ["var(--text-display)", { lineHeight: "1.25", fontWeight: "600" }],
-        h1: ["1.25rem", { lineHeight: "1.75rem", fontWeight: "600" }],
-        h2: ["1rem", { lineHeight: "1.5rem", fontWeight: "600" }],
-        body: ["0.875rem", { lineHeight: "1.5" }],
-        sm: ["0.8125rem", { lineHeight: "1.125rem" }],
-        label: ["0.6875rem", { lineHeight: "0.875rem", fontWeight: "600" }],
-        mono: ["var(--text-mono-kpi)", { lineHeight: "1.875rem", fontWeight: "600" }],
+        // Canonical type scale
+        "display-sm": [
+          "var(--text-display-sm)",
+          { lineHeight: "var(--leading-display-sm)", fontWeight: "600" },
+        ],
+        "heading-md": [
+          "var(--text-heading-md)",
+          { lineHeight: "var(--leading-heading-md)", fontWeight: "600" },
+        ],
+        "heading-sm": [
+          "var(--text-heading-sm)",
+          { lineHeight: "var(--leading-heading-sm)", fontWeight: "600" },
+        ],
+        "body-md": [
+          "var(--text-body-md)",
+          { lineHeight: "var(--leading-body-md)", fontWeight: "400" },
+        ],
+        "body-strong": [
+          "var(--text-body-strong)",
+          { lineHeight: "var(--leading-body-md)", fontWeight: "600" },
+        ],
+        "label-md": [
+          "var(--text-label-md)",
+          { lineHeight: "var(--leading-label-md)", fontWeight: "500" },
+        ],
+        "metadata-sm": [
+          "var(--text-metadata-sm)",
+          { lineHeight: "var(--leading-metadata-sm)", fontWeight: "400" },
+        ],
+        "metric-lg": [
+          "var(--text-metric-lg)",
+          { lineHeight: "var(--leading-metric-lg)", fontWeight: "600" },
+        ],
+
+        // Compatibility aliases
+        display: [
+          "var(--text-display)",
+          { lineHeight: "var(--leading-display-sm)", fontWeight: "600" },
+        ],
+        h1: [
+          "var(--text-h1)",
+          { lineHeight: "var(--leading-heading-md)", fontWeight: "600" },
+        ],
+        h2: [
+          "var(--text-h2)",
+          { lineHeight: "var(--leading-heading-sm)", fontWeight: "600" },
+        ],
+        body: [
+          "var(--text-body)",
+          { lineHeight: "var(--leading-body-md)" },
+        ],
+        sm: [
+          "var(--text-sm)",
+          { lineHeight: "var(--leading-body-md)" },
+        ],
+        label: [
+          "var(--text-label)",
+          { lineHeight: "var(--leading-label-md)", fontWeight: "500" },
+        ],
+        mono: [
+          "var(--text-mono-kpi)",
+          { lineHeight: "var(--leading-metric-lg)", fontWeight: "600" },
+        ],
       },
 
       fontFamily: {
-        sans: ["var(--font-geist-sans)"],
-        mono: ["var(--font-geist-mono)"],
+        sans: ["var(--font-sans)"],
+        mono: ["var(--font-mono)"],
       },
 
       fontWeight: {
@@ -138,25 +227,25 @@ const config: Config = {
 
       /* ─── Spacing (base 4px) ───────────────────────────────────────────── */
       spacing: {
-        "1": "0.25rem",  // 4px
-        "2": "0.5rem",   // 8px
-        "3": "0.75rem",  // 12px
-        "4": "1rem",     // 16px
-        "5": "1.25rem",  // 20px
-        "6": "1.5rem",   // 24px
-        "8": "2rem",     // 32px
-        "10": "2.5rem",  // 40px
-        "12": "3rem",    // 48px
+        "1": "var(--space-1)",
+        "2": "var(--space-2)",
+        "3": "var(--space-3)",
+        "4": "var(--space-4)",
+        "5": "var(--space-5)",
+        "6": "var(--space-6)",
+        "8": "var(--space-8)",
+        "10": "var(--space-10)",
+        "12": "var(--space-12)",
       },
 
       /* ─── Border Radius ────────────────────────────────────────────────── */
       borderRadius: {
-        sm: "4px",
-        md: "6px",
-        lg: "8px",
-        xl: "10px",
-        "2xl": "14px",
-        full: "9999px",
+        sm: "var(--radius-sm)",
+        md: "var(--radius-md)",
+        lg: "var(--radius-lg)",
+        xl: "var(--radius-xl)",
+        "2xl": "var(--radius-2xl)",
+        full: "var(--radius-full)",
       },
 
       /* ─── Shadows / Elevation ───────────────────────────────────────────── */
@@ -171,28 +260,30 @@ const config: Config = {
 
       /* ─── Z-Index ──────────────────────────────────────────────────────── */
       zIndex: {
-        map: "0",
-        route: "10",
-        marker: "20",
-        cluster: "25",
-        dock: "40",
-        toast: "60",
-        modal: "80",
-        tooltip: "100",
+        map: "var(--z-map)",
+        route: "var(--z-route)",
+        marker: "var(--z-marker)",
+        cluster: "var(--z-cluster)",
+        dock: "var(--z-dock)",
+        toast: "var(--z-toast)",
+        modal: "var(--z-modal)",
+        tooltip: "var(--z-tooltip)",
       },
 
       /* ─── Transition ───────────────────────────────────────────────────── */
       transitionDuration: {
-        micro: "120ms",
-        normal: "200ms",
-        panel: "280ms",
-        route: "600ms",
-        slow: "900ms",
+        micro: "var(--duration-micro)",
+        normal: "var(--duration-normal)",
+        panel: "var(--duration-panel)",
+        modal: "var(--duration-modal)",
+        route: "var(--duration-route)",
+        slow: "var(--duration-slow)",
       },
 
       transitionTimingFunction: {
-        "ease-out-quint": "cubic-bezier(0.22, 1, 0.36, 1)",
-        spring: "cubic-bezier(0.34, 1.56, 0.64, 1)",
+        standard: "var(--ease-standard)",
+        "ease-out-quint": "var(--ease-out-quint)",
+        spring: "var(--ease-spring)",
       },
 
       /* ─── Animation ────────────────────────────────────────────────────── */
@@ -200,7 +291,7 @@ const config: Config = {
         "fade-in": "fade-in 200ms cubic-bezier(0.22, 1, 0.36, 1) forwards",
         "slide-in": "slide-in 280ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards",
         "scale-in": "scale-in 200ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards",
-        "live-pulse": "live-pulse 2s ease-in-out infinite",
+        "live-pulse": "none",
         "skeleton-shimmer": "skeleton-shimmer 1.5s ease-in-out infinite",
       },
 

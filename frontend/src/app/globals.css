@@ -3,70 +3,92 @@
 @tailwind utilities;
 
 /* ══════════════════════════════════════════════════════════════════════════════
-   VANGUARD DESIGN TOKENS — Graphite Command
-   Source: DESIGN.md
+   VANGUARD DESIGN TOKENS — Calm Operational Light
+   Source: docs/VISUAL-DIRECTION.md
    ══════════════════════════════════════════════════════════════════════════════ */
 
 @layer base {
   /* ─── Color System ──────────────────────────────────────────────────────── */
-  /* Graphite/Steel neutrals */
+  /* Calm operational light foundation */
   :root {
-    /* Surface hierarchy */
-    --bg: #FAFAFB;
+    /* Canonical neutral palette */
+    --canvas: #F4F6F8;
     --surface-1: #FFFFFF;
-    --surface-2: #F4F5F7;
-    --surface-3: #ECEEF1;
+    --surface-2: #F8FAFC;
+    --surface-3: #EEF2F6;
 
-    /* Borders */
-    --border: #E4E7EB;
-    --border-strong: #CBD1D9;
+    --border-subtle: #E4E7EC;
+    --border-default: #D0D5DD;
+    --border-strong: #98A2B3;
 
-    /* Text */
-    --text: #0E1217;
-    --text-muted: #5B6470;
-    --text-faint: #8A93A0;
+    --text-primary: #172033;
+    --text-secondary: #475467;
+    --text-muted: #667085;
+    --text-disabled: #98A2B3;
 
-    /* Brand — industrial cobalt */
-    --brand: #3B82F6;
-    --brand-hover: #2563EB;
-    --brand-soft: rgba(59, 130, 246, 0.12);
+    /* Canonical brand palette */
+    --brand-700: #1D4ED8;
+    --brand-600: #2563EB;
+    --brand-100: #DBEAFE;
+    --brand-50: #EFF6FF;
 
-    /* Signal — hi-vis amber */
-    --signal: #F59E0B;
-    --signal-soft: rgba(245, 158, 11, 0.12);
+    /* Canonical semantic palette */
+    --healthy: #067647;
+    --healthy-soft: #ECFDF3;
+    --information: #175CD3;
+    --information-soft: #EFF8FF;
+    --warning: #854D0E;
+    --warning-soft: #FFFBEB;
+    --critical: #B42318;
+    --critical-soft: #FEF3F2;
+    --offline: #475467;
+    --offline-soft: #F2F4F7;
+    --unknown: #667085;
+    --unknown-soft: #F9FAFB;
 
-    /* HUD — technical cyan */
-    --hud: #22D3EE;
-    --hud-soft: rgba(34, 211, 238, 0.12);
+    /* Compatibility aliases for existing components */
+    --bg: var(--canvas);
+    --border: var(--border-subtle);
+    --text: var(--text-primary);
+    --text-faint: var(--text-disabled);
 
-    /* Status — vehicle */
-    --st-driving: #10B981;
-    --st-driving-bg: rgba(16, 185, 129, 0.12);
-    --st-idle: #F59E0B;
-    --st-idle-bg: rgba(245, 158, 11, 0.12);
-    --st-stop: #64748B;
-    --st-stop-bg: rgba(100, 116, 139, 0.12);
-    --st-offline: #EF4444;
-    --st-offline-bg: rgba(239, 68, 68, 0.12);
-    --st-delayed: #F97316;
-    --st-delayed-bg: rgba(249, 115, 22, 0.12);
+    --brand: var(--brand-600);
+    --brand-hover: var(--brand-700);
+    --brand-soft: var(--brand-50);
 
-    /* Status — task */
-    --task-waiting: #64748B;
-    --task-assigned: #3B82F6;
-    --task-progress: #10B981;
-    --task-unloading: #F59E0B;
-    --task-completed: #22C55E;
+    --signal: var(--warning);
+    --signal-soft: var(--warning-soft);
+    --hud: var(--information);
+    --hud-soft: var(--information-soft);
 
-    /* Elevation / Depth */
+    /* Vehicle status compatibility */
+    --st-driving: var(--healthy);
+    --st-driving-bg: var(--healthy-soft);
+    --st-idle: var(--warning);
+    --st-idle-bg: var(--warning-soft);
+    --st-stop: var(--offline);
+    --st-stop-bg: var(--offline-soft);
+    --st-offline: var(--offline);
+    --st-offline-bg: var(--offline-soft);
+    --st-delayed: var(--warning);
+    --st-delayed-bg: var(--warning-soft);
+
+    /* Task status compatibility */
+    --task-waiting: var(--offline);
+    --task-assigned: var(--information);
+    --task-progress: var(--healthy);
+    --task-unloading: var(--warning);
+    --task-completed: var(--healthy);
+
+    /* Elevation: divider-first, no decorative glow */
     --elev-0: none;
-    --elev-1: 0 1px 0 rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
-    --elev-2: 0 4px 12px rgba(0,0,0,.08), 0 1px 0 rgba(255,255,255,0.04) inset;
-    --elev-3: 0 16px 48px rgba(0,0,0,.12), 0 1px 0 rgba(255,255,255,0.05) inset;
-    --glow-live: 0 0 0 2px rgba(34,211,238,.25), 0 0 16px rgba(34,211,238,.25);
+    --elev-1: 0 1px 2px rgba(16, 24, 40, 0.06);
+    --elev-2: 0 4px 12px rgba(16, 24, 40, 0.10);
+    --elev-3: 0 16px 40px rgba(16, 24, 40, 0.14);
+    --glow-live: none;
 
-    /* Glass for overlays */
-    --glass-bg: rgba(255, 255, 255, 0.85);
+    /* Legacy glass surfaces become solid */
+    --glass-bg: var(--surface-1);
 
     /* Z-index scale */
     --z-map: 0;
@@ -79,8 +101,8 @@
     --z-tooltip: 100;
 
     /* Font families (from Geist) */
-    --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
   }
 
   .dark {
@@ -111,22 +133,41 @@
     --elev-3: 0 16px 48px rgba(0,0,0,.5), 0 1px 0 rgba(255,255,255,.04) inset;
 
     /* Glass dock for dark mode */
-    --glass-bg: rgba(20, 24, 29, 0.85);
+    --glass-bg: var(--surface-1);
 
     /* Font families */
-    --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
   }
 
   /* ─── Typography Scale ────────────────────────────────────────────────────── */
   :root {
-    --text-display: clamp(1.75rem, 3vw, 1.75rem);  /* 28px */
-    --text-h1: 1.25rem;                              /* 20px */
-    --text-h2: 1rem;                                  /* 16px */
-    --text-body: 0.875rem;                            /* 14px */
-    --text-sm: 0.8125rem;                             /* 13px */
-    --text-label: 0.6875rem;                          /* 11px */
-    --text-mono-kpi: 1.5rem;                          /* 24px */
+    /* Canonical type scale */
+    --text-display-sm: 1.5rem;       /* 24px */
+    --text-heading-md: 1.125rem;     /* 18px */
+    --text-heading-sm: 1rem;         /* 16px */
+    --text-body-md: 0.875rem;        /* 14px */
+    --text-body-strong: 0.875rem;    /* 14px */
+    --text-label-md: 0.875rem;       /* 14px */
+    --text-metadata-sm: 0.75rem;     /* 12px */
+    --text-metric-lg: 1.5rem;        /* 24px */
+
+    --leading-display-sm: 2rem;      /* 32px */
+    --leading-heading-md: 1.625rem;  /* 26px */
+    --leading-heading-sm: 1.5rem;    /* 24px */
+    --leading-body-md: 1.3125rem;    /* 21px */
+    --leading-label-md: 1.25rem;     /* 20px */
+    --leading-metadata-sm: 1.125rem; /* 18px */
+    --leading-metric-lg: 1.875rem;   /* 30px */
+
+    /* Compatibility aliases */
+    --text-display: var(--text-display-sm);
+    --text-h1: var(--text-heading-md);
+    --text-h2: var(--text-heading-sm);
+    --text-body: var(--text-body-md);
+    --text-sm: var(--text-body-md);
+    --text-label: var(--text-label-md);
+    --text-mono-kpi: var(--text-metric-lg);
 
     --leading-tight: 1.25;
     --leading-normal: 1.5;
@@ -163,21 +204,27 @@
     --radius-sm: 4px;
     --radius-md: 6px;
     --radius-lg: 8px;
-    --radius-xl: 10px;
-    --radius-2xl: 14px;
-    --radius-full: 9999px;
+    --radius-full: 999px;
+
+    /* Compatibility aliases: normal surfaces remain at maximum 8px */
+    --radius-xl: var(--radius-lg);
+    --radius-2xl: var(--radius-lg);
   }
 
   /* ─── Motion Timing ───────────────────────────────────────────────────────── */
   :root {
     --duration-micro: 120ms;
-    --duration-normal: 200ms;
-    --duration-panel: 280ms;
-    --duration-route: 600ms;
-    --duration-slow: 900ms;
+    --duration-normal: 180ms;
+    --duration-panel: 180ms;
+    --duration-modal: 200ms;
+    --duration-route: 240ms;
+    --duration-slow: 200ms;
 
-    --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
-    --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+    --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+
+    /* Compatibility aliases: no bounce */
+    --ease-out-quint: var(--ease-standard);
+    --ease-spring: var(--ease-standard);
   }
 }
 
@@ -187,7 +234,7 @@
 }
 
 html {
-  font-size: 14px; /* Base for desktop cockpit */
+  font-size: 16px; /* Preserve rem-to-pixel token accuracy */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
@@ -286,8 +333,6 @@ body {
   /* Glass card variant */
   .card-glass {
     background: var(--glass-bg);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
     border: 1px solid var(--border-strong);
     border-radius: var(--radius-xl);
   }
@@ -480,7 +525,7 @@ body {
 
   /* Live pulse for driving status */
   .status-live {
-    animation: live-pulse 2s ease-in-out infinite;
+    animation: none;
   }
 
   @keyframes live-pulse {
@@ -816,14 +861,12 @@ body {
   }
 
   .animate-live-pulse {
-    animation: live-pulse 2s ease-in-out infinite;
+    animation: none;
   }
 
   /* Glass utility for map overlays */
   .glass {
     background: var(--glass-bg);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
   }
 
   /* Background alias */
