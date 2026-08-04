@@ -1,0 +1,8 @@
+frontend/src/components/map/DetailPanel.tsx
+frontend/src/components/map/LayerControlPanel.tsx
+frontend/src/components/map/MapView.tsx
+frontend/src/components/map/MarkerTest.tsx
+frontend/src/components/map/TaskRouteMap.tsx
+frontend/src/components/map/TrackingMap.tsx
+frontend/src/components/map/index.ts
+frontend/src/components/map/types.ts

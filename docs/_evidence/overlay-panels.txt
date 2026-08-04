@@ -1,0 +1,1 @@
+./frontend/src/components/map/DetailPanel.tsx:88: glass absolute top-0 right-0 bottom-0 z-dock flex w-[380px] max-w-full flex-col overflow-hidden border-l border-border shadow-elev-3

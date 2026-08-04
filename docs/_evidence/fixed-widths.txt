@@ -1,0 +1,4 @@
+frontend/src/app/(app)/dashcam/page.tsx:347:        <div className="w-[320px] shrink-0 border-r border-border flex flex-col overflow-hidden bg-surface-1">
+frontend/src/app/(app)/geofences/page.tsx:605:              <div className="absolute top-4 right-4 z-dock w-[320px]">
+frontend/src/app/(app)/control/page.tsx:420:        <div className="w-[320px] shrink-0 border-r border-border flex flex-col overflow-hidden bg-surface-1">
+frontend/src/components/map/DetailPanel.tsx:88:          className={`glass absolute top-0 right-0 bottom-0 z-dock flex w-[380px] max-w-full flex-col overflow-hidden border-l border-border shadow-elev-3 ${className}`}

@@ -1,0 +1,80 @@
+frontend/src/app/(app)/locate/page.tsx:18:import { MOCK_VEHICLES, toMapVehicle } from "@/lib/mock-data";
+frontend/src/app/(app)/locate/page.tsx:104:  const [selected, setSelected] = useState<Vehicle | null>(MOCK_VEHICLES[0]);
+frontend/src/app/(app)/locate/page.tsx:110:    total: MOCK_VEHICLES.length,
+frontend/src/app/(app)/locate/page.tsx:111:    online: MOCK_VEHICLES.filter((v) => v.status !== "offline").length,
+frontend/src/app/(app)/locate/page.tsx:112:    moving: MOCK_VEHICLES.filter((v) => v.status === "driving").length,
+frontend/src/app/(app)/locate/page.tsx:113:    offline: MOCK_VEHICLES.filter((v) => v.status === "offline").length,
+frontend/src/app/(app)/locate/page.tsx:119:    return MOCK_VEHICLES.filter((v) => {
+frontend/src/app/(app)/locate/page.tsx:130:  const mapVehicles = useMemo(() => MOCK_VEHICLES.map(toMapVehicle), []);
+frontend/src/app/(app)/tasks/page.tsx:43:const TASKS: Task[] = [
+frontend/src/app/(app)/drivers/page.tsx:15:import { MOCK_VEHICLES } from "@/lib/mock-data";
+frontend/src/app/(app)/drivers/page.tsx:299:                {MOCK_VEHICLES.map((v) => (
+frontend/src/app/(app)/drivers/page.tsx:493:    MOCK_VEHICLES.forEach((v) => m.set(v.id, v.plate_number));
+frontend/src/app/(app)/snapshots/page.tsx:19:import { MOCK_VEHICLES } from "@/lib/mock-data";
+frontend/src/app/(app)/snapshots/page.tsx:58:const INITIAL_SNAPSHOTS: Snapshot[] = [
+frontend/src/app/(app)/snapshots/page.tsx:198:                {MOCK_VEHICLES.map((v) => (
+frontend/src/app/(app)/snapshots/page.tsx:380:  const [snapshots, setSnapshots] = useState<Snapshot[]>(INITIAL_SNAPSHOTS);
+frontend/src/app/(app)/snapshots/page.tsx:390:    const m = new Map<number, typeof MOCK_VEHICLES[0]>();
+frontend/src/app/(app)/snapshots/page.tsx:391:    MOCK_VEHICLES.forEach((v) => m.set(v.id, v));
+frontend/src/app/(app)/snapshots/page.tsx:556:            {MOCK_VEHICLES.slice(0, 15).map((v) => (
+frontend/src/app/(app)/accidents/page.tsx:38:import { MOCK_VEHICLES } from "@/lib/mock-data";
+frontend/src/app/(app)/accidents/page.tsx:53:const MOCK_INCIDENTS: Incident[] = [
+frontend/src/app/(app)/accidents/page.tsx:309:  vehicleMap: Map<number, typeof MOCK_VEHICLES[0]>;
+frontend/src/app/(app)/accidents/page.tsx:371:          {MOCK_VEHICLES.map((v) => (
+frontend/src/app/(app)/accidents/page.tsx:590:  const [incidents, setIncidents] = useState<Incident[]>(MOCK_INCIDENTS);
+frontend/src/app/(app)/accidents/page.tsx:601:    return new Map(MOCK_VEHICLES.map((v) => [v.id, v]));
+frontend/src/app/(app)/dashcam/page.tsx:21:import { MOCK_VEHICLES } from "@/lib/mock-data";
+frontend/src/app/(app)/dashcam/page.tsx:41:/* ─── Build camera units from MOCK_VEHICLES ──────────────────────────────────── */
+frontend/src/app/(app)/dashcam/page.tsx:43:const CAMERA_UNIT_LIST: CameraUnit[] = MOCK_VEHICLES.slice(0, 15).map((v) => ({
+frontend/src/app/(app)/dashboard/page.tsx:32:import { MOCK_STATS, MOCK_VEHICLES, toMapVehicle } from "@/lib/mock-data";
+frontend/src/app/(app)/dashboard/page.tsx:43:  return { stats: MOCK_STATS, vehicles: MOCK_VEHICLES };
+frontend/src/app/(app)/history/page.tsx:193:const REPLAY_VEHICLES: ReplayVehicle[] = [
+frontend/src/app/(app)/history/page.tsx:591:  const selectedVehicle = REPLAY_VEHICLES.find(v => v.id === selectedVehicleId) ?? REPLAY_VEHICLES[0];
+frontend/src/app/(app)/history/page.tsx:620:  function handleVehicleChange(id: number) { setSelectedVehicleId(id); setPlaying(false); setProgress(0); info("Unit dipilih", REPLAY_VEHICLES.find(v => v.id === id)?.plate_number ?? ""); }
+frontend/src/app/(app)/history/page.tsx:642:            <p className="text-xs text-muted mt-0.5 tabular-nums">{dateRange} · {REPLAY_VEHICLES.length} unit</p>
+frontend/src/app/(app)/history/page.tsx:654:            {REPLAY_VEHICLES.map(v => <option key={v.id} value={v.id}>{v.plate_number} — {v.driver_name}</option>)}
+frontend/src/app/(app)/tracking/page.tsx:24:import { MOCK_VEHICLES, toMapVehicle } from "@/lib/mock-data";
+frontend/src/app/(app)/tracking/page.tsx:141:  const [vehicles, setVehicles] = useState<Vehicle[]>(MOCK_VEHICLES);
+frontend/src/app/(app)/vehicles/page.tsx:14:import { MOCK_VEHICLES } from "@/lib/mock-data";
+frontend/src/app/(app)/vehicles/page.tsx:328:  const [vehicles, setVehicles] = useState<Vehicle[]>(MOCK_VEHICLES);
+frontend/src/app/(app)/control/page.tsx:34:import { MOCK_VEHICLES } from "@/lib/mock-data";
+frontend/src/app/(app)/control/page.tsx:262:    unitOnline: MOCK_VEHICLES.filter((v) => v.status !== "offline").length,
+frontend/src/app/(app)/control/page.tsx:270:    const m = new Map<number, typeof MOCK_VEHICLES[0]>();
+frontend/src/app/(app)/control/page.tsx:271:    MOCK_VEHICLES.forEach((v) => m.set(v.id, v));
+frontend/src/app/(app)/control/page.tsx:278:    return MOCK_VEHICLES.filter((v) => {
+frontend/src/app/(app)/reports/page.tsx:40:import { MOCK_VEHICLES } from "@/lib/mock-data";
+frontend/src/app/(app)/reports/page.tsx:304:                {MOCK_VEHICLES.slice(0, 10).map((v) => (
+frontend/src/app/debug-map/page.tsx:3:import { MOCK_VEHICLES } from "@/lib/mock-data";
+frontend/src/app/debug-map/page.tsx:10:  const vehicles = MOCK_VEHICLES.map(v => ({ ...v, displayLng: v.longitude ?? 0, displayLat: v.latitude ?? 0, displayHeading: v.heading ?? 0, displayStatus: toCanonicalStatus(v.status), plate: v.plate_number }));
+frontend/src/components/ui/CommandPalette.tsx:11:import { MOCK_VEHICLES } from "@/lib/mock-data";
+frontend/src/components/ui/CommandPalette.tsx:47:    MOCK_VEHICLES.slice(0, 8).forEach(v => {
+frontend/src/components/ui/CommandPalette.tsx:198:                  const v = MOCK_VEHICLES.find(mv => mv.id === result.vehicleId);
+frontend/src/components/layout/AppShell.tsx:71:const MOCK_USER: MockUser = {
+frontend/src/components/layout/AppShell.tsx:214:                  {MOCK_USER.initials}
+frontend/src/components/layout/AppShell.tsx:217:                  <span className="text-sm font-medium text-foreground leading-tight">{MOCK_USER.name}</span>
+frontend/src/components/layout/AppShell.tsx:218:                  <span className="text-[10px] text-muted leading-tight">{MOCK_USER.role}</span>
+frontend/src/components/layout/AppShell.tsx:223:                  userName={MOCK_USER.name}
+frontend/src/components/layout/AppShell.tsx:224:                  userRole={MOCK_USER.role}
+frontend/src/components/layout/AppShell.tsx:225:                  userInitials={MOCK_USER.initials}
+frontend/src/components/map/DetailPanel.tsx:22:import { MOCK_TASKS } from "@/lib/mock-data";
+frontend/src/components/map/DetailPanel.tsx:47:    const task = MOCK_TASKS[vehicle.id];
+frontend/src/hooks/useSpeedingMonitor.ts:8:import { MOCK_VEHICLES } from "@/lib/mock-data";
+frontend/src/hooks/useSpeedingMonitor.ts:36:    const driving = MOCK_VEHICLES.filter(v => v.status === "driving");
+frontend/src/hooks/useMapHooks.ts:221:  const task = vehicleId ? import("@/lib/mock-data").then(m => m.MOCK_TASKS[vehicleId]) : null;
+frontend/src/lib/api.ts:31:      const { MOCK_VEHICLES } = await import("@/lib/mock-data");
+frontend/src/lib/api.ts:32:      return MOCK_VEHICLES;
+frontend/src/lib/api.ts:36:      const { MOCK_VEHICLES } = await import("@/lib/mock-data");
+frontend/src/lib/api.ts:37:      return MOCK_VEHICLES.find((v) => v.id === id) ?? null;
+frontend/src/lib/api.ts:43:      const { MOCK_TASKS } = await import("@/lib/mock-data");
+frontend/src/lib/api.ts:44:      return Object.values(MOCK_TASKS);
+frontend/src/lib/api.ts:48:      const { MOCK_TASKS } = await import("@/lib/mock-data");
+frontend/src/lib/api.ts:49:      return MOCK_TASKS[vehicleId] ?? null;
+frontend/src/lib/mock-data.ts:4:export const MOCK_VEHICLES: Vehicle[] = [
+frontend/src/lib/mock-data.ts:32:export const MOCK_STATS = {
+frontend/src/lib/mock-data.ts:34:  driving: MOCK_VEHICLES.filter((v) => v.status === "driving").length,
+frontend/src/lib/mock-data.ts:35:  idle: MOCK_VEHICLES.filter((v) => v.status === "idle").length,
+frontend/src/lib/mock-data.ts:36:  stopped: MOCK_VEHICLES.filter((v) => v.status === "stopped").length,
+frontend/src/lib/mock-data.ts:37:  offline: MOCK_VEHICLES.filter((v) => v.status === "offline").length,
+frontend/src/lib/mock-data.ts:39:  avg_speed: Math.round(MOCK_VEHICLES.filter((v) => v.status === "driving").reduce((sum, v) => sum + v.speed, 0) / MOCK_VEHICLES.filter((v) => v.status === "driving").length * 10) / 10,
+frontend/src/lib/mock-data.ts:160:export const MOCK_TASKS: Record<number, TaskInfo> = {
+frontend/src/lib/mock-data.ts:205:  const task = MOCK_TASKS[vehicleId];

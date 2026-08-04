@@ -1,0 +1,118 @@
+25:  Card,
+26:  CardHeader,
+27:  StatCard,
+30:} from "@/components/ui/Card";
+32:import { MOCK_STATS, MOCK_VEHICLES, toMapVehicle } from "@/lib/mock-data";
+40:async function fetchDashboardData(): Promise<{ stats: DashboardStats; vehicles: Vehicle[] }> {
+42:  await new Promise((r) => setTimeout(r, 400)); // simulate network
+43:  return { stats: MOCK_STATS, vehicles: MOCK_VEHICLES };
+51:  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+59:      setVehicles(data.vehicles);
+70:  const total = stats?.total_vehicles ?? vehicles.length;
+71:  const driving = stats?.driving ?? vehicles.filter((v) => v.status === "driving").length;
+72:  const idle = stats?.idle ?? vehicles.filter((v) => v.status === "idle").length;
+73:  const stopped = stats?.stopped ?? vehicles.filter((v) => v.status === "stopped").length;
+74:  const offline = stats?.offline ?? vehicles.filter((v) => v.status === "offline").length;
+75:  const delayedCount = vehicles.filter((v) => {
+79:  const lowFuelCount = vehicles.filter((v) => v.fuel_level < 25).length;
+80:  const speedingCount = vehicles.filter((v) => v.speed >= 75).length;
+81:  const activeTasks = Math.floor(total * 0.68); // mock
+82:  const onTimeRate = 87.4; // mock %
+84:  // Map vehicles for mini-map
+85:  const mapVehicles = useMemo(() => vehicles.map(toMapVehicle), [vehicles]);
+91:      type: "offline" | "delayed" | "lowfuel" | "speeding";
+98:    vehicles.filter((v) => v.status === "offline").slice(0, 3).forEach((v) => {
+99:      items.push({ id: v.id, type: "offline", plate: v.plate_number, driver: v.driver_name ?? "—", message: "GPS signal lost" });
+101:    vehicles.filter((v) => {
+107:    vehicles.filter((v) => v.fuel_level < 25).slice(0, 3).forEach((v) => {
+110:    vehicles.filter((v) => v.speed >= 75).slice(0, 3).forEach((v) => {
+115:  }, [vehicles]);
+117:  // Recent activity feed (mock)
+119:    { id: 1, type: "task_complete", unit: "B 5678 TGP", message: "Trip BDG - BEKASI completed", time: "12 min ago", icon: <Activity className="h-3.5 w-3.5" /> },
+120:    { id: 2, type: "alert", unit: "B 1234 KJT", message: "Speeding in public area (82 km/h)", time: "28 min ago", icon: <Gauge className="h-3.5 w-3.5" />, alert: true },
+121:    { id: 3, type: "task_start", unit: "L 3456 ABC", message: "Trip SMG - SOLO started", time: "1h ago", icon: <Truck className="h-3.5 w-3.5" /> },
+123:    { id: 5, type: "task_complete", unit: "B 9012 XYZ", message: "Trip KTA - JKT completed", time: "3h ago", icon: <Activity className="h-3.5 w-3.5" /> },
+124:    { id: 6, type: "alert", unit: "B 1357 MNO", message: "Low fuel warning: 18%", time: "4h ago", icon: <Fuel className="h-3.5 w-3.5" />, alert: true },
+131:        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+134:        <div className="grid lg:grid-cols-3 gap-6">
+154:            onClick={load}
+174:        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+175:          <KPIStatCard label="Total Units" value={total} icon={<Truck className="h-5 w-5" />} />
+176:          <KPIStatCard label="Driving" value={driving} icon={<Activity className="h-5 w-5" />} accent="driving" />
+177:          <KPIStatCard label="Idle" value={idle} icon={<Clock className="h-5 w-5" />} accent="idle" />
+178:          <KPIStatCard label="Offline" value={offline} icon={<WifiOff className="h-5 w-5" />} accent={offline > 0 ? "offline" : undefined} />
+183:      <section className="grid lg:grid-cols-3 gap-6">
+188:          <div className="grid sm:grid-cols-2 gap-6">
+190:            <Card padding="md">
+191:              <CardHeader
+193:                subtitle={`${total} units total`}
+197:                total={total}
+198:                driving={driving}
+199:                idle={idle}
+201:                offline={offline}
+203:            </Card>
+206:            <Card padding="none" className="overflow-hidden">
+215:                    <span className="font-mono text-xs tabular-nums text-muted">{driving} units driving</span>
+219:              <MiniFleetMap vehicles={mapVehicles} />
+220:            </Card>
+224:          <Card padding="none">
+227:                <CardHeader
+238:                  href="/tracking"
+249:                <div className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-st-driving-bg mb-3">
+250:                  <Activity className="h-5 w-5 text-st-driving" />
+264:          </Card>
+270:          <div className="grid grid-cols-2 gap-4">
+271:            <KPIMetricCard
+277:            <KPIMetricCard
+285:          <Card padding="md">
+287:            <div className="grid grid-cols-2 gap-2">
+288:              <QuickAccessButton href="/tracking" icon={<Radio className="h-4 w-4" />} label="Realtime Monitor" />
+289:              <QuickAccessButton href="/tasks" icon={<Activity className="h-4 w-4" />} label="Task Monitor" />
+290:              <QuickAccessButton href="/history" icon={<Clock className="h-4 w-4" />} label="Trip History" />
+291:              <QuickAccessButton href="/reports" icon={<Gauge className="h-4 w-4" />} label="Reports" />
+293:          </Card>
+296:          <Card padding="none">
+298:              <CardHeader title="Recent Activity" subtitle="Last 4 hours" />
+309:                href="/history"
+316:          </Card>
+323:/* ─── KPI Stat Card with animated count-up ───────────────────────────────── */
+324:function KPIStatCard({
+333:  accent?: "driving" | "idle" | "offline";
+337:  const accentColor = accent === "driving"
+338:    ? "var(--st-driving)"
+339:    : accent === "idle"
+340:    ? "var(--st-idle)"
+341:    : accent === "offline"
+342:    ? "var(--st-offline)"
+346:    <Card padding="md" className="group relative overflow-hidden transition-all duration-200 hover:border-border-strong hover:shadow-elev-2">
+359:          style={{ background: accent === "driving" ? "var(--st-driving-bg)" : accent === "idle" ? "var(--st-idle-bg)" : accent === "offline" ? "var(--st-offline-bg)" : "var(--surface-2)", color: accentColor }}
+364:    </Card>
+368:/* ─── KPI Metric Card (smaller) ─────────────────────────────────────────── */
+369:function KPIMetricCard({
+383:    <Card padding="md">
+392:        <div className={`flex items-center gap-1 mt-1 text-xs font-medium tabular-nums ${trend.positive ? "text-st-driving" : "text-st-offline"}`}>
+397:    </Card>
+403:  total,
+404:  driving,
+405:  idle,
+407:  offline,
+409:  total: number;
+410:  driving: number;
+411:  idle: number;
+413:  offline: number;
+415:  const rows: Array<{ label: string; count: number; color: string; bgColor: string; status: "driving" | "idle" | "stop" | "offline" }> = [
+416:    { label: "Driving", count: driving, color: "var(--st-driving)", bgColor: "var(--st-driving-bg)", status: "driving" },
+417:    { label: "Idle", count: idle, color: "var(--st-idle)", bgColor: "var(--st-idle-bg)", status: "idle" },
+419:    { label: "Offline", count: offline, color: "var(--st-offline)", bgColor: "var(--st-offline-bg)", status: "offline" },
+440:              animate={{ width: total > 0 ? `${(row.count / total) * 100}%` : "0%" }}
+452:  offline: <WifiOff className="h-4 w-4" />,
+459:  offline: { color: "var(--st-offline)", bg: "var(--st-offline-bg)" },
+466:  const c = EXC_COLORS[exception.type] ?? EXC_COLORS.offline;
+469:      href={`/tracking?focus=${exception.id}`}
+482:            status={exception.type === "offline" ? "offline" : exception.type === "delayed" ? "delayed" : "driving"}
+499:      href={href}
+510:  task_complete: "var(--st-driving)",
+511:  task_start: "var(--brand)",
+512:  alert: "var(--st-offline)",
+516:function ActivityRow({ item }: { item: { id: number; type: string; unit: string; message: string; time: string; icon: React.ReactNode; alert?: boolean } }) {
+550:        vehicles: MapVehicle[];

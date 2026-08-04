@@ -1,44 +1,14 @@
-# Dependencies
 node_modules/
+.venv/
+venv/
 __pycache__/
-*.pyc
-
-# Next.js
+*.db
 .next/
-out/
-build/
-
-# Environment
+.DS_Store
+docs/_backup/
 .env
 .env.local
 .env.*.local
-
-# Logs
-*.log
-npm-debug.log*
-
-# Database
-*.db
-*.sqlite
-
-# Editor
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Build artifacts
-dist/
-*.egg-info/
-
-# Temporary files
-*.tmp
-*.temp
-PLAN.md
+frontend/.env.local
 explore-*.js
-tramos-*.js
 tramos-login.js

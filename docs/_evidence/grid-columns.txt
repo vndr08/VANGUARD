@@ -1,0 +1,3 @@
+./frontend/src/app/(app)/tasks/page.tsx:273: grid-cols-[380px_1fr]
+./frontend/src/app/(app)/tracking/page.tsx:534: grid-cols-[280px_1fr]
+./frontend/src/app/(app)/history/page.tsx:685: grid-cols-[1fr_420px]
