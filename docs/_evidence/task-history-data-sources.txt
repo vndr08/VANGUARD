@@ -1,0 +1,21 @@
+frontend/src/app/(app)/tasks/page.tsx:43:const TASKS: Task[] = [
+frontend/src/app/(app)/tasks/page.tsx:96:  const [tasks] = useState<Task[]>(TASKS);
+frontend/src/app/(app)/history/page.tsx:193:const REPLAY_VEHICLES: ReplayVehicle[] = [
+frontend/src/app/(app)/history/page.tsx:591:  const selectedVehicle = REPLAY_VEHICLES.find(v => v.id === selectedVehicleId) ?? REPLAY_VEHICLES[0];
+frontend/src/app/(app)/history/page.tsx:620:  function handleVehicleChange(id: number) { setSelectedVehicleId(id); setPlaying(false); setProgress(0); info("Unit dipilih", REPLAY_VEHICLES.find(v => v.id === id)?.plate_number ?? ""); }
+frontend/src/app/(app)/history/page.tsx:642:            <p className="text-xs text-muted mt-0.5 tabular-nums">{dateRange} · {REPLAY_VEHICLES.length} unit</p>
+frontend/src/app/(app)/history/page.tsx:654:            {REPLAY_VEHICLES.map(v => <option key={v.id} value={v.id}>{v.plate_number} — {v.driver_name}</option>)}
+frontend/src/lib/mock-data.ts:43:/* ─── Extended mock: MapVehicle (with interpolated positions) ─────────────── */
+frontend/src/lib/mock-data.ts:160:export const MOCK_TASKS: Record<number, TaskInfo> = {
+frontend/src/lib/mock-data.ts:205:  const task = MOCK_TASKS[vehicleId];
+frontend/src/lib/api.ts:4: * Current: Mock data (lib/mock-data.ts)
+frontend/src/lib/api.ts:30:      // TODO: GET /v1/vehicles → replace mock
+frontend/src/lib/api.ts:31:      const { MOCK_VEHICLES } = await import("@/lib/mock-data");
+frontend/src/lib/api.ts:35:      // TODO: GET /v1/vehicles/:id → replace mock
+frontend/src/lib/api.ts:36:      const { MOCK_VEHICLES } = await import("@/lib/mock-data");
+frontend/src/lib/api.ts:42:      // TODO: GET /v1/tasks → replace mock
+frontend/src/lib/api.ts:43:      const { MOCK_TASKS } = await import("@/lib/mock-data");
+frontend/src/lib/api.ts:44:      return Object.values(MOCK_TASKS);
+frontend/src/lib/api.ts:47:      // TODO: GET /v1/tasks?vehicle_id=:id → replace mock
+frontend/src/lib/api.ts:48:      const { MOCK_TASKS } = await import("@/lib/mock-data");
+frontend/src/lib/api.ts:49:      return MOCK_TASKS[vehicleId] ?? null;

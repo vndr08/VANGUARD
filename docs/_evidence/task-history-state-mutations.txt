@@ -1,0 +1,29 @@
+frontend/src/app/(app)/tasks/page.tsx:98:  const [selectedId, setSelectedId] = useState<string | null>(null);
+frontend/src/app/(app)/tasks/page.tsx:117:  const [filter, setFilter] = useState<TaskStatus | "all">("all");
+frontend/src/app/(app)/tasks/page.tsx:119:  const [sortKey, setSortKey] = useState<SortKey>("time");
+frontend/src/app/(app)/tasks/page.tsx:120:  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+frontend/src/app/(app)/tasks/page.tsx:121:  const [refreshing, setRefreshing] = useState(false);
+frontend/src/app/(app)/tasks/page.tsx:171:    if (sortKey === key) setSortDir(d => d === "asc" ? "desc" : "desc");
+frontend/src/app/(app)/tasks/page.tsx:172:    else { setSortKey(key); setSortDir("asc"); }
+frontend/src/app/(app)/tasks/page.tsx:176:    setRefreshing(true);
+frontend/src/app/(app)/tasks/page.tsx:177:    setTimeout(() => { setLastRefresh(new Date()); setRefreshing(false); success("Data diperbarui", `${tasks.length} tugas dimuat`); }, 800);
+frontend/src/app/(app)/tasks/page.tsx:181:    setSelectedId(id);
+frontend/src/app/(app)/tasks/page.tsx:187:    setSelectedId(id);
+frontend/src/app/(app)/tasks/page.tsx:251:          onClick={() => { setFilter("all"); info("Filter", "Semua status"); }}
+frontend/src/app/(app)/tasks/page.tsx:261:            onClick={() => { setFilter(s); info("Filter status", STATUS_META[s].label); }}
+frontend/src/app/(app)/tasks/page.tsx:389:                    onClick={() => setSelectedId(null)}
+frontend/src/app/(app)/history/page.tsx:583:  const [selectedVehicleId, setSelectedVehicleId] = useState<number>(1);
+frontend/src/app/(app)/history/page.tsx:584:  const [dateRange, setDateRange] = useState("20 Jun 2026");
+frontend/src/app/(app)/history/page.tsx:586:  const [playing, setPlaying] = useState(false);
+frontend/src/app/(app)/history/page.tsx:588:  const [progress, setProgress] = useState(0);
+frontend/src/app/(app)/history/page.tsx:589:  const [refreshing, setRefreshing] = useState(false);
+frontend/src/app/(app)/history/page.tsx:604:        setProgress(p => { const next = p + (0.5 / totalDurationSec); return next >= 1 ? (setPlaying(false), 1) : next; });
+frontend/src/app/(app)/history/page.tsx:612:  function handlePlayPause() { setPlaying(p => !p); success(playing ? "Dipause" : "Diputar", `Playback ${playing ? "dihentikan" : "dijalankan"} — ${speed}x`); }
+frontend/src/app/(app)/history/page.tsx:613:  function handleReset() { setPlaying(false); setProgress(0); info("Reset", "Playback dikembalikan ke awal"); }
+frontend/src/app/(app)/history/page.tsx:614:  function handleStepBack() { setPlaying(false); setProgress(p => Math.max(0, p - 10 / totalDurationSec)); info("Step", "Mundur 10%"); }
+frontend/src/app/(app)/history/page.tsx:615:  function handleStepForward() { setPlaying(false); setProgress(p => Math.min(1, p + 10 / totalDurationSec)); info("Step", "Maju 10%"); }
+frontend/src/app/(app)/history/page.tsx:617:  function handleScrub(e: React.ChangeEvent<HTMLInputElement>) { setPlaying(false); setProgress(Number(e.target.value)); }
+frontend/src/app/(app)/history/page.tsx:618:  function handleRefresh() { setRefreshing(true); setTimeout(() => { setRefreshing(false); success("Data dimuat", `${selectedVehicle.plate_number} — ${dateRange}`); }, 800); }
+frontend/src/app/(app)/history/page.tsx:620:  function handleVehicleChange(id: number) { setSelectedVehicleId(id); setPlaying(false); setProgress(0); info("Unit dipilih", REPLAY_VEHICLES.find(v => v.id === id)?.plate_number ?? ""); }
+frontend/src/app/(app)/history/page.tsx:621:  function handleEventClick(timeSec: number) { setPlaying(false); setProgress(timeSec / totalDurationSec); }
+frontend/src/app/(app)/history/page.tsx:661:            onChange={e => setDateRange(e.target.value)}

@@ -1,0 +1,39 @@
+frontend/src/app/(app)/tasks/page.tsx:227:          <button
+frontend/src/app/(app)/tasks/page.tsx:228:            onClick={handleRefresh}
+frontend/src/app/(app)/tasks/page.tsx:229:            disabled={refreshing}
+frontend/src/app/(app)/tasks/page.tsx:236:          <button
+frontend/src/app/(app)/tasks/page.tsx:237:            onClick={() => setShowAddPanel(true)}
+frontend/src/app/(app)/tasks/page.tsx:239:            aria-label="Tambah tugas baru"
+frontend/src/app/(app)/tasks/page.tsx:250:        <button
+frontend/src/app/(app)/tasks/page.tsx:251:          onClick={() => { setFilter("all"); info("Filter", "Semua status"); }}
+frontend/src/app/(app)/tasks/page.tsx:259:          <button
+frontend/src/app/(app)/tasks/page.tsx:261:            onClick={() => { setFilter(s); info("Filter status", STATUS_META[s].label); }}
+frontend/src/app/(app)/tasks/page.tsx:309:                    <button
+frontend/src/app/(app)/tasks/page.tsx:311:                      onClick={() => handleSelect(task.id)}
+frontend/src/app/(app)/tasks/page.tsx:356:                  title="Tidak ada tugas"
+frontend/src/app/(app)/tasks/page.tsx:388:                  <button
+frontend/src/app/(app)/tasks/page.tsx:389:                    onClick={() => setSelectedId(null)}
+frontend/src/app/(app)/tasks/page.tsx:391:                    aria-label="Tutup detail"
+frontend/src/app/(app)/tasks/page.tsx:419:                title="Pilih tugas untuk lihat rute"
+frontend/src/app/(app)/tasks/page.tsx:431:        title="Tugas Baru"
+frontend/src/app/(app)/tasks/page.tsx:432:        subtitle="Tambah misi pengiriman"
+frontend/src/app/(app)/tasks/page.tsx:436:            <button
+frontend/src/app/(app)/tasks/page.tsx:437:              onClick={() => setShowAddPanel(false)}
+frontend/src/app/(app)/tasks/page.tsx:442:            <button
+frontend/src/app/(app)/tasks/page.tsx:443:              onClick={handleAddTask}
+frontend/src/app/(app)/tasks/page.tsx:444:              disabled={!newTask.vehicle || !newTask.task}
+frontend/src/app/(app)/tasks/page.tsx:461:              aria-label="Plat nomor kendaraan"
+frontend/src/app/(app)/tasks/page.tsx:472:              aria-label="Nama driver"
+frontend/src/app/(app)/tasks/page.tsx:483:              aria-label="Group atau pool"
+frontend/src/app/(app)/tasks/page.tsx:494:              aria-label="Nama tugas"
+frontend/src/app/(app)/tasks/page.tsx:501:                <button
+frontend/src/app/(app)/tasks/page.tsx:503:                  onClick={() => setNewTask(prev => ({ ...prev, tripType: t as "Pre-Task" | "Main Task" | "Return" }))}
+frontend/src/app/(app)/tasks/page.tsx:524:              aria-label="Lokasi asal"
+frontend/src/app/(app)/tasks/page.tsx:535:              aria-label="Lokasi tujuan"
+frontend/src/app/(app)/tasks/page.tsx:546:              aria-label="Jadwal pengiriman"
+frontend/src/app/(app)/tasks/page.tsx:598:        <button
+frontend/src/app/(app)/tasks/page.tsx:599:          onClick={onStart}
+frontend/src/app/(app)/tasks/page.tsx:601:          title={`Mulai ${label}`}
+frontend/src/app/(app)/tasks/page.tsx:605:        <button
+frontend/src/app/(app)/tasks/page.tsx:606:          onClick={onEnd}
+frontend/src/app/(app)/tasks/page.tsx:608:          title={`Akhiri ${label}`}

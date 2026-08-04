@@ -1,0 +1,125 @@
+frontend/src/app/(app)/tasks/page.tsx:17:import type { TaskRouteData } from "@/components/map/TaskRouteMap";
+frontend/src/app/(app)/tasks/page.tsx:21:  loading: () => (
+frontend/src/app/(app)/tasks/page.tsx:25:        <p className="text-sm text-muted">Memuat peta...</p>
+frontend/src/app/(app)/tasks/page.tsx:31:type TaskStatus = "waiting" | "assigned" | "progress" | "unloading" | "completed";
+frontend/src/app/(app)/tasks/page.tsx:33:interface Task {
+frontend/src/app/(app)/tasks/page.tsx:34:  id: string; vehicle: string; driver: string; group: string; time: string;
+frontend/src/app/(app)/tasks/page.tsx:35:  tripType: "Pre-Task" | "Main Task" | "Return"; status: TaskStatus;
+frontend/src/app/(app)/tasks/page.tsx:40:  eta: string; schedule: string; startAt: string;
+frontend/src/app/(app)/tasks/page.tsx:43:const TASKS: Task[] = [
+frontend/src/app/(app)/tasks/page.tsx:44:  { id: "1", vehicle: "B 9068 NU", driver: "Nana Sutrisna", group: "CDDL BEKASI", time: "Jun 01, 18:10", tripType: "Main Task", status: "unloading", task: "PLI - DEPOK", taskRef: "5410295521", trip: "PLI - DEPOK", origin: "PLI DMG", destination: "PTT DPK", originCoords: [-6.1751, 106.8650], destCoords: [-6.4023, 106.7947], currentCoords: [-6.4010, 106.7950], distance: 28.5, traveled: 27.2, avgSpeed: 42, eta: "18:45", schedule: "08:00 - 20:00", startAt: "08:15" },
+frontend/src/app/(app)/tasks/page.tsx:45:  { id: "2", vehicle: "B 9218 GV", driver: "Ahmad Dahlan", group: "CDE BEKASI", time: "Jun 01, 17:55", tripType: "Main Task", status: "progress", task: "TNF - BEKASI", taskRef: "5410295522", trip: "TNF - BEKASI", origin: "TNF Warehouse", destination: "Bekasi DC", originCoords: [-6.2388, 106.9200], destCoords: [-6.2339, 106.9920], currentCoords: [-6.2350, 106.9500], distance: 15.2, traveled: 9.8, avgSpeed: 55, eta: "18:30", schedule: "07:00 - 19:00", startAt: "07:20" },
+frontend/src/app/(app)/tasks/page.tsx:46:  { id: "3", vehicle: "B 9544 SYO", driver: "Budi Santoso", group: "FULL BOX BEKASI", time: "Jun 01, 16:40", tripType: "Main Task", status: "progress", task: "PLI - JKT1", taskRef: "5410295523", trip: "PLI - JKT1", origin: "PLI Central", destination: "JKT1 Hub", originCoords: [-6.1751, 106.8650], destCoords: [-6.1500, 106.8200], currentCoords: [-6.1650, 106.8400], distance: 8.5, traveled: 5.2, avgSpeed: 38, eta: "17:30", schedule: "06:00 - 18:00", startAt: "06:30" },
+frontend/src/app/(app)/tasks/page.tsx:47:  { id: "4", vehicle: "BA 8329 QY", driver: "Cahyo Wibowo", group: "CDDL BEKASI", time: "Jun 01, 15:20", tripType: "Return", status: "waiting", task: "BKS - LAMPUNG", taskRef: "5410295524", trip: "BKS - LAMPUNG", origin: "BKS Pool", destination: "Lampung Port", originCoords: [-6.2500, 106.9900], destCoords: [-5.4500, 105.2700], currentCoords: [-6.2500, 106.9900], distance: 285.0, traveled: 0, avgSpeed: 0, eta: "20:00", schedule: "05:00 - 22:00", startAt: "Pending" },
+frontend/src/app/(app)/tasks/page.tsx:48:  { id: "5", vehicle: "B 9001 SXS", driver: "Dedi Kurniawan", group: "CDE BEKASI", time: "Jun 01, 14:10", tripType: "Pre-Task", status: "progress", task: "CIK - KEDIRI", taskRef: "5410295525", trip: "CIK - KEDIRI", origin: "Cikarang", destination: "Kediri", originCoords: [-6.4500, 107.1500], destCoords: [-7.8480, 112.0170], currentCoords: [-6.8000, 108.5000], distance: 450.0, traveled: 180.5, avgSpeed: 62, eta: "23:00", schedule: "00:00 - 24:00", startAt: "00:30" },
+frontend/src/app/(app)/tasks/page.tsx:49:  { id: "6", vehicle: "B 9002 SXS", driver: "Eko Prasetyo", group: "FULL BOX PALEMBANG", time: "Jun 01, 13:00", tripType: "Main Task", status: "unloading", task: "KLN - SURABAYA", taskRef: "5410295526", trip: "KLN - SURABAYA", origin: "KALINDAK", destination: "Surabaya DC", originCoords: [-3.0500, 114.9200], destCoords: [-7.2500, 112.7500], currentCoords: [-7.2480, 112.7520], distance: 520.0, traveled: 518.5, avgSpeed: 58, eta: "Completed", schedule: "12:00 - 18:00", startAt: "12:30" },
+frontend/src/app/(app)/tasks/page.tsx:50:  { id: "7", vehicle: "B 9997 SXR", driver: "Fajar Ramadhan", group: "CDDL BEKASI", time: "Jun 01, 12:30", tripType: "Main Task", status: "progress", task: "BKS - PURBALINGGA", taskRef: "5410295527", trip: "BKS - PURBALINGGA", origin: "Bekasi", destination: "Purbalingga", originCoords: [-6.2339, 106.9920], destCoords: [-7.4300, 109.3600], currentCoords: [-6.9000, 108.2000], distance: 185.0, traveled: 95.0, avgSpeed: 48, eta: "19:30", schedule: "08:00 - 20:00", startAt: "08:45" },
+frontend/src/app/(app)/tasks/page.tsx:51:  { id: "8", vehicle: "BG 8221 NK", driver: "Gunawan Hadi", group: "CDE BEKASI", time: "Jun 01, 11:15", tripType: "Main Task", status: "assigned", task: "CIK - JOGJA", taskRef: "5410295528", trip: "CIK - JOGJA", origin: "Cikarang", destination: "Yogyakarta", originCoords: [-6.4500, 107.1500], destCoords: [-7.7970, 110.3610], currentCoords: [-6.4500, 107.1500], distance: 420.0, traveled: 0, avgSpeed: 0, eta: "22:00", schedule: "10:00 - 23:00", startAt: "Pending" },
+frontend/src/app/(app)/tasks/page.tsx:52:  { id: "9", vehicle: "BG 8292 NK", driver: "Hendra Wijaya", group: "FULL BOX BEKASI", time: "Jun 01, 10:00", tripType: "Main Task", status: "progress", task: "TNG - SEMARANG", taskRef: "5410295529", trip: "TNG - SEMARANG", origin: "Tangerang", destination: "Semarang", originCoords: [-6.1780, 106.6300], destCoords: [-6.9670, 110.4200], currentCoords: [-6.5000, 108.3000], distance: 380.0, traveled: 175.0, avgSpeed: 65, eta: "20:00", schedule: "06:00 - 21:00", startAt: "06:30" },
+frontend/src/app/(app)/tasks/page.tsx:53:  { id: "10", vehicle: "B 9068 NU", driver: "Irfan Hakim", group: "CDDL BEKASI", time: "Jun 01, 09:00", tripType: "Main Task", status: "completed", task: "JKT - BANDUNG", taskRef: "5410295530", trip: "JKT - BANDUNG", origin: "Jakarta", destination: "Bandung", originCoords: [-6.1751, 106.8650], destCoords: [-6.9175, 107.6190], currentCoords: [-6.9180, 107.6200], distance: 125.0, traveled: 123.5, avgSpeed: 52, eta: "Completed", schedule: "07:00 - 12:00", startAt: "07:15" },
+frontend/src/app/(app)/tasks/page.tsx:71:    vehicle: task.vehicle, driver: task.driver, task: task.task,
+frontend/src/app/(app)/tasks/page.tsx:72:    status: task.status, speed: task.avgSpeed,
+frontend/src/app/(app)/tasks/page.tsx:81:const STATUS_ORDER: TaskStatus[] = ["progress", "unloading", "assigned", "waiting", "completed"];
+frontend/src/app/(app)/tasks/page.tsx:84:  progress:   { label: "Berlangsung", colorVar: "var(--st-driving)", dotColor: "var(--st-driving)" },
+frontend/src/app/(app)/tasks/page.tsx:85:  unloading:  { label: "Bongkar",     colorVar: "var(--st-idle)",   dotColor: "var(--st-idle)" },
+frontend/src/app/(app)/tasks/page.tsx:91:type SortKey = "time" | "vehicle" | "status" | "distance";
+frontend/src/app/(app)/tasks/page.tsx:96:  const [tasks] = useState<Task[]>(TASKS);
+frontend/src/app/(app)/tasks/page.tsx:100:    vehicle: string; driver: string; group: string; task: string; taskRef: string;
+frontend/src/app/(app)/tasks/page.tsx:104:    vehicle: "", driver: "", group: "", task: "", taskRef: "",
+frontend/src/app/(app)/tasks/page.tsx:109:    if (!newTask.vehicle || !newTask.task || !newTask.origin || !newTask.destination) {
+frontend/src/app/(app)/tasks/page.tsx:112:    success("Tugas ditambahkan", `Tugas ${newTask.task} untuk ${newTask.vehicle} berhasil dibuat.`);
+frontend/src/app/(app)/tasks/page.tsx:114:    setNewTask({ vehicle: "", driver: "", group: "", task: "", taskRef: "", origin: "", destination: "", schedule: "", tripType: "Main Task" });
+frontend/src/app/(app)/tasks/page.tsx:125:  const sedang = useAnimatedNumber(tasks.filter(t => t.status === "progress" || t.status === "unloading").length, 900);
+frontend/src/app/(app)/tasks/page.tsx:133:      const matchSearch = !q || t.vehicle.toLowerCase().includes(q) || t.driver.toLowerCase().includes(q)
+frontend/src/app/(app)/tasks/page.tsx:142:      else if (sortKey === "vehicle")  { av = a.vehicle; bv = b.vehicle; }
+frontend/src/app/(app)/tasks/page.tsx:152:    const c: Record<TaskStatus | "all", number> = { all: tasks.length, waiting: 0, assigned: 0, progress: 0, unloading: 0, completed: 0 };
+frontend/src/app/(app)/tasks/page.tsx:183:    if (t) info("Tugas dipilih", `${t.vehicle} — ${t.task}`);
+frontend/src/app/(app)/tasks/page.tsx:190:  function handleStartTrip(taskId: string, etape: string) {
+frontend/src/app/(app)/tasks/page.tsx:191:    success("Trip dimulai", `${etape} — ${tasks.find(t => t.id === taskId)?.vehicle ?? ""}`);
+frontend/src/app/(app)/tasks/page.tsx:194:  function handleEndTrip(taskId: string, etape: string) {
+frontend/src/app/(app)/tasks/page.tsx:195:    success("Trip selesai", `${etape} — ${tasks.find(t => t.id === taskId)?.vehicle ?? ""}`);
+frontend/src/app/(app)/tasks/page.tsx:198:  const progress = selectedTask ? Math.round((selectedTask.traveled / selectedTask.distance) * 100) : 0;
+frontend/src/app/(app)/tasks/page.tsx:285:                onChange={e => setSearch(e.target.value)}
+frontend/src/app/(app)/tasks/page.tsx:286:                placeholder="Cari plat, driver, rute..."
+frontend/src/app/(app)/tasks/page.tsx:320:                          {task.vehicle}
+frontend/src/app/(app)/tasks/page.tsx:364:        {/* ── KANAN: Map + Detail ───────────────────────────────────────────── */}
+frontend/src/app/(app)/tasks/page.tsx:372:              {/* Trip Detail Overlay */}
+frontend/src/app/(app)/tasks/page.tsx:383:                      <span className="font-mono text-sm font-semibold tabular-nums text-foreground">{selectedTask?.vehicle}</span>
+frontend/src/app/(app)/tasks/page.tsx:391:                    aria-label="Tutup detail"
+frontend/src/app/(app)/tasks/page.tsx:401:                  <MetricCell icon={<Clock className="h-3.5 w-3.5" />} label="ETA" value={selectedTask?.eta ?? "—"} mono />
+frontend/src/app/(app)/tasks/page.tsx:420:                description="Klik tugas di panel kiri untuk melihat rute perjalanan dan detail trip."
+frontend/src/app/(app)/tasks/page.tsx:444:              disabled={!newTask.vehicle || !newTask.task}
+frontend/src/app/(app)/tasks/page.tsx:457:              value={newTask.vehicle}
+frontend/src/app/(app)/tasks/page.tsx:458:              onChange={e => setNewTask(t => ({ ...t, vehicle: e.target.value }))}
+frontend/src/app/(app)/tasks/page.tsx:468:              value={newTask.driver}
+frontend/src/app/(app)/tasks/page.tsx:469:              onChange={e => setNewTask(t => ({ ...t, driver: e.target.value }))}
+frontend/src/app/(app)/tasks/page.tsx:470:              placeholder="Nama driver"
+frontend/src/app/(app)/tasks/page.tsx:472:              aria-label="Nama driver"
+frontend/src/app/(app)/tasks/page.tsx:480:              onChange={e => setNewTask(t => ({ ...t, group: e.target.value }))}
+frontend/src/app/(app)/tasks/page.tsx:491:              onChange={e => setNewTask(t => ({ ...t, task: e.target.value }))}
+frontend/src/app/(app)/tasks/page.tsx:521:              onChange={e => setNewTask(t => ({ ...t, origin: e.target.value }))}
+frontend/src/app/(app)/tasks/page.tsx:532:              onChange={e => setNewTask(t => ({ ...t, destination: e.target.value }))}
+frontend/src/app/(app)/tasks/page.tsx:543:              onChange={e => setNewTask(t => ({ ...t, schedule: e.target.value }))}
+frontend/src/lib/mock-data.ts:2:import type { MapVehicle, TaskInfo, RouteMarker, LngLat } from "@/components/map/types";
+frontend/src/lib/mock-data.ts:5:  { id: 1, plate_number: "B 1234 KJT", vehicle_type: "truck", brand: "Hino", model: "Ranger FL 235 JW", year: 2022, status: "driving", speed: 67.2, latitude: -6.2088, longitude: 106.8456, heading: 45, engine_on: true, fuel_level: 72.5, odometer: 145230, last_update: new Date().toISOString(), driver_name: "Ahmad Sudirman" },
+frontend/src/lib/mock-data.ts:6:  { id: 2, plate_number: "B 5678 TGP", vehicle_type: "truck", brand: "Mitsubishi", model: "Colt Diesel FE 74 HD", year: 2021, status: "driving", speed: 82.1, latitude: -6.3020, longitude: 107.1514, heading: 120, engine_on: true, fuel_level: 58.3, odometer: 203100, last_update: new Date().toISOString(), driver_name: "Budi Santoso" },
+frontend/src/lib/mock-data.ts:7:  { id: 3, plate_number: "B 9012 XYZ", vehicle_type: "truck", brand: "Isuzu", model: "Giga FVZ 34 P", year: 2023, status: "stopped", speed: 0, latitude: -6.9175, longitude: 107.6191, heading: 200, engine_on: false, fuel_level: 45.0, odometer: 89450, last_update: new Date().toISOString(), driver_name: "Cahyo Wibowo" },
+frontend/src/lib/mock-data.ts:8:  { id: 4, plate_number: "L 3456 ABC", vehicle_type: "truck", brand: "UD Trucks", model: "Quester CDE 280", year: 2022, status: "driving", speed: 55.8, latitude: -6.9666, longitude: 110.4196, heading: 310, engine_on: true, fuel_level: 81.2, odometer: 167800, last_update: new Date().toISOString(), driver_name: "Dedi Kurniawan" },
+frontend/src/lib/mock-data.ts:9:  { id: 5, plate_number: "L 7890 DEF", vehicle_type: "truck", brand: "Hino", model: "500 FM 260 JD", year: 2020, status: "idle", speed: 0, latitude: -7.2575, longitude: 112.7521, heading: 90, engine_on: true, fuel_level: 33.7, odometer: 312000, last_update: new Date().toISOString(), driver_name: "Eko Prasetyo" },
+frontend/src/lib/mock-data.ts:10:  { id: 6, plate_number: "H 2345 GHI", vehicle_type: "truck", brand: "Mercedes-Benz", model: "Actros 2645 LS", year: 2023, status: "driving", speed: 71.5, latitude: -6.7320, longitude: 108.5523, heading: 180, engine_on: true, fuel_level: 66.9, odometer: 54200, last_update: new Date().toISOString(), driver_name: "Fajar Ramadhan" },
+frontend/src/lib/mock-data.ts:11:  { id: 7, plate_number: "D 6789 JKL", vehicle_type: "truck", brand: "Mitsubishi", model: "Colt Diesel FE 71", year: 2019, status: "stopped", speed: 0, latitude: -6.3106, longitude: 107.3383, heading: 270, engine_on: false, fuel_level: 92.1, odometer: 410500, last_update: new Date().toISOString(), driver_name: "Gunawan Hadi" },
+frontend/src/lib/mock-data.ts:12:  { id: 8, plate_number: "B 1357 MNO", vehicle_type: "trailer", brand: "Hino", model: "Ranger FL 235 JW", year: 2021, status: "driving", speed: 48.3, latitude: -6.1850, longitude: 106.9020, heading: 35, engine_on: true, fuel_level: 55.4, odometer: 198700, last_update: new Date().toISOString(), driver_name: "Hendra Wijaya" },
+frontend/src/lib/mock-data.ts:13:  { id: 9, plate_number: "B 2468 PQR", vehicle_type: "truck", brand: "Isuzu", model: "Elf NMR 71 HD", year: 2022, status: "stopped", speed: 0, latitude: -6.2650, longitude: 106.7800, heading: 150, engine_on: false, fuel_level: 78.8, odometer: 122300, last_update: new Date().toISOString(), driver_name: "Irfan Hakim" },
+frontend/src/lib/mock-data.ts:14:  { id: 10, plate_number: "L 1122 STU", vehicle_type: "truck", brand: "Hino", model: "Dutro 130 MDL", year: 2020, status: "driving", speed: 63.7, latitude: -7.2800, longitude: 112.7200, heading: 220, engine_on: true, fuel_level: 41.2, odometer: 278900, last_update: new Date().toISOString(), driver_name: "Joko Susilo" },
+frontend/src/lib/mock-data.ts:15:  { id: 11, plate_number: "B 3344 VWX", vehicle_type: "truck", brand: "UD Trucks", model: "Kuzer RKE 150", year: 2023, status: "idle", speed: 0, latitude: -6.2200, longitude: 106.8800, heading: 0, engine_on: true, fuel_level: 88.5, odometer: 35600, last_update: new Date().toISOString(), driver_name: "Kurnia Adi" },
+frontend/src/lib/mock-data.ts:16:  { id: 12, plate_number: "H 5566 YZA", vehicle_type: "truck", brand: "Mitsubishi", model: "Colt Diesel FE 84G", year: 2021, status: "stopped", speed: 0, latitude: -6.9800, longitude: 110.4500, heading: 90, engine_on: false, fuel_level: 67.3, odometer: 187400, last_update: new Date().toISOString(), driver_name: "Lukman Hakim" },
+frontend/src/lib/mock-data.ts:17:  { id: 13, plate_number: "B 7788 BCD", vehicle_type: "pickup", brand: "Toyota", model: "Hilux Double Cab 4x4", year: 2023, status: "driving", speed: 45.2, latitude: -6.1750, longitude: 106.8270, heading: 315, engine_on: true, fuel_level: 60.1, odometer: 28900, last_update: new Date().toISOString(), driver_name: "Muhammad Rizki" },
+frontend/src/lib/mock-data.ts:18:  { id: 14, plate_number: "D 9900 EFG", vehicle_type: "truck", brand: "Isuzu", model: "Giga FVM 34 W", year: 2022, status: "stopped", speed: 0, latitude: -6.9300, longitude: 107.5800, heading: 45, engine_on: false, fuel_level: 75.6, odometer: 98200, last_update: new Date().toISOString(), driver_name: "Nur Hidayat" },
+frontend/src/lib/mock-data.ts:19:  { id: 15, plate_number: "B 1100 HIJ", vehicle_type: "truck", brand: "Hino", model: "Ranger FM 260 JD", year: 2020, status: "driving", speed: 73.9, latitude: -6.3500, longitude: 107.0800, heading: 160, engine_on: true, fuel_level: 49.8, odometer: 356100, last_update: new Date().toISOString(), driver_name: "Oscar Pranata" },
+frontend/src/lib/mock-data.ts:20:  { id: 16, plate_number: "L 2200 KLM", vehicle_type: "truck", brand: "Mercedes-Benz", model: "Atego 1623", year: 2021, status: "idle", speed: 0, latitude: -7.2400, longitude: 112.7800, heading: 270, engine_on: true, fuel_level: 52.4, odometer: 201300, last_update: new Date().toISOString(), driver_name: "Putra Mahendra" },
+frontend/src/lib/mock-data.ts:21:  { id: 17, plate_number: "B 3300 NOP", vehicle_type: "trailer", brand: "UD Trucks", model: "Quester GWE 370", year: 2023, status: "driving", speed: 58.6, latitude: -6.2400, longitude: 106.9500, heading: 80, engine_on: true, fuel_level: 71.2, odometer: 67800, last_update: new Date().toISOString(), driver_name: "Rudi Hartono" },
+frontend/src/lib/mock-data.ts:22:  { id: 18, plate_number: "H 4400 QRS", vehicle_type: "truck", brand: "Mitsubishi", model: "Colt Diesel FE 74S", year: 2022, status: "stopped", speed: 0, latitude: -6.9500, longitude: 110.3800, heading: 135, engine_on: false, fuel_level: 83.7, odometer: 134500, last_update: new Date().toISOString(), driver_name: "Sugeng Priyanto" },
+frontend/src/lib/mock-data.ts:23:  { id: 19, plate_number: "B 5500 TUV", vehicle_type: "truck", brand: "Isuzu", model: "Elf NLR 55 BLX", year: 2021, status: "driving", speed: 39.4, latitude: -6.1900, longitude: 106.8100, heading: 250, engine_on: true, fuel_level: 44.6, odometer: 189200, last_update: new Date().toISOString(), driver_name: "Teguh Waluyo" },
+frontend/src/lib/mock-data.ts:24:  { id: 20, plate_number: "D 6600 WXY", vehicle_type: "truck", brand: "Hino", model: "Dutro 110 LD", year: 2020, status: "offline", speed: 0, latitude: -6.9000, longitude: 107.6500, heading: 0, engine_on: false, fuel_level: 15.2, odometer: 425600, last_update: new Date(Date.now() - 86400000).toISOString(), driver_name: "Umar Faruq" },
+frontend/src/lib/mock-data.ts:25:  { id: 21, plate_number: "B 7700 ZAB", vehicle_type: "truck", brand: "UD Trucks", model: "Kuzer RKE 150", year: 2023, status: "driving", speed: 76.3, latitude: -6.2750, longitude: 106.7100, heading: 190, engine_on: true, fuel_level: 62.8, odometer: 42100, last_update: new Date().toISOString(), driver_name: null },
+frontend/src/lib/mock-data.ts:26:  { id: 22, plate_number: "L 8800 CDE", vehicle_type: "truck", brand: "Hino", model: "500 FG 235 JP", year: 2022, status: "stopped", speed: 0, latitude: -7.3000, longitude: 112.6900, heading: 45, engine_on: false, fuel_level: 56.9, odometer: 156700, last_update: new Date().toISOString(), driver_name: null },
+frontend/src/lib/mock-data.ts:27:  { id: 23, plate_number: "B 9900 FGH", vehicle_type: "pickup", brand: "Mitsubishi", model: "Triton DC HDX 4x4", year: 2023, status: "driving", speed: 52.1, latitude: -6.2300, longitude: 106.8700, heading: 340, engine_on: true, fuel_level: 79.3, odometer: 18500, last_update: new Date().toISOString(), driver_name: null },
+frontend/src/lib/mock-data.ts:28:  { id: 24, plate_number: "H 1010 IJK", vehicle_type: "truck", brand: "Isuzu", model: "Giga FVR 34 P", year: 2021, status: "stopped", speed: 0, latitude: -6.9900, longitude: 110.4800, heading: 270, engine_on: false, fuel_level: 38.4, odometer: 267800, last_update: new Date().toISOString(), driver_name: null },
+frontend/src/lib/mock-data.ts:29:  { id: 25, plate_number: "B 2020 LMN", vehicle_type: "truck", brand: "Mercedes-Benz", model: "Axor 2528 R", year: 2022, status: "idle", speed: 0, latitude: -6.3200, longitude: 107.1200, heading: 180, engine_on: true, fuel_level: 47.1, odometer: 112400, last_update: new Date().toISOString(), driver_name: null },
+frontend/src/lib/mock-data.ts:33:  total_vehicles: 25,
+frontend/src/lib/mock-data.ts:38:  total_drivers: 20,
+frontend/src/lib/mock-data.ts:75:/* ─── Route data per vehicle ─────────────────────────────────────────────── */
+frontend/src/lib/mock-data.ts:160:export const MOCK_TASKS: Record<number, TaskInfo> = {
+frontend/src/lib/mock-data.ts:166:    vehiclePlate: "B 1234 KJT",
+frontend/src/lib/mock-data.ts:167:    vehicleBrand: "Hino Ranger FL 235 JW",
+frontend/src/lib/mock-data.ts:168:    driverName: "Ahmad Sudirman",
+frontend/src/lib/mock-data.ts:176:        status: "Progress",
+frontend/src/lib/mock-data.ts:185:    vehiclePlate: "B 5678 TGP",
+frontend/src/lib/mock-data.ts:186:    vehicleBrand: "Mitsubishi Colt Diesel FE 74 HD",
+frontend/src/lib/mock-data.ts:187:    driverName: "Budi Santoso",
+frontend/src/lib/mock-data.ts:195:        status: "Progress",
+frontend/src/lib/mock-data.ts:201:/* ─── Route markers per vehicle ──────────────────────────────────────────── */
+frontend/src/lib/mock-data.ts:202:export function getRouteMarkers(vehicleId: number): RouteMarker[] {
+frontend/src/lib/mock-data.ts:203:  const route = VEHICLE_ROUTES[vehicleId];
+frontend/src/lib/mock-data.ts:205:  const task = MOCK_TASKS[vehicleId];
+frontend/src/lib/mock-data.ts:213:export function generateTelemetryUpdate(vehicle: Vehicle): TelemetryUpdate {
+frontend/src/lib/mock-data.ts:216:    vehicle_id: vehicle.id,
+frontend/src/lib/mock-data.ts:217:    plate_number: vehicle.plate_number,
+frontend/src/lib/mock-data.ts:218:    latitude: (vehicle.latitude ?? 0) + drift(),
+frontend/src/lib/mock-data.ts:219:    longitude: (vehicle.longitude ?? 0) + drift(),
+frontend/src/lib/mock-data.ts:220:    speed: vehicle.status === "driving" ? Math.max(30, vehicle.speed + (Math.random() - 0.5) * 10) : vehicle.speed,
+frontend/src/lib/mock-data.ts:221:    heading: (vehicle.heading + (Math.random() - 0.5) * 5 + 360) % 360,
+frontend/src/lib/mock-data.ts:222:    status: vehicle.status,
+frontend/src/lib/mock-data.ts:223:    engine_on: vehicle.engine_on,
+frontend/src/lib/mock-data.ts:224:    fuel_level: Math.max(0, vehicle.fuel_level - Math.random() * 0.1),
+frontend/src/lib/api.ts:11:import type { WsTelemetryMessage, WsAlertMessage, TaskInfo } from "@/components/map/types";
+frontend/src/lib/api.ts:28:  vehicles: {
+frontend/src/lib/api.ts:30:      // TODO: GET /v1/vehicles → replace mock
+frontend/src/lib/api.ts:35:      // TODO: GET /v1/vehicles/:id → replace mock
+frontend/src/lib/api.ts:43:      const { MOCK_TASKS } = await import("@/lib/mock-data");
+frontend/src/lib/api.ts:46:    get: async (vehicleId: number): Promise<TaskInfo | null> => {
+frontend/src/lib/api.ts:47:      // TODO: GET /v1/tasks?vehicle_id=:id → replace mock
+frontend/src/lib/api.ts:48:      const { MOCK_TASKS } = await import("@/lib/mock-data");
+frontend/src/lib/api.ts:49:      return MOCK_TASKS[vehicleId] ?? null;
+frontend/src/lib/api.ts:62:  return fetchApi<import("@/types").Vehicle[]>("/api/vehicles");
+frontend/src/lib/api.ts:70:  return fetchApi<import("@/types").Vehicle>(`/api/vehicles/${id}`);

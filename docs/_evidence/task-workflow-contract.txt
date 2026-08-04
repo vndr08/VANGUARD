@@ -1,0 +1,44 @@
+frontend/src/app/(app)/tasks/page.tsx:4:import { useMemo, useState, useCallback } from "react";
+frontend/src/app/(app)/tasks/page.tsx:96:  const [tasks] = useState<Task[]>(TASKS);
+frontend/src/app/(app)/tasks/page.tsx:97:  const [showAddPanel, setShowAddPanel] = useState(false);
+frontend/src/app/(app)/tasks/page.tsx:98:  const [selectedId, setSelectedId] = useState<string | null>(null);
+frontend/src/app/(app)/tasks/page.tsx:99:  const [newTask, setNewTask] = useState<{
+frontend/src/app/(app)/tasks/page.tsx:108:  const handleAddTask = () => {
+frontend/src/app/(app)/tasks/page.tsx:116:  const [search, setSearch] = useState("");
+frontend/src/app/(app)/tasks/page.tsx:117:  const [filter, setFilter] = useState<TaskStatus | "all">("all");
+frontend/src/app/(app)/tasks/page.tsx:118:  const [lastRefresh, setLastRefresh] = useState(new Date());
+frontend/src/app/(app)/tasks/page.tsx:119:  const [sortKey, setSortKey] = useState<SortKey>("time");
+frontend/src/app/(app)/tasks/page.tsx:120:  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+frontend/src/app/(app)/tasks/page.tsx:121:  const [refreshing, setRefreshing] = useState(false);
+frontend/src/app/(app)/tasks/page.tsx:130:  const filtered = useMemo(() => {
+frontend/src/app/(app)/tasks/page.tsx:141:      if (sortKey === "time")     { av = a.time; bv = b.time; }
+frontend/src/app/(app)/tasks/page.tsx:142:      else if (sortKey === "vehicle")  { av = a.vehicle; bv = b.vehicle; }
+frontend/src/app/(app)/tasks/page.tsx:143:      else if (sortKey === "status")  { av = a.status; bv = b.status; }
+frontend/src/app/(app)/tasks/page.tsx:149:  }, [tasks, search, filter, sortKey, sortDir]);
+frontend/src/app/(app)/tasks/page.tsx:151:  const counts = useMemo(() => {
+frontend/src/app/(app)/tasks/page.tsx:157:  const grouped = useMemo(() => {
+frontend/src/app/(app)/tasks/page.tsx:166:  const selectedTask = selectedId ? filtered.find(t => t.id === selectedId) ?? null : null;
+frontend/src/app/(app)/tasks/page.tsx:167:  const routeData = selectedTask ? toRouteData(selectedTask) : null;
+frontend/src/app/(app)/tasks/page.tsx:170:  function handleSort(key: SortKey) {
+frontend/src/app/(app)/tasks/page.tsx:171:    if (sortKey === key) setSortDir(d => d === "asc" ? "desc" : "desc");
+frontend/src/app/(app)/tasks/page.tsx:175:  function handleRefresh() {
+frontend/src/app/(app)/tasks/page.tsx:180:  function handleSelect(id: string) {
+frontend/src/app/(app)/tasks/page.tsx:186:  function handleDoubleClick(id: string) {
+frontend/src/app/(app)/tasks/page.tsx:190:  function handleStartTrip(taskId: string, etape: string) {
+frontend/src/app/(app)/tasks/page.tsx:194:  function handleEndTrip(taskId: string, etape: string) {
+frontend/src/app/(app)/tasks/page.tsx:198:  const progress = selectedTask ? Math.round((selectedTask.traveled / selectedTask.distance) * 100) : 0;
+frontend/src/app/(app)/tasks/page.tsx:228:            onClick={handleRefresh}
+frontend/src/app/(app)/tasks/page.tsx:311:                      onClick={() => handleSelect(task.id)}
+frontend/src/app/(app)/tasks/page.tsx:312:                      onDoubleClick={() => handleDoubleClick(task.id)}
+frontend/src/app/(app)/tasks/page.tsx:369:                <TaskRouteMap task={routeData} />
+frontend/src/app/(app)/tasks/page.tsx:383:                      <span className="font-mono text-sm font-semibold tabular-nums text-foreground">{selectedTask?.vehicle}</span>
+frontend/src/app/(app)/tasks/page.tsx:384:                      <TaskStatusBadge status={selectedTask!.status} />
+frontend/src/app/(app)/tasks/page.tsx:386:                    <p className="text-xs text-muted mt-0.5 truncate">{selectedTask?.task} · {selectedTask?.tripType}</p>
+frontend/src/app/(app)/tasks/page.tsx:399:                  <MetricCell icon={<Navigation className="h-3.5 w-3.5" />} label="Jarak" value={`${selectedTask?.distance} km`} mono />
+frontend/src/app/(app)/tasks/page.tsx:400:                  <MetricCell icon={<Route className="h-3.5 w-3.5" />} label="Tempuh" value={`${selectedTask?.traveled} km`} mono />
+frontend/src/app/(app)/tasks/page.tsx:401:                  <MetricCell icon={<Clock className="h-3.5 w-3.5" />} label="ETA" value={selectedTask?.eta ?? "—"} mono />
+frontend/src/app/(app)/tasks/page.tsx:402:                  <MetricCell icon={<Truck className="h-3.5 w-3.5" />} label="Kecep. Rata" value={`${selectedTask?.avgSpeed} km/j`} mono />
+frontend/src/app/(app)/tasks/page.tsx:407:                  <TimelineButton label="Pre-Trip" active={selectedTask?.tripType === "Pre-Task"} onStart={() => handleStartTrip(selectedTask!.id, "Pre-Trip")} onEnd={() => handleEndTrip(selectedTask!.id, "Pre-Trip")} />
+frontend/src/app/(app)/tasks/page.tsx:409:                  <TimelineButton label="Main-Trip" active={selectedTask?.tripType === "Main Task"} onStart={() => handleStartTrip(selectedTask!.id, "Main-Trip")} onEnd={() => handleEndTrip(selectedTask!.id, "Main-Trip")} />
+frontend/src/app/(app)/tasks/page.tsx:411:                  <TimelineButton label="Return" active={selectedTask?.tripType === "Return"} onStart={() => handleStartTrip(selectedTask!.id, "Return")} onEnd={() => handleEndTrip(selectedTask!.id, "Return")} />
+frontend/src/app/(app)/tasks/page.tsx:443:              onClick={handleAddTask}

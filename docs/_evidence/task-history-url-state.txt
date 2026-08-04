@@ -1,0 +1,9 @@
+frontend/src/app/(app)/tasks/page.tsx:369:                <TaskRouteMap task={routeData} />
+frontend/src/app/(app)/history/page.tsx:691:            <TripReplayMap vehicle={selectedVehicle} progress={progress} />
+frontend/src/app/(app)/history/page.tsx:818:            {activeTab === "Timeline" && <TimelineTab vehicle={selectedVehicle} events={events} />}
+frontend/src/app/(app)/history/page.tsx:819:            {activeTab === "Detail" && <DetailTab vehicle={selectedVehicle} stats={stats} />}
+frontend/src/app/(app)/history/page.tsx:820:            {activeTab === "Engine" && <SegmentsTab vehicle={selectedVehicle} type="stop" label="Engine" />}
+frontend/src/app/(app)/history/page.tsx:821:            {activeTab === "Driving" && <SegmentsTab vehicle={selectedVehicle} type="driving" label="Berkendara" />}
+frontend/src/app/(app)/history/page.tsx:822:            {activeTab === "Idle" && <SegmentsTab vehicle={selectedVehicle} type="idle" label="Diam" />}
+frontend/src/app/(app)/history/page.tsx:823:            {activeTab === "Stop" && <SegmentsTab vehicle={selectedVehicle} type="stop" label="Berhenti" />}
+frontend/src/app/(app)/history/page.tsx:824:            {activeTab === "Speeding" && <SpeedingTab vehicle={selectedVehicle} />}

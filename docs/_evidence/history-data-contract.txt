@@ -1,0 +1,163 @@
+frontend/src/app/(app)/history/page.tsx:29:type TelemetryStatus = "driving" | "idle" | "stop";
+frontend/src/app/(app)/history/page.tsx:33:  lat: number;
+frontend/src/app/(app)/history/page.tsx:34:  lng: number;
+frontend/src/app/(app)/history/page.tsx:35:  heading: number;
+frontend/src/app/(app)/history/page.tsx:36:  speed: number;
+frontend/src/app/(app)/history/page.tsx:49:interface HistoryEvent {
+frontend/src/app/(app)/history/page.tsx:87:const EVENT_COLORS: Record<string, string> = {
+frontend/src/app/(app)/history/page.tsx:89:  stop: "var(--st-stop)",
+frontend/src/app/(app)/history/page.tsx:92:  speeding: "var(--st-delayed)",
+frontend/src/app/(app)/history/page.tsx:98:const EVENT_ICONS: Record<string, React.ReactNode> = {
+frontend/src/app/(app)/history/page.tsx:100:  stop: <Square className="w-3.5 h-3.5" />,
+frontend/src/app/(app)/history/page.tsx:103:  speeding: <AlertTriangle className="w-3.5 h-3.5" />,
+frontend/src/app/(app)/history/page.tsx:111:type LngLat = { lng: number; lat: number };
+frontend/src/app/(app)/history/page.tsx:115:    { lng: 106.8825, lat: -6.4021 },
+frontend/src/app/(app)/history/page.tsx:116:    { lng: 106.8440, lat: -6.3038 },
+frontend/src/app/(app)/history/page.tsx:117:    { lng: 106.8456, lat: -6.2088 },
+frontend/src/app/(app)/history/page.tsx:118:    { lng: 106.9911, lat: -6.1432 },
+frontend/src/app/(app)/history/page.tsx:119:    { lng: 106.9178, lat: -6.2356 },
+frontend/src/app/(app)/history/page.tsx:120:    { lng: 106.8305, lat: -6.4021 },
+frontend/src/app/(app)/history/page.tsx:123:    { lng: 107.1514, lat: -6.3020 },
+frontend/src/app/(app)/history/page.tsx:124:    { lng: 107.0200, lat: -6.2400 },
+frontend/src/app/(app)/history/page.tsx:125:    { lng: 106.8800, lat: -6.2000 },
+frontend/src/app/(app)/history/page.tsx:126:    { lng: 106.7600, lat: -6.1800 },
+frontend/src/app/(app)/history/page.tsx:127:    { lng: 106.6500, lat: -6.1500 },
+frontend/src/app/(app)/history/page.tsx:130:    { lng: 110.4196, lat: -6.9666 },
+frontend/src/app/(app)/history/page.tsx:131:    { lng: 110.3000, lat: -7.0100 },
+frontend/src/app/(app)/history/page.tsx:132:    { lng: 110.1500, lat: -7.0800 },
+frontend/src/app/(app)/history/page.tsx:133:    { lng: 110.0500, lat: -7.1500 },
+frontend/src/app/(app)/history/page.tsx:134:    { lng: 110.4196, lat: -7.5756 },
+frontend/src/app/(app)/history/page.tsx:137:    { lng: 108.5523, lat: -6.7320 },
+frontend/src/app/(app)/history/page.tsx:138:    { lng: 108.4000, lat: -6.6000 },
+frontend/src/app/(app)/history/page.tsx:139:    { lng: 108.2000, lat: -6.4500 },
+frontend/src/app/(app)/history/page.tsx:140:    { lng: 108.0000, lat: -6.3500 },
+frontend/src/app/(app)/history/page.tsx:141:    { lng: 106.8500, lat: -6.2088 },
+frontend/src/app/(app)/history/page.tsx:144:    { lng: 106.9020, lat: -6.1850 },
+frontend/src/app/(app)/history/page.tsx:145:    { lng: 106.8700, lat: -6.2000 },
+frontend/src/app/(app)/history/page.tsx:146:    { lng: 106.8000, lat: -6.2100 },
+frontend/src/app/(app)/history/page.tsx:147:    { lng: 106.7200, lat: -6.1800 },
+frontend/src/app/(app)/history/page.tsx:148:    { lng: 106.6500, lat: -6.1500 },
+frontend/src/app/(app)/history/page.tsx:165:    const heading = Math.atan2(lng2 - lng1, lat2 - lat1) * (180 / Math.PI);
+frontend/src/app/(app)/history/page.tsx:166:    const speedSegs = 12;
+frontend/src/app/(app)/history/page.tsx:167:    for (let j = 0; j < speedSegs; j++) {
+frontend/src/app/(app)/history/page.tsx:168:      const t = j / speedSegs;
+frontend/src/app/(app)/history/page.tsx:170:        time: i * segSecs + Math.floor((j * segSecs) / speedSegs),
+frontend/src/app/(app)/history/page.tsx:171:        lat: lerp(lat1, lat2, t),
+frontend/src/app/(app)/history/page.tsx:172:        lng: lerp(lng1, lng2, t),
+frontend/src/app/(app)/history/page.tsx:173:        heading: (heading + 360) % 360,
+frontend/src/app/(app)/history/page.tsx:174:        speed: Math.round(maxSpeed * (0.6 + 0.4 * Math.sin(t * Math.PI))),
+frontend/src/app/(app)/history/page.tsx:182:    lat: last.lat,
+frontend/src/app/(app)/history/page.tsx:183:    lng: last.lng,
+frontend/src/app/(app)/history/page.tsx:184:    heading: points[points.length - 1]?.heading ?? 0,
+frontend/src/app/(app)/history/page.tsx:185:    speed: 0,
+frontend/src/app/(app)/history/page.tsx:186:    status: "stop",
+frontend/src/app/(app)/history/page.tsx:193:const REPLAY_VEHICLES: ReplayVehicle[] = [
+frontend/src/app/(app)/history/page.tsx:258:    { id: "4", type: "speeding", label: "Tersenggol Jakart", location: "Kota Tinggi", time: "07:35", value: "71 km/j" },
+frontend/src/app/(app)/history/page.tsx:260:    { id: "6", type: "stop", label: "Sempat", location: "DC DEPO K", time: "09:00" },
+frontend/src/app/(app)/history/page.tsx:300:          lng: lerp(seg.lng, nextSeg.lng, segT),
+frontend/src/app/(app)/history/page.tsx:301:          lat: lerp(seg.lat, nextSeg.lat, segT),
+frontend/src/app/(app)/history/page.tsx:303:        const mh = lerpAngle(seg.heading, nextSeg.heading, segT);
+frontend/src/app/(app)/history/page.tsx:304:        const rc: LngLat[] = telemetry.map((p) => ({ lng: p.lng, lat: p.lat }));
+frontend/src/app/(app)/history/page.tsx:403:  if (!telemetry.length) return { distKm: 0, durasi: "0m", avgSpeed: 0, maxSpeed: 0, idleMin: 0, stopMin: 0 };
+frontend/src/app/(app)/history/page.tsx:412:  const stopMin = telemetry.filter(t => t.status === "stop").length;
+frontend/src/app/(app)/history/page.tsx:413:  const avgSpeed = telemetry.filter(t => t.speed > 0).reduce((s, t) => s + t.speed, 0) / Math.max(1, telemetry.filter(t => t.speed > 0).length);
+frontend/src/app/(app)/history/page.tsx:414:  const maxSpeed = Math.max(...telemetry.map(t => t.speed));
+frontend/src/app/(app)/history/page.tsx:506:              <td className="px-2 py-2 text-right font-mono text-xs tabular-nums text-foreground">{s.speed} km/j</td>
+frontend/src/app/(app)/history/page.tsx:516:  const violations = vehicle.telemetry.filter(t => t.speed > 80);
+frontend/src/app/(app)/history/page.tsx:517:  if (!violations.length) return <div className="flex flex-1 items-center justify-center"><EmptyState title="Tidak ada pelanggaran" description="Tidak ada data speeding untuk kendaraan ini." /></div>;
+frontend/src/app/(app)/history/page.tsx:525:              <p className="font-mono text-sm font-semibold tabular-nums text-foreground" style={{ color: "var(--st-delayed)" }}>{v.speed} km/j</p>
+frontend/src/app/(app)/history/page.tsx:558:  const alertEvents = events.filter(e => e.type !== "start" && e.type !== "stop" && e.type !== "engine_on" && e.type !== "engine_off");
+frontend/src/app/(app)/history/page.tsx:587:  const [speed, setSpeed] = useState<1 | 2 | 4>(1);
+frontend/src/app/(app)/history/page.tsx:591:  const selectedVehicle = REPLAY_VEHICLES.find(v => v.id === selectedVehicleId) ?? REPLAY_VEHICLES[0];
+frontend/src/app/(app)/history/page.tsx:605:      }, SPEEDS[speed]);
+frontend/src/app/(app)/history/page.tsx:610:  }, [playing, speed, totalDurationSec]);
+frontend/src/app/(app)/history/page.tsx:612:  function handlePlayPause() { setPlaying(p => !p); success(playing ? "Dipause" : "Diputar", `Playback ${playing ? "dihentikan" : "dijalankan"} — ${speed}x`); }
+frontend/src/app/(app)/history/page.tsx:718:                <p className="font-mono text-base font-bold tabular-nums" style={{ color: "var(--st-driving)" }}>{curTelemetry?.speed ?? 0} km/j</p>
+frontend/src/app/(app)/history/page.tsx:728:                <StatusPill status={curTelemetry?.status ?? "stop"} showIcon={false} className="text-[10px]" />
+frontend/src/app/(app)/history/page.tsx:780:                    className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all duration-100 focus-visible:outline-2 focus-visible:outline-brand ${
+frontend/src/app/(app)/history/page.tsx:781:                      speed === s ? "bg-surface-1 text-foreground shadow-sm" : "text-muted hover:text-foreground"
+frontend/src/app/(app)/history/page.tsx:783:                    aria-pressed={speed === s}
+frontend/src/app/(app)/history/page.tsx:820:            {activeTab === "Engine" && <SegmentsTab vehicle={selectedVehicle} type="stop" label="Engine" />}
+frontend/src/app/(app)/history/page.tsx:823:            {activeTab === "Stop" && <SegmentsTab vehicle={selectedVehicle} type="stop" label="Berhenti" />}
+frontend/src/lib/mock-data.ts:5:  { id: 1, plate_number: "B 1234 KJT", vehicle_type: "truck", brand: "Hino", model: "Ranger FL 235 JW", year: 2022, status: "driving", speed: 67.2, latitude: -6.2088, longitude: 106.8456, heading: 45, engine_on: true, fuel_level: 72.5, odometer: 145230, last_update: new Date().toISOString(), driver_name: "Ahmad Sudirman" },
+frontend/src/lib/mock-data.ts:6:  { id: 2, plate_number: "B 5678 TGP", vehicle_type: "truck", brand: "Mitsubishi", model: "Colt Diesel FE 74 HD", year: 2021, status: "driving", speed: 82.1, latitude: -6.3020, longitude: 107.1514, heading: 120, engine_on: true, fuel_level: 58.3, odometer: 203100, last_update: new Date().toISOString(), driver_name: "Budi Santoso" },
+frontend/src/lib/mock-data.ts:7:  { id: 3, plate_number: "B 9012 XYZ", vehicle_type: "truck", brand: "Isuzu", model: "Giga FVZ 34 P", year: 2023, status: "stopped", speed: 0, latitude: -6.9175, longitude: 107.6191, heading: 200, engine_on: false, fuel_level: 45.0, odometer: 89450, last_update: new Date().toISOString(), driver_name: "Cahyo Wibowo" },
+frontend/src/lib/mock-data.ts:8:  { id: 4, plate_number: "L 3456 ABC", vehicle_type: "truck", brand: "UD Trucks", model: "Quester CDE 280", year: 2022, status: "driving", speed: 55.8, latitude: -6.9666, longitude: 110.4196, heading: 310, engine_on: true, fuel_level: 81.2, odometer: 167800, last_update: new Date().toISOString(), driver_name: "Dedi Kurniawan" },
+frontend/src/lib/mock-data.ts:9:  { id: 5, plate_number: "L 7890 DEF", vehicle_type: "truck", brand: "Hino", model: "500 FM 260 JD", year: 2020, status: "idle", speed: 0, latitude: -7.2575, longitude: 112.7521, heading: 90, engine_on: true, fuel_level: 33.7, odometer: 312000, last_update: new Date().toISOString(), driver_name: "Eko Prasetyo" },
+frontend/src/lib/mock-data.ts:10:  { id: 6, plate_number: "H 2345 GHI", vehicle_type: "truck", brand: "Mercedes-Benz", model: "Actros 2645 LS", year: 2023, status: "driving", speed: 71.5, latitude: -6.7320, longitude: 108.5523, heading: 180, engine_on: true, fuel_level: 66.9, odometer: 54200, last_update: new Date().toISOString(), driver_name: "Fajar Ramadhan" },
+frontend/src/lib/mock-data.ts:11:  { id: 7, plate_number: "D 6789 JKL", vehicle_type: "truck", brand: "Mitsubishi", model: "Colt Diesel FE 71", year: 2019, status: "stopped", speed: 0, latitude: -6.3106, longitude: 107.3383, heading: 270, engine_on: false, fuel_level: 92.1, odometer: 410500, last_update: new Date().toISOString(), driver_name: "Gunawan Hadi" },
+frontend/src/lib/mock-data.ts:12:  { id: 8, plate_number: "B 1357 MNO", vehicle_type: "trailer", brand: "Hino", model: "Ranger FL 235 JW", year: 2021, status: "driving", speed: 48.3, latitude: -6.1850, longitude: 106.9020, heading: 35, engine_on: true, fuel_level: 55.4, odometer: 198700, last_update: new Date().toISOString(), driver_name: "Hendra Wijaya" },
+frontend/src/lib/mock-data.ts:13:  { id: 9, plate_number: "B 2468 PQR", vehicle_type: "truck", brand: "Isuzu", model: "Elf NMR 71 HD", year: 2022, status: "stopped", speed: 0, latitude: -6.2650, longitude: 106.7800, heading: 150, engine_on: false, fuel_level: 78.8, odometer: 122300, last_update: new Date().toISOString(), driver_name: "Irfan Hakim" },
+frontend/src/lib/mock-data.ts:14:  { id: 10, plate_number: "L 1122 STU", vehicle_type: "truck", brand: "Hino", model: "Dutro 130 MDL", year: 2020, status: "driving", speed: 63.7, latitude: -7.2800, longitude: 112.7200, heading: 220, engine_on: true, fuel_level: 41.2, odometer: 278900, last_update: new Date().toISOString(), driver_name: "Joko Susilo" },
+frontend/src/lib/mock-data.ts:15:  { id: 11, plate_number: "B 3344 VWX", vehicle_type: "truck", brand: "UD Trucks", model: "Kuzer RKE 150", year: 2023, status: "idle", speed: 0, latitude: -6.2200, longitude: 106.8800, heading: 0, engine_on: true, fuel_level: 88.5, odometer: 35600, last_update: new Date().toISOString(), driver_name: "Kurnia Adi" },
+frontend/src/lib/mock-data.ts:16:  { id: 12, plate_number: "H 5566 YZA", vehicle_type: "truck", brand: "Mitsubishi", model: "Colt Diesel FE 84G", year: 2021, status: "stopped", speed: 0, latitude: -6.9800, longitude: 110.4500, heading: 90, engine_on: false, fuel_level: 67.3, odometer: 187400, last_update: new Date().toISOString(), driver_name: "Lukman Hakim" },
+frontend/src/lib/mock-data.ts:17:  { id: 13, plate_number: "B 7788 BCD", vehicle_type: "pickup", brand: "Toyota", model: "Hilux Double Cab 4x4", year: 2023, status: "driving", speed: 45.2, latitude: -6.1750, longitude: 106.8270, heading: 315, engine_on: true, fuel_level: 60.1, odometer: 28900, last_update: new Date().toISOString(), driver_name: "Muhammad Rizki" },
+frontend/src/lib/mock-data.ts:18:  { id: 14, plate_number: "D 9900 EFG", vehicle_type: "truck", brand: "Isuzu", model: "Giga FVM 34 W", year: 2022, status: "stopped", speed: 0, latitude: -6.9300, longitude: 107.5800, heading: 45, engine_on: false, fuel_level: 75.6, odometer: 98200, last_update: new Date().toISOString(), driver_name: "Nur Hidayat" },
+frontend/src/lib/mock-data.ts:19:  { id: 15, plate_number: "B 1100 HIJ", vehicle_type: "truck", brand: "Hino", model: "Ranger FM 260 JD", year: 2020, status: "driving", speed: 73.9, latitude: -6.3500, longitude: 107.0800, heading: 160, engine_on: true, fuel_level: 49.8, odometer: 356100, last_update: new Date().toISOString(), driver_name: "Oscar Pranata" },
+frontend/src/lib/mock-data.ts:20:  { id: 16, plate_number: "L 2200 KLM", vehicle_type: "truck", brand: "Mercedes-Benz", model: "Atego 1623", year: 2021, status: "idle", speed: 0, latitude: -7.2400, longitude: 112.7800, heading: 270, engine_on: true, fuel_level: 52.4, odometer: 201300, last_update: new Date().toISOString(), driver_name: "Putra Mahendra" },
+frontend/src/lib/mock-data.ts:21:  { id: 17, plate_number: "B 3300 NOP", vehicle_type: "trailer", brand: "UD Trucks", model: "Quester GWE 370", year: 2023, status: "driving", speed: 58.6, latitude: -6.2400, longitude: 106.9500, heading: 80, engine_on: true, fuel_level: 71.2, odometer: 67800, last_update: new Date().toISOString(), driver_name: "Rudi Hartono" },
+frontend/src/lib/mock-data.ts:22:  { id: 18, plate_number: "H 4400 QRS", vehicle_type: "truck", brand: "Mitsubishi", model: "Colt Diesel FE 74S", year: 2022, status: "stopped", speed: 0, latitude: -6.9500, longitude: 110.3800, heading: 135, engine_on: false, fuel_level: 83.7, odometer: 134500, last_update: new Date().toISOString(), driver_name: "Sugeng Priyanto" },
+frontend/src/lib/mock-data.ts:23:  { id: 19, plate_number: "B 5500 TUV", vehicle_type: "truck", brand: "Isuzu", model: "Elf NLR 55 BLX", year: 2021, status: "driving", speed: 39.4, latitude: -6.1900, longitude: 106.8100, heading: 250, engine_on: true, fuel_level: 44.6, odometer: 189200, last_update: new Date().toISOString(), driver_name: "Teguh Waluyo" },
+frontend/src/lib/mock-data.ts:24:  { id: 20, plate_number: "D 6600 WXY", vehicle_type: "truck", brand: "Hino", model: "Dutro 110 LD", year: 2020, status: "offline", speed: 0, latitude: -6.9000, longitude: 107.6500, heading: 0, engine_on: false, fuel_level: 15.2, odometer: 425600, last_update: new Date(Date.now() - 86400000).toISOString(), driver_name: "Umar Faruq" },
+frontend/src/lib/mock-data.ts:25:  { id: 21, plate_number: "B 7700 ZAB", vehicle_type: "truck", brand: "UD Trucks", model: "Kuzer RKE 150", year: 2023, status: "driving", speed: 76.3, latitude: -6.2750, longitude: 106.7100, heading: 190, engine_on: true, fuel_level: 62.8, odometer: 42100, last_update: new Date().toISOString(), driver_name: null },
+frontend/src/lib/mock-data.ts:26:  { id: 22, plate_number: "L 8800 CDE", vehicle_type: "truck", brand: "Hino", model: "500 FG 235 JP", year: 2022, status: "stopped", speed: 0, latitude: -7.3000, longitude: 112.6900, heading: 45, engine_on: false, fuel_level: 56.9, odometer: 156700, last_update: new Date().toISOString(), driver_name: null },
+frontend/src/lib/mock-data.ts:27:  { id: 23, plate_number: "B 9900 FGH", vehicle_type: "pickup", brand: "Mitsubishi", model: "Triton DC HDX 4x4", year: 2023, status: "driving", speed: 52.1, latitude: -6.2300, longitude: 106.8700, heading: 340, engine_on: true, fuel_level: 79.3, odometer: 18500, last_update: new Date().toISOString(), driver_name: null },
+frontend/src/lib/mock-data.ts:28:  { id: 24, plate_number: "H 1010 IJK", vehicle_type: "truck", brand: "Isuzu", model: "Giga FVR 34 P", year: 2021, status: "stopped", speed: 0, latitude: -6.9900, longitude: 110.4800, heading: 270, engine_on: false, fuel_level: 38.4, odometer: 267800, last_update: new Date().toISOString(), driver_name: null },
+frontend/src/lib/mock-data.ts:29:  { id: 25, plate_number: "B 2020 LMN", vehicle_type: "truck", brand: "Mercedes-Benz", model: "Axor 2528 R", year: 2022, status: "idle", speed: 0, latitude: -6.3200, longitude: 107.1200, heading: 180, engine_on: true, fuel_level: 47.1, odometer: 112400, last_update: new Date().toISOString(), driver_name: null },
+frontend/src/lib/mock-data.ts:36:  stopped: MOCK_VEHICLES.filter((v) => v.status === "stopped").length,
+frontend/src/lib/mock-data.ts:39:  avg_speed: Math.round(MOCK_VEHICLES.filter((v) => v.status === "driving").reduce((sum, v) => sum + v.speed, 0) / MOCK_VEHICLES.filter((v) => v.status === "driving").length * 10) / 10,
+frontend/src/lib/mock-data.ts:47:    displayLng: v.longitude ?? 0,
+frontend/src/lib/mock-data.ts:48:    displayLat: v.latitude ?? 0,
+frontend/src/lib/mock-data.ts:49:    displayHeading: v.heading,
+frontend/src/lib/mock-data.ts:54:    deviationPoints: VEHICLE_ROUTES[v.id]?.deviation,
+frontend/src/lib/mock-data.ts:79:  deviation: LngLat[];
+frontend/src/lib/mock-data.ts:85:      { lng: 106.8825, lat: -6.4021 },
+frontend/src/lib/mock-data.ts:86:      { lng: 106.8440, lat: -6.3038 },
+frontend/src/lib/mock-data.ts:87:      { lng: 106.8456, lat: -6.2088 },
+frontend/src/lib/mock-data.ts:88:      { lng: 106.9911, lat: -6.1432 },
+frontend/src/lib/mock-data.ts:89:      { lng: 106.9178, lat: -6.2356 },
+frontend/src/lib/mock-data.ts:90:      { lng: 106.8305, lat: -6.4021 },
+frontend/src/lib/mock-data.ts:93:      { lng: 106.8825, lat: -6.4021 },
+frontend/src/lib/mock-data.ts:94:      { lng: 106.8500, lat: -6.3600 },
+frontend/src/lib/mock-data.ts:95:      { lng: 106.8440, lat: -6.3038 },
+frontend/src/lib/mock-data.ts:96:      { lng: 106.8456, lat: -6.2088 },
+frontend/src/lib/mock-data.ts:98:    deviation: [{ lng: 106.8456, lat: -6.2530 }],
+frontend/src/lib/mock-data.ts:102:      { lng: 107.1514, lat: -6.3020 },
+frontend/src/lib/mock-data.ts:103:      { lng: 107.0200, lat: -6.2400 },
+frontend/src/lib/mock-data.ts:104:      { lng: 106.8800, lat: -6.2000 },
+frontend/src/lib/mock-data.ts:105:      { lng: 106.7600, lat: -6.1800 },
+frontend/src/lib/mock-data.ts:106:      { lng: 106.6500, lat: -6.1500 },
+frontend/src/lib/mock-data.ts:109:      { lng: 107.1514, lat: -6.3020 },
+frontend/src/lib/mock-data.ts:110:      { lng: 107.0200, lat: -6.2400 },
+frontend/src/lib/mock-data.ts:112:    deviation: [],
+frontend/src/lib/mock-data.ts:116:      { lng: 110.4196, lat: -6.9666 },
+frontend/src/lib/mock-data.ts:117:      { lng: 110.3000, lat: -7.0100 },
+frontend/src/lib/mock-data.ts:118:      { lng: 110.1500, lat: -7.0800 },
+frontend/src/lib/mock-data.ts:119:      { lng: 110.0500, lat: -7.1500 },
+frontend/src/lib/mock-data.ts:120:      { lng: 110.4196, lat: -7.5756 },
+frontend/src/lib/mock-data.ts:123:      { lng: 110.4196, lat: -6.9666 },
+frontend/src/lib/mock-data.ts:124:      { lng: 110.3000, lat: -7.0100 },
+frontend/src/lib/mock-data.ts:125:      { lng: 110.1500, lat: -7.0800 },
+frontend/src/lib/mock-data.ts:127:    deviation: [{ lng: 110.2000, lat: -7.0150 }],
+frontend/src/lib/mock-data.ts:131:      { lng: 108.5523, lat: -6.7320 },
+frontend/src/lib/mock-data.ts:132:      { lng: 108.4000, lat: -6.6000 },
+frontend/src/lib/mock-data.ts:133:      { lng: 108.2000, lat: -6.4500 },
+frontend/src/lib/mock-data.ts:134:      { lng: 108.0000, lat: -6.3500 },
+frontend/src/lib/mock-data.ts:135:      { lng: 106.8500, lat: -6.2088 },
+frontend/src/lib/mock-data.ts:138:      { lng: 108.5523, lat: -6.7320 },
+frontend/src/lib/mock-data.ts:139:      { lng: 108.4000, lat: -6.6000 },
+frontend/src/lib/mock-data.ts:141:    deviation: [],
+frontend/src/lib/mock-data.ts:145:      { lng: 106.9020, lat: -6.1850 },
+frontend/src/lib/mock-data.ts:146:      { lng: 106.8700, lat: -6.2000 },
+frontend/src/lib/mock-data.ts:147:      { lng: 106.8000, lat: -6.2100 },
+frontend/src/lib/mock-data.ts:148:      { lng: 106.7200, lat: -6.1800 },
+frontend/src/lib/mock-data.ts:149:      { lng: 106.6500, lat: -6.1500 },
+frontend/src/lib/mock-data.ts:152:      { lng: 106.9020, lat: -6.1850 },
+frontend/src/lib/mock-data.ts:153:      { lng: 106.8700, lat: -6.2000 },
+frontend/src/lib/mock-data.ts:155:    deviation: [],
+frontend/src/lib/mock-data.ts:175:        distance: 23.4,
+frontend/src/lib/mock-data.ts:194:        distance: 124.85,
+frontend/src/lib/mock-data.ts:218:    latitude: (vehicle.latitude ?? 0) + drift(),
+frontend/src/lib/mock-data.ts:219:    longitude: (vehicle.longitude ?? 0) + drift(),
+frontend/src/lib/mock-data.ts:220:    speed: vehicle.status === "driving" ? Math.max(30, vehicle.speed + (Math.random() - 0.5) * 10) : vehicle.speed,
+frontend/src/lib/mock-data.ts:221:    heading: (vehicle.heading + (Math.random() - 0.5) * 5 + 360) % 360,

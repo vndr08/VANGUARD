@@ -1,0 +1,50 @@
+frontend/src/app/(app)/history/page.tsx:4:import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+frontend/src/app/(app)/history/page.tsx:281:      const { markerPos, markerHeading, routeCoords, firstCoord } = useMemo(() => {
+frontend/src/app/(app)/history/page.tsx:309:      useEffect(() => {
+frontend/src/app/(app)/history/page.tsx:381:      useEffect(() => {
+frontend/src/app/(app)/history/page.tsx:583:  const [selectedVehicleId, setSelectedVehicleId] = useState<number>(1);
+frontend/src/app/(app)/history/page.tsx:584:  const [dateRange, setDateRange] = useState("20 Jun 2026");
+frontend/src/app/(app)/history/page.tsx:585:  const [activeTab, setActiveTab] = useState<TabKey>("Timeline");
+frontend/src/app/(app)/history/page.tsx:586:  const [playing, setPlaying] = useState(false);
+frontend/src/app/(app)/history/page.tsx:587:  const [speed, setSpeed] = useState<1 | 2 | 4>(1);
+frontend/src/app/(app)/history/page.tsx:588:  const [progress, setProgress] = useState(0);
+frontend/src/app/(app)/history/page.tsx:589:  const [refreshing, setRefreshing] = useState(false);
+frontend/src/app/(app)/history/page.tsx:591:  const selectedVehicle = REPLAY_VEHICLES.find(v => v.id === selectedVehicleId) ?? REPLAY_VEHICLES[0];
+frontend/src/app/(app)/history/page.tsx:592:  const routeCoords = ROUTE_COORDS[selectedVehicleId] ?? ROUTE_COORDS[1] ?? [];
+frontend/src/app/(app)/history/page.tsx:593:  const events = useMemo(() => buildEvents(selectedVehicle, new Date()), [selectedVehicle]);
+frontend/src/app/(app)/history/page.tsx:594:  const stats = useMemo(() => calcStats(selectedVehicle.telemetry), [selectedVehicle]);
+frontend/src/app/(app)/history/page.tsx:596:  const totalDurationSec = selectedVehicle.telemetry[selectedVehicle.telemetry.length - 1]?.time ?? 3600;
+frontend/src/app/(app)/history/page.tsx:601:  useEffect(() => {
+frontend/src/app/(app)/history/page.tsx:612:  function handlePlayPause() { setPlaying(p => !p); success(playing ? "Dipause" : "Diputar", `Playback ${playing ? "dihentikan" : "dijalankan"} — ${speed}x`); }
+frontend/src/app/(app)/history/page.tsx:613:  function handleReset() { setPlaying(false); setProgress(0); info("Reset", "Playback dikembalikan ke awal"); }
+frontend/src/app/(app)/history/page.tsx:614:  function handleStepBack() { setPlaying(false); setProgress(p => Math.max(0, p - 10 / totalDurationSec)); info("Step", "Mundur 10%"); }
+frontend/src/app/(app)/history/page.tsx:615:  function handleStepForward() { setPlaying(false); setProgress(p => Math.min(1, p + 10 / totalDurationSec)); info("Step", "Maju 10%"); }
+frontend/src/app/(app)/history/page.tsx:616:  function handleSpeed(s: 1 | 2 | 4) { setSpeed(s); info("Kecepatan", `${s}x playback aktif`); }
+frontend/src/app/(app)/history/page.tsx:617:  function handleScrub(e: React.ChangeEvent<HTMLInputElement>) { setPlaying(false); setProgress(Number(e.target.value)); }
+frontend/src/app/(app)/history/page.tsx:618:  function handleRefresh() { setRefreshing(true); setTimeout(() => { setRefreshing(false); success("Data dimuat", `${selectedVehicle.plate_number} — ${dateRange}`); }, 800); }
+frontend/src/app/(app)/history/page.tsx:619:  function handleExport() { success("Export CSV", "File sedang diproses..."); }
+frontend/src/app/(app)/history/page.tsx:620:  function handleVehicleChange(id: number) { setSelectedVehicleId(id); setPlaying(false); setProgress(0); info("Unit dipilih", REPLAY_VEHICLES.find(v => v.id === id)?.plate_number ?? ""); }
+frontend/src/app/(app)/history/page.tsx:621:  function handleEventClick(timeSec: number) { setPlaying(false); setProgress(timeSec / totalDurationSec); }
+frontend/src/app/(app)/history/page.tsx:623:  const curTelemetry = selectedVehicle.telemetry[Math.floor(progress * (selectedVehicle.telemetry.length - 1))];
+frontend/src/app/(app)/history/page.tsx:626:  function handleTabKey(e: React.KeyboardEvent, idx: number) {
+frontend/src/app/(app)/history/page.tsx:642:            <p className="text-xs text-muted mt-0.5 tabular-nums">{dateRange} · {REPLAY_VEHICLES.length} unit</p>
+frontend/src/app/(app)/history/page.tsx:649:            value={selectedVehicleId}
+frontend/src/app/(app)/history/page.tsx:650:            onChange={e => handleVehicleChange(Number(e.target.value))}
+frontend/src/app/(app)/history/page.tsx:660:            value={dateRange}
+frontend/src/app/(app)/history/page.tsx:667:            onClick={handleRefresh}
+frontend/src/app/(app)/history/page.tsx:676:            onClick={handleExport}
+frontend/src/app/(app)/history/page.tsx:691:            <TripReplayMap vehicle={selectedVehicle} progress={progress} />
+frontend/src/app/(app)/history/page.tsx:735:              <button onClick={handlePlayPause} className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand text-white hover:opacity-90 transition-opacity focus-visible:outline-2 focus-visible:outline-brand shrink-0" aria-label={playing ? "Pause" : "Play"}>
+frontend/src/app/(app)/history/page.tsx:740:              <button onClick={handleStepBack} className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-surface-2 text-foreground hover:bg-surface-3 transition-colors focus-visible:outline-2 focus-visible:outline-brand" aria-label="Step back">
+frontend/src/app/(app)/history/page.tsx:745:              <button onClick={handleStepForward} className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-surface-2 text-foreground hover:bg-surface-3 transition-colors focus-visible:outline-2 focus-visible:outline-brand" aria-label="Step forward">
+frontend/src/app/(app)/history/page.tsx:750:              <button onClick={handleReset} className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-surface-2 text-foreground hover:bg-surface-3 transition-colors focus-visible:outline-2 focus-visible:outline-brand" aria-label="Reset">
+frontend/src/app/(app)/history/page.tsx:762:                  onChange={handleScrub}
+frontend/src/app/(app)/history/page.tsx:779:                    onClick={() => handleSpeed(s)}
+frontend/src/app/(app)/history/page.tsx:805:                  onKeyDown={e => handleTabKey(e, i)}
+frontend/src/app/(app)/history/page.tsx:818:            {activeTab === "Timeline" && <TimelineTab vehicle={selectedVehicle} events={events} />}
+frontend/src/app/(app)/history/page.tsx:819:            {activeTab === "Detail" && <DetailTab vehicle={selectedVehicle} stats={stats} />}
+frontend/src/app/(app)/history/page.tsx:820:            {activeTab === "Engine" && <SegmentsTab vehicle={selectedVehicle} type="stop" label="Engine" />}
+frontend/src/app/(app)/history/page.tsx:821:            {activeTab === "Driving" && <SegmentsTab vehicle={selectedVehicle} type="driving" label="Berkendara" />}
+frontend/src/app/(app)/history/page.tsx:822:            {activeTab === "Idle" && <SegmentsTab vehicle={selectedVehicle} type="idle" label="Diam" />}
+frontend/src/app/(app)/history/page.tsx:823:            {activeTab === "Stop" && <SegmentsTab vehicle={selectedVehicle} type="stop" label="Berhenti" />}
+frontend/src/app/(app)/history/page.tsx:824:            {activeTab === "Speeding" && <SpeedingTab vehicle={selectedVehicle} />}

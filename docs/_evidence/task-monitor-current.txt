@@ -1,0 +1,161 @@
+7:  Map, Table, RefreshCw, Search, Filter, Navigation,
+8:  MapPin, Truck, User, Clock, Route, Play, Square, X,
+12:import { TaskStatusBadge } from "@/components/ui/Badge";
+17:import type { TaskRouteData } from "@/components/map/TaskRouteMap";
+19:const TaskRouteMap = dynamic(() => import("@/components/map/TaskRouteMap"), {
+31:type TaskStatus = "waiting" | "assigned" | "progress" | "unloading" | "completed";
+33:interface Task {
+35:  tripType: "Pre-Task" | "Main Task" | "Return"; status: TaskStatus;
+36:  task: string; taskRef: string; trip: string; origin: string;
+43:const TASKS: Task[] = [
+44:  { id: "1", vehicle: "B 9068 NU", driver: "Nana Sutrisna", group: "CDDL BEKASI", time: "Jun 01, 18:10", tripType: "Main Task", status: "unloading", task: "PLI - DEPOK", taskRef: "5410295521", trip: "PLI - DEPOK", origin: "PLI DMG", destination: "PTT DPK", originCoords: [-6.1751, 106.8650], destCoords: [-6.4023, 106.7947], currentCoords: [-6.4010, 106.7950], distance: 28.5, traveled: 27.2, avgSpeed: 42, eta: "18:45", schedule: "08:00 - 20:00", startAt: "08:15" },
+45:  { id: "2", vehicle: "B 9218 GV", driver: "Ahmad Dahlan", group: "CDE BEKASI", time: "Jun 01, 17:55", tripType: "Main Task", status: "progress", task: "TNF - BEKASI", taskRef: "5410295522", trip: "TNF - BEKASI", origin: "TNF Warehouse", destination: "Bekasi DC", originCoords: [-6.2388, 106.9200], destCoords: [-6.2339, 106.9920], currentCoords: [-6.2350, 106.9500], distance: 15.2, traveled: 9.8, avgSpeed: 55, eta: "18:30", schedule: "07:00 - 19:00", startAt: "07:20" },
+46:  { id: "3", vehicle: "B 9544 SYO", driver: "Budi Santoso", group: "FULL BOX BEKASI", time: "Jun 01, 16:40", tripType: "Main Task", status: "progress", task: "PLI - JKT1", taskRef: "5410295523", trip: "PLI - JKT1", origin: "PLI Central", destination: "JKT1 Hub", originCoords: [-6.1751, 106.8650], destCoords: [-6.1500, 106.8200], currentCoords: [-6.1650, 106.8400], distance: 8.5, traveled: 5.2, avgSpeed: 38, eta: "17:30", schedule: "06:00 - 18:00", startAt: "06:30" },
+47:  { id: "4", vehicle: "BA 8329 QY", driver: "Cahyo Wibowo", group: "CDDL BEKASI", time: "Jun 01, 15:20", tripType: "Return", status: "waiting", task: "BKS - LAMPUNG", taskRef: "5410295524", trip: "BKS - LAMPUNG", origin: "BKS Pool", destination: "Lampung Port", originCoords: [-6.2500, 106.9900], destCoords: [-5.4500, 105.2700], currentCoords: [-6.2500, 106.9900], distance: 285.0, traveled: 0, avgSpeed: 0, eta: "20:00", schedule: "05:00 - 22:00", startAt: "Pending" },
+48:  { id: "5", vehicle: "B 9001 SXS", driver: "Dedi Kurniawan", group: "CDE BEKASI", time: "Jun 01, 14:10", tripType: "Pre-Task", status: "progress", task: "CIK - KEDIRI", taskRef: "5410295525", trip: "CIK - KEDIRI", origin: "Cikarang", destination: "Kediri", originCoords: [-6.4500, 107.1500], destCoords: [-7.8480, 112.0170], currentCoords: [-6.8000, 108.5000], distance: 450.0, traveled: 180.5, avgSpeed: 62, eta: "23:00", schedule: "00:00 - 24:00", startAt: "00:30" },
+49:  { id: "6", vehicle: "B 9002 SXS", driver: "Eko Prasetyo", group: "FULL BOX PALEMBANG", time: "Jun 01, 13:00", tripType: "Main Task", status: "unloading", task: "KLN - SURABAYA", taskRef: "5410295526", trip: "KLN - SURABAYA", origin: "KALINDAK", destination: "Surabaya DC", originCoords: [-3.0500, 114.9200], destCoords: [-7.2500, 112.7500], currentCoords: [-7.2480, 112.7520], distance: 520.0, traveled: 518.5, avgSpeed: 58, eta: "Completed", schedule: "12:00 - 18:00", startAt: "12:30" },
+50:  { id: "7", vehicle: "B 9997 SXR", driver: "Fajar Ramadhan", group: "CDDL BEKASI", time: "Jun 01, 12:30", tripType: "Main Task", status: "progress", task: "BKS - PURBALINGGA", taskRef: "5410295527", trip: "BKS - PURBALINGGA", origin: "Bekasi", destination: "Purbalingga", originCoords: [-6.2339, 106.9920], destCoords: [-7.4300, 109.3600], currentCoords: [-6.9000, 108.2000], distance: 185.0, traveled: 95.0, avgSpeed: 48, eta: "19:30", schedule: "08:00 - 20:00", startAt: "08:45" },
+51:  { id: "8", vehicle: "BG 8221 NK", driver: "Gunawan Hadi", group: "CDE BEKASI", time: "Jun 01, 11:15", tripType: "Main Task", status: "assigned", task: "CIK - JOGJA", taskRef: "5410295528", trip: "CIK - JOGJA", origin: "Cikarang", destination: "Yogyakarta", originCoords: [-6.4500, 107.1500], destCoords: [-7.7970, 110.3610], currentCoords: [-6.4500, 107.1500], distance: 420.0, traveled: 0, avgSpeed: 0, eta: "22:00", schedule: "10:00 - 23:00", startAt: "Pending" },
+52:  { id: "9", vehicle: "BG 8292 NK", driver: "Hendra Wijaya", group: "FULL BOX BEKASI", time: "Jun 01, 10:00", tripType: "Main Task", status: "progress", task: "TNG - SEMARANG", taskRef: "5410295529", trip: "TNG - SEMARANG", origin: "Tangerang", destination: "Semarang", originCoords: [-6.1780, 106.6300], destCoords: [-6.9670, 110.4200], currentCoords: [-6.5000, 108.3000], distance: 380.0, traveled: 175.0, avgSpeed: 65, eta: "20:00", schedule: "06:00 - 21:00", startAt: "06:30" },
+53:  { id: "10", vehicle: "B 9068 NU", driver: "Irfan Hakim", group: "CDDL BEKASI", time: "Jun 01, 09:00", tripType: "Main Task", status: "completed", task: "JKT - BANDUNG", taskRef: "5410295530", trip: "JKT - BANDUNG", origin: "Jakarta", destination: "Bandung", originCoords: [-6.1751, 106.8650], destCoords: [-6.9175, 107.6190], currentCoords: [-6.9180, 107.6200], distance: 125.0, traveled: 123.5, avgSpeed: 52, eta: "Completed", schedule: "07:00 - 12:00", startAt: "07:15" },
+56:function toRouteData(task: Task): TaskRouteData {
+57:  // Task data uses [lat, lng] format — convert to {lng, lat} for TaskRouteData
+58:  const [origLat, origLng] = task.originCoords;
+59:  const [destLat, destLng] = task.destCoords;
+60:  const [curLat, curLng] = task.currentCoords;
+63:  if (task.traveled > 0) {
+64:    const ratio = Math.min(task.traveled / task.distance, 1);
+71:    vehicle: task.vehicle, driver: task.driver, task: task.task,
+72:    status: task.status, speed: task.avgSpeed,
+73:    origin: { label: task.origin, coord: { lng: origLng, lat: origLat } },
+74:    destination: { label: task.destination, coord: { lng: destLng, lat: destLat } },
+75:    current: { label: task.task, coord: { lng: curLng, lat: curLat } },
+81:const STATUS_ORDER: TaskStatus[] = ["progress", "unloading", "assigned", "waiting", "completed"];
+83:const STATUS_META: Record<TaskStatus, { label: string; colorVar: string; dotColor: string }> = {
+84:  progress:   { label: "Berlangsung", colorVar: "var(--st-driving)", dotColor: "var(--st-driving)" },
+88:  completed:  { label: "Selesai",    colorVar: "var(--task-completed)", dotColor: "var(--task-completed)" },
+91:type SortKey = "time" | "vehicle" | "status" | "distance";
+93:export default function TasksPage() {
+96:  const [tasks] = useState<Task[]>(TASKS);
+98:  const [selectedId, setSelectedId] = useState<string | null>(null);
+99:  const [newTask, setNewTask] = useState<{
+100:    vehicle: string; driver: string; group: string; task: string; taskRef: string;
+102:    tripType: "Pre-Task" | "Main Task" | "Return";
+104:    vehicle: "", driver: "", group: "", task: "", taskRef: "",
+105:    origin: "", destination: "", schedule: "", tripType: "Main Task",
+108:  const handleAddTask = () => {
+109:    if (!newTask.vehicle || !newTask.task || !newTask.origin || !newTask.destination) {
+112:    success("Tugas ditambahkan", `Tugas ${newTask.task} untuk ${newTask.vehicle} berhasil dibuat.`);
+114:    setNewTask({ vehicle: "", driver: "", group: "", task: "", taskRef: "", origin: "", destination: "", schedule: "", tripType: "Main Task" });
+117:  const [filter, setFilter] = useState<TaskStatus | "all">("all");
+119:  const [sortKey, setSortKey] = useState<SortKey>("time");
+120:  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+124:  const total = useAnimatedNumber(tasks.length, 900);
+125:  const sedang = useAnimatedNumber(tasks.filter(t => t.status === "progress" || t.status === "unloading").length, 900);
+126:  const selesai = useAnimatedNumber(tasks.filter(t => t.status === "completed").length, 900);
+127:  const menunggu = useAnimatedNumber(tasks.filter(t => t.status === "waiting" || t.status === "assigned").length, 900);
+129:  /* ── Filtered + sorted ──────────────────────────────────────────────────── */
+130:  const filtered = useMemo(() => {
+131:    let r = tasks.filter(t => {
+134:        || t.task.toLowerCase().includes(q) || t.taskRef.includes(q)
+136:      const matchFilter = filter === "all" || t.status === filter;
+139:    r.sort((a, b) => {
+141:      if (sortKey === "time")     { av = a.time; bv = b.time; }
+142:      else if (sortKey === "vehicle")  { av = a.vehicle; bv = b.vehicle; }
+143:      else if (sortKey === "status")  { av = a.status; bv = b.status; }
+146:      return sortDir === "asc" ? cmp : -cmp;
+149:  }, [tasks, search, filter, sortKey, sortDir]);
+152:    const c: Record<TaskStatus | "all", number> = { all: tasks.length, waiting: 0, assigned: 0, progress: 0, unloading: 0, completed: 0 };
+153:    tasks.forEach(t => { c[t.status]++; });
+155:  }, [tasks]);
+158:    const g: Record<string, Task[]> = {};
+159:    filtered.forEach(t => {
+160:      if (!g[t.status]) g[t.status] = [];
+161:      g[t.status].push(t);
+164:  }, [filtered]);
+166:  const selectedTask = selectedId ? filtered.find(t => t.id === selectedId) ?? null : null;
+167:  const routeData = selectedTask ? toRouteData(selectedTask) : null;
+171:    if (sortKey === key) setSortDir(d => d === "asc" ? "desc" : "desc");
+177:    setTimeout(() => { setLastRefresh(new Date()); setRefreshing(false); success("Data diperbarui", `${tasks.length} tugas dimuat`); }, 800);
+182:    const t = tasks.find(t => t.id === id);
+183:    if (t) info("Tugas dipilih", `${t.vehicle} — ${t.task}`);
+190:  function handleStartTrip(taskId: string, etape: string) {
+191:    success("Trip dimulai", `${etape} — ${tasks.find(t => t.id === taskId)?.vehicle ?? ""}`);
+194:  function handleEndTrip(taskId: string, etape: string) {
+195:    success("Trip selesai", `${etape} — ${tasks.find(t => t.id === taskId)?.vehicle ?? ""}`);
+198:  const progress = selectedTask ? Math.round((selectedTask.traveled / selectedTask.distance) * 100) : 0;
+212:              <h1 className="text-sm font-semibold text-foreground leading-none">Task Monitor</h1>
+220:            <KpiPill label="Selesai" value={selesai} color="var(--task-completed)" />
+228:            onClick={handleRefresh}
+235:          {/* Add task */}
+237:            onClick={() => setShowAddPanel(true)}
+251:          onClick={() => { setFilter("all"); info("Filter", "Semua status"); }}
+253:            filter === "all" ? "bg-foreground text-background" : "bg-surface-2 text-muted hover:bg-surface-3 hover:text-foreground"
+261:            onClick={() => { setFilter(s); info("Filter status", STATUS_META[s].label); }}
+263:              filter === s ? "bg-foreground text-background" : "bg-surface-2 text-muted hover:bg-surface-3 hover:text-foreground"
+266:            <span className="w-2 h-2 rounded-full" style={{ background: STATUS_META[s].dotColor }} />
+267:            {STATUS_META[s].label}<span className="tabular-nums opacity-60">({counts[s]})</span>
+273:      <div className="grid flex-1 grid-cols-[380px_1fr] overflow-hidden">
+275:        {/* ── KIRI: Task List ───────────────────────────────────────────────── */}
+285:                onChange={e => setSearch(e.target.value)}
+292:          {/* Grouped task list */}
+294:            {STATUS_ORDER.filter(g => grouped[g]?.length).map((groupKey, gi) => (
+298:                  <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest" style={{ color: STATUS_META[groupKey as TaskStatus].colorVar }}>
+299:                    <span className="w-1.5 h-1.5 rounded-full" style={{ background: STATUS_META[groupKey as TaskStatus].dotColor }} />
+300:                    {gi + 1}. {STATUS_META[groupKey as TaskStatus].label}
+304:                {/* Task rows */}
+305:                {grouped[groupKey].map(task => {
+306:                  const isSelected = selectedId === task.id;
+307:                  const pct = Math.round((task.traveled / task.distance) * 100);
+310:                      key={task.id}
+311:                      onClick={() => handleSelect(task.id)}
+312:                      onDoubleClick={() => handleDoubleClick(task.id)}
+317:                      {/* Top row: plate + status */}
+320:                          {task.vehicle}
+322:                        <TaskStatusBadge status={task.status} />
+324:                      {/* Task */}
+326:                        {task.task}
+330:                        {task.origin} → {task.destination}
+337:                            style={{ background: STATUS_META[task.status].colorVar }}
+353:            {filtered.length === 0 && (
+357:                  description="Coba ubah filter atau kata kunci pencarian."
+364:        {/* ── KANAN: Map + Detail ───────────────────────────────────────────── */}
+369:                <TaskRouteMap task={routeData} />
+383:                      <span className="font-mono text-sm font-semibold tabular-nums text-foreground">{selectedTask?.vehicle}</span>
+384:                      <TaskStatusBadge status={selectedTask!.status} />
+386:                    <p className="text-xs text-muted mt-0.5 truncate">{selectedTask?.task} · {selectedTask?.tripType}</p>
+389:                    onClick={() => setSelectedId(null)}
+398:                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
+399:                  <MetricCell icon={<Navigation className="h-3.5 w-3.5" />} label="Jarak" value={`${selectedTask?.distance} km`} mono />
+400:                  <MetricCell icon={<Route className="h-3.5 w-3.5" />} label="Tempuh" value={`${selectedTask?.traveled} km`} mono />
+401:                  <MetricCell icon={<Clock className="h-3.5 w-3.5" />} label="ETA" value={selectedTask?.eta ?? "—"} mono />
+402:                  <MetricCell icon={<Truck className="h-3.5 w-3.5" />} label="Kecep. Rata" value={`${selectedTask?.avgSpeed} km/j`} mono />
+405:                {/* Trip timeline (Pre-Trip / Main-Trip / Return) */}
+407:                  <TimelineButton label="Pre-Trip" active={selectedTask?.tripType === "Pre-Task"} onStart={() => handleStartTrip(selectedTask!.id, "Pre-Trip")} onEnd={() => handleEndTrip(selectedTask!.id, "Pre-Trip")} />
+409:                  <TimelineButton label="Main-Trip" active={selectedTask?.tripType === "Main Task"} onStart={() => handleStartTrip(selectedTask!.id, "Main-Trip")} onEnd={() => handleEndTrip(selectedTask!.id, "Main-Trip")} />
+411:                  <TimelineButton label="Return" active={selectedTask?.tripType === "Return"} onStart={() => handleStartTrip(selectedTask!.id, "Return")} onEnd={() => handleEndTrip(selectedTask!.id, "Return")} />
+418:                icon={<MapPin className="w-10 h-10" />}
+427:      {/* ── Add Task Panel ─────────────────────────────────────────────── */}
+437:              onClick={() => setShowAddPanel(false)}
+443:              onClick={handleAddTask}
+444:              disabled={!newTask.vehicle || !newTask.task}
+457:              value={newTask.vehicle}
+458:              onChange={e => setNewTask(t => ({ ...t, vehicle: e.target.value }))}
+468:              value={newTask.driver}
+469:              onChange={e => setNewTask(t => ({ ...t, driver: e.target.value }))}
+479:              value={newTask.group}
+480:              onChange={e => setNewTask(t => ({ ...t, group: e.target.value }))}
+490:              value={newTask.task}
+491:              onChange={e => setNewTask(t => ({ ...t, task: e.target.value }))}
+500:              {(["Pre-Task", "Main Task", "Return"] as const).map(t => (
+503:                  onClick={() => setNewTask(prev => ({ ...prev, tripType: t as "Pre-Task" | "Main Task" | "Return" }))}
+504:                  aria-pressed={newTask.tripType === t}
+506:                    newTask.tripType === t
+520:              value={newTask.origin}
+521:              onChange={e => setNewTask(t => ({ ...t, origin: e.target.value }))}
+531:              value={newTask.destination}
+532:              onChange={e => setNewTask(t => ({ ...t, destination: e.target.value }))}
+542:              value={newTask.schedule}
+543:              onChange={e => setNewTask(t => ({ ...t, schedule: e.target.value }))}
+599:          onClick={onStart}
+606:          onClick={onEnd}

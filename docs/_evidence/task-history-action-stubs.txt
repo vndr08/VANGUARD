@@ -1,0 +1,2 @@
+frontend/src/app/(app)/tasks/page.tsx:177:    setTimeout(() => { setLastRefresh(new Date()); setRefreshing(false); success("Data diperbarui", `${tasks.length} tugas dimuat`); }, 800);
+frontend/src/app/(app)/history/page.tsx:618:  function handleRefresh() { setRefreshing(true); setTimeout(() => { setRefreshing(false); success("Data dimuat", `${selectedVehicle.plate_number} — ${dateRange}`); }, 800); }

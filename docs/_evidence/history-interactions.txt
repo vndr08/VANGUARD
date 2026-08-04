@@ -1,0 +1,23 @@
+frontend/src/app/(app)/history/page.tsx:488:  if (!segs.length) return <div className="flex flex-1 items-center justify-center"><EmptyState title={`Tidak ada segmen ${label}`} description="Tidak ada data untuk tab ini." /></div>;
+frontend/src/app/(app)/history/page.tsx:517:  if (!violations.length) return <div className="flex flex-1 items-center justify-center"><EmptyState title="Tidak ada pelanggaran" description="Tidak ada data speeding untuk kendaraan ini." /></div>;
+frontend/src/app/(app)/history/page.tsx:538:  if (!gfEvents.length) return <div className="flex flex-1 items-center justify-center"><EmptyState title="Tidak ada event geofence" description="Kendaraan tidak keluar-masuk zona." /></div>;
+frontend/src/app/(app)/history/page.tsx:559:  if (!alertEvents.length) return <div className="flex flex-1 items-center justify-center"><EmptyState title="Tidak ada event" description="Tidak ada event penting untuk kendaraan ini." /></div>;
+frontend/src/app/(app)/history/page.tsx:666:          <button
+frontend/src/app/(app)/history/page.tsx:667:            onClick={handleRefresh}
+frontend/src/app/(app)/history/page.tsx:668:            disabled={refreshing}
+frontend/src/app/(app)/history/page.tsx:675:          <button
+frontend/src/app/(app)/history/page.tsx:676:            onClick={handleExport}
+frontend/src/app/(app)/history/page.tsx:735:              <button onClick={handlePlayPause} className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand text-white hover:opacity-90 transition-opacity focus-visible:outline-2 focus-visible:outline-brand shrink-0" aria-label={playing ? "Pause" : "Play"}>
+frontend/src/app/(app)/history/page.tsx:740:              <button onClick={handleStepBack} className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-surface-2 text-foreground hover:bg-surface-3 transition-colors focus-visible:outline-2 focus-visible:outline-brand" aria-label="Step back">
+frontend/src/app/(app)/history/page.tsx:745:              <button onClick={handleStepForward} className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-surface-2 text-foreground hover:bg-surface-3 transition-colors focus-visible:outline-2 focus-visible:outline-brand" aria-label="Step forward">
+frontend/src/app/(app)/history/page.tsx:750:              <button onClick={handleReset} className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-surface-2 text-foreground hover:bg-surface-3 transition-colors focus-visible:outline-2 focus-visible:outline-brand" aria-label="Reset">
+frontend/src/app/(app)/history/page.tsx:765:                  aria-label="Playback progress"
+frontend/src/app/(app)/history/page.tsx:777:                  <button
+frontend/src/app/(app)/history/page.tsx:779:                    onClick={() => handleSpeed(s)}
+frontend/src/app/(app)/history/page.tsx:796:          <div className="shrink-0 border-b border-border overflow-x-auto" role="tablist">
+frontend/src/app/(app)/history/page.tsx:799:                <button
+frontend/src/app/(app)/history/page.tsx:801:                  role="tab"
+frontend/src/app/(app)/history/page.tsx:803:                  tabIndex={activeTab === tab ? 0 : -1}
+frontend/src/app/(app)/history/page.tsx:804:                  onClick={() => { setActiveTab(tab); info("Tab", tab); }}
+frontend/src/app/(app)/history/page.tsx:817:          <div className="flex-1 overflow-hidden" role="tabpanel">
+frontend/src/app/(app)/history/page.tsx:826:            {activeTab === "Reverse" && <div className="flex flex-1 items-center justify-center"><EmptyState title="Tidak ada mundur" description="Tidak ada segmen mundur tercatat." /></div>}
