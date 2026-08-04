@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useReducedMotion } from "motion/react";
 import type { MapVehicle, LayerVisibility, InterpolatedVehicle } from "@/components/map/types";
+import { isValidLngLat, clampLngLat } from "@/lib/geo";
 
 /* ─── useMapInterpolation ──────────────────────────────────────────────── */
 /**
@@ -12,35 +13,51 @@ import type { MapVehicle, LayerVisibility, InterpolatedVehicle } from "@/compone
 export function useMapInterpolation(vehicles: MapVehicle[]): (InterpolatedVehicle & { lng: number; lat: number })[] {
   const reduceMotion = useReducedMotion();
   const prevRef = useRef<Map<number, { lng: number; lat: number; heading: number }>>(new Map());
+
+  /** Safe conversion from Vehicle.latitude/longitude → {lng, lat} with clamping */
+  function safeVehicleCoords(v: MapVehicle): { lng: number; lat: number } {
+    const raw: { lng: number; lat: number } = { lng: v.longitude ?? 0, lat: v.latitude ?? 0 };
+    if (isValidLngLat(raw)) return raw;
+    const clamped = clampLngLat(raw);
+    console.warn("[useMapInterpolation] Invalid vehicle coords — clamped:", v.id, raw, "→", clamped);
+    return clamped;
+  }
+
   const [interpolated, setInterpolated] = useState<(InterpolatedVehicle & { lng: number; lat: number })[]>(() =>
-    vehicles.map((v) => ({
-      id: v.id,
-      lng: v.longitude ?? 0,
-      lat: v.latitude ?? 0,
-      heading: v.heading,
-      status: v.displayStatus,
-      speed: v.speed,
-      plate: v.plate_number,
-      taskLabel: v.taskLabel,
-      isMoving: v.status === "driving",
-    }))
+    vehicles.map((v) => {
+      const { lng, lat } = safeVehicleCoords(v);
+      return {
+        id: v.id,
+        lng,
+        lat,
+        heading: v.heading,
+        status: v.displayStatus,
+        speed: v.speed,
+        plate: v.plate_number,
+        taskLabel: v.taskLabel,
+        isMoving: v.status === "driving",
+      };
+    })
   );
 
   useEffect(() => {
     if (reduceMotion) {
-      // Instant fallback
+      // Instant fallback — use safe coords
       setInterpolated(
-        vehicles.map((v) => ({
-          id: v.id,
-          lng: v.longitude ?? 0,
-          lat: v.latitude ?? 0,
-          heading: v.heading,
-          status: v.displayStatus,
-          speed: v.speed,
-          plate: v.plate_number,
-          taskLabel: v.taskLabel,
-          isMoving: v.status === "driving",
-        }))
+        vehicles.map((v) => {
+          const { lng, lat } = safeVehicleCoords(v);
+          return {
+            id: v.id,
+            lng,
+            lat,
+            heading: v.heading,
+            status: v.displayStatus,
+            speed: v.speed,
+            plate: v.plate_number,
+            taskLabel: v.taskLabel,
+            isMoving: v.status === "driving",
+          };
+        })
       );
       return;
     }
@@ -48,6 +65,17 @@ export function useMapInterpolation(vehicles: MapVehicle[]): (InterpolatedVehicl
     let rafId: number;
     let startTime: number | null = null;
     const LERP_DURATION = 600; // ms
+
+    /**
+     * KEY FIX: when vehicles reference changes (new render), update prevRef.current
+     * BEFORE starting the new animation so the animation starts from correct positions.
+     * Previously prevRef was stale (from the previous animation run), causing a visible
+     * "snap" to old positions before smooth animation resumed — the marker jitter.
+     */
+    vehicles.forEach((v) => {
+      const { lng, lat } = safeVehicleCoords(v);
+      prevRef.current.set(v.id, { lng, lat, heading: v.heading });
+    });
 
     function animate(timestamp: number) {
       if (!startTime) startTime = timestamp;
@@ -59,8 +87,7 @@ export function useMapInterpolation(vehicles: MapVehicle[]): (InterpolatedVehicl
       setInterpolated((prev) => {
         return vehicles.map((v) => {
           const prevPos = prevRef.current.get(v.id);
-          const targetLng = v.longitude ?? 0;
-          const targetLat = v.latitude ?? 0;
+          const { lng: targetLng, lat: targetLat } = safeVehicleCoords(v);
           const targetHeading = v.heading;
 
           if (!prevPos) {
@@ -105,8 +132,9 @@ export function useMapInterpolation(vehicles: MapVehicle[]): (InterpolatedVehicl
       });
 
       if (vehicles.every((v) => {
+        const { lng: targetLng, lat: targetLat } = safeVehicleCoords(v);
         const p = prevRef.current.get(v.id);
-        return p && Math.abs(p.lng - (v.longitude ?? 0)) < 0.00001 && Math.abs(p.lat - (v.latitude ?? 0)) < 0.00001;
+        return p && Math.abs(p.lng - targetLng) < 0.00001 && Math.abs(p.lat - targetLat) < 0.00001;
       })) {
         startTime = null;
         return;
@@ -120,6 +148,7 @@ export function useMapInterpolation(vehicles: MapVehicle[]): (InterpolatedVehicl
     }
 
     rafId = requestAnimationFrame(animate);
+
     return () => cancelAnimationFrame(rafId);
   }, [vehicles, reduceMotion]);
 
@@ -152,11 +181,13 @@ export function useLayerVisibility(initial: LayerVisibility) {
 }
 
 /* ─── useMapTheme ──────────────────────────────────────────────────────── */
-/** Tracks dark mode state for map style switching */
+/** Tracks dark mode state for map style switching. SSR-safe: defaults to true (dark). */
 export function useMapTheme(): boolean {
-  const [isDark, setIsDark] = useState(() =>
-    document.documentElement.classList.contains("dark")
-  );
+  const [isDark, setIsDark] = useState(() => {
+    // Default to dark during SSR / before hydration to avoid mismatch
+    if (typeof document === "undefined") return true;
+    return document.documentElement.classList.contains("dark");
+  });
 
   useEffect(() => {
     const observer = new MutationObserver(() => {

@@ -1,160 +1,527 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { Copy, Crosshair, History, MapPin, Navigation, Radio, Search, Truck } from "lucide-react";
-import { MOCK_VEHICLES } from "@/lib/mock-data";
+import { useMemo, useState } from "react";
+import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
+import { motion } from "motion/react";
+import {
+  Crosshair,
+  History,
+  MapPin,
+  MessageSquare,
+  Navigation,
+  Radio,
+  Search,
+  Truck,
+  X,
+} from "lucide-react";
+import { MOCK_VEHICLES, toMapVehicle } from "@/lib/mock-data";
+import type { Vehicle } from "@/types";
 import { useToast } from "@/components/ui/Toast";
+import { StatusPill } from "@/components/ui/Badge";
+import { Button, IconButton } from "@/components/ui/Button";
+import { Card, EmptyState } from "@/components/ui/Card";
+import { useReducedMotion } from "@/hooks/useReducedMotion";
 
-const units = MOCK_VEHICLES.slice(0, 10);
+/* ─── Types ─────────────────────────────────────────────────────────────────── */
+
+type FilterStatus = "all" | Vehicle["status"];
+type VehicleStatus = "driving" | "idle" | "stopped" | "offline";
+
+/** Vehicle.status ("stopped") → StatusPill ("stop") */
+function toBadgeStatus(s: VehicleStatus): "driving" | "idle" | "stop" | "offline" {
+  return s === "stopped" ? "stop" : (s as "driving" | "idle" | "offline");
+}
+
+/* ─── KPI Components ─────────────────────────────────────────────────────────── */
+
+function KpiStat({ label, value, accent }: { label: string; value: number; accent?: string }) {
+  const reducedMotion = useReducedMotion();
+  return (
+    <div className="flex flex-col items-center px-4 py-2 rounded-lg bg-surface-2 border border-border min-w-[72px]">
+      <motion.span
+        key={value}
+        initial={{ opacity: 0.6, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={reducedMotion ? { duration: 0 } : { duration: 0.2 }}
+        className={"text-xl font-bold tabular-nums " + (accent ?? "text-foreground")}
+      >
+        {value}
+      </motion.span>
+      <span className="text-label text-muted">{label}</span>
+    </div>
+  );
+}
+
+function KpiDivider() {
+  return <div className="w-px h-8 bg-border self-center" />;
+}
+
+/* ─── Lazy Map ─────────────────────────────────────────────────────────────── */
+
+const LocateMap = dynamic(() => import("@/components/map/MapView").then((m) => m.default), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-full flex items-center justify-center bg-bg">
+      <div className="flex flex-col items-center gap-3">
+        <div className="h-8 w-8 rounded-full border-2 border-brand border-t-transparent animate-spin" />
+        <span className="text-sm text-muted">Loading map...</span>
+      </div>
+    </div>
+  ),
+});
+
+/* ─── Mock address resolver ─────────────────────────────────────────────── */
+
+function getMockAddress(lat: number | null, lng: number | null): string {
+  if (!lat || !lng) return "Koordinat tidak tersedia";
+  if (lat < -6.3 && lng > 107.0) return "Kawasan Industri Cikarang, Bekasi";
+  if (lat < -6.15 && lng < 106.85) return "Area Jakarta Pusat";
+  if (lat < -6.2 && lng < 106.75) return "Tanjung Priok, Jakarta";
+  if (lat < -6.9 && lng > 107.5) return "Kota Bandung, Jawa Barat";
+  if (lat < -7.2 && lng > 112.6) return "Surabaya, Jawa Timur";
+  if (lat < -6.5 && lng < 106.8) return "Sentul City, Bogor";
+  return "Jawa Barat, Indonesia";
+}
+
+function formatLastUpdate(iso: string): string {
+  const d = new Date(iso);
+  const now = Date.now();
+  const diff = Math.floor((now - d.getTime()) / 1000);
+  if (diff < 60) return `${diff}d ago`;
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  return `${Math.floor(diff / 86400)}d ago`;
+}
+
+/* ─── Main Page ─────────────────────────────────────────────────────────────── */
 
 export default function LocatePage() {
-  const { addToast } = useToast();
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedUnit, setSelectedUnit] = useState<typeof units[0] | null>(units[0]);
-  const [recentSearches] = useState(["B 1234 KJT", "L 3456 ABC", "H 2345 GHI"]);
+  const { success, info } = useToast();
 
-  const filtered = useMemo(() => {
-    if (!searchQuery.trim()) return units;
-    const q = searchQuery.toLowerCase();
-    return units.filter((u) => u.plate_number.toLowerCase().includes(q) || u.driver_name?.toLowerCase().includes(q) || u.brand.toLowerCase().includes(q));
-  }, [searchQuery]);
+  const [search, setSearch] = useState("");
+  const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
+  const [selected, setSelected] = useState<Vehicle | null>(MOCK_VEHICLES[0]);
+  // Store map imperative commands (fitAll) — populated via onMapReady callback
+  const [mapCommands, setMapCommands] = useState<{ fitAll: () => void } | null>(null);
 
-  function handleSelectUnit(unit: typeof units[0]) {
-    setSelectedUnit(unit);
-    addToast("info", `Located ${unit.plate_number}`);
+  // KPI counts
+  const counts = useMemo(() => ({
+    total: MOCK_VEHICLES.length,
+    online: MOCK_VEHICLES.filter((v) => v.status !== "offline").length,
+    moving: MOCK_VEHICLES.filter((v) => v.status === "driving").length,
+    offline: MOCK_VEHICLES.filter((v) => v.status === "offline").length,
+  }), []);
+
+  // Filtered list
+  const rows = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return MOCK_VEHICLES.filter((v) => {
+      if (q && !v.plate_number.toLowerCase().includes(q)
+        && !(v.driver_name ?? "").toLowerCase().includes(q)
+        && !v.brand.toLowerCase().includes(q)
+        && !String(v.id).includes(q)) return false;
+      if (filterStatus !== "all" && v.status !== filterStatus) return false;
+      return true;
+    });
+  }, [search, filterStatus]);
+
+  // Map vehicles
+  const mapVehicles = useMemo(() => MOCK_VEHICLES.map(toMapVehicle), []);
+
+  function handleSelect(v: Vehicle) {
+    setSelected(v);
+    info("Unit dipilih", v.plate_number);
   }
 
-  function handleCopyCoordinates() {
-    if (selectedUnit) {
-      navigator.clipboard.writeText(`${selectedUnit.latitude}, ${selectedUnit.longitude}`);
-      addToast("success", "Coordinates copied to clipboard");
+  function handleFitAll() {
+    mapCommands?.fitAll();
+    success("Pusatkan ke semua unit", "Zoom diatur ulang");
+  }
+
+  const router = useRouter();
+
+  function handleRealtime() {
+    if (!selected) return;
+    info("Buka Lacak Realtime", `Navigasi ke monitor ${selected.plate_number}`);
+    router.push(`/tracking?focus=${selected.id}`);
+  }
+
+  function handleHistory() {
+    if (!selected) return;
+    info("Buka Riwayat", `Navigasi ke riwayat ${selected.plate_number}`);
+  }
+
+  function handleMessage() {
+    if (!selected) return;
+    if (!selected.driver_name) {
+      info("Driver tidak ditugaskan", `${selected.plate_number} belum punya driver`);
+      return;
     }
+    info("Kirim Pesan", `Mengirim pesan ke ${selected.driver_name}`);
   }
 
-  function handleOpenRealtime() {
-    addToast("info", "Opening Realtime Monitor...");
+  function handleCopyCoords() {
+    if (!selected?.latitude || !selected?.longitude) return;
+    const coord = `${selected.latitude.toFixed(6)}, ${selected.longitude.toFixed(6)}`;
+    navigator.clipboard.writeText(coord).then(() => {
+      success("Koordinat disalin", coord);
+    }).catch(() => {
+      info("Gagal menyalin", coord);
+    });
   }
 
-  function handleOpenHistory() {
-    addToast("info", "Opening History for this unit...");
+  function resetFilters() {
+    setSearch("");
+    setFilterStatus("all");
   }
+
+  const isFiltered = search !== "" || filterStatus !== "all";
 
   return (
-    <div className="grid min-h-full grid-cols-1 bg-zinc-50 dark:bg-zinc-950 xl:grid-cols-[420px_1fr]">
-      <aside className="border-r border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-        <div className="p-6">
-          <p className="metric-label">Quick locator</p>
-          <h1 className="mt-2 text-3xl font-bold text-zinc-900 dark:text-white">Locate Unit</h1>
-          <p className="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-400">Cari unit cepat untuk melihat posisi terakhir, alamat estimasi, dan status GPS.</p>
-
-          <div className="relative mt-5">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
-            <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Find plate / driver / IMEI" className="w-full rounded-lg border border-zinc-200 bg-white py-2.5 pl-9 pr-3 text-sm font-semibold dark:border-zinc-800 dark:bg-zinc-900 dark:text-white" />
-          </div>
-
-          {recentSearches.length > 0 && !searchQuery && (
-            <div className="mt-4">
-              <p className="text-xs font-bold uppercase text-zinc-500">Recent searches</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {recentSearches.map((search) => (
-                  <button key={search} onClick={() => setSearchQuery(search)} className="flex items-center gap-1.5 rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
-                    <History className="h-3 w-3" />{search}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="border-t border-zinc-200 px-6 py-4 dark:border-zinc-800">
-          <p className="text-xs font-bold uppercase text-zinc-500">{filtered.length} units found</p>
-        </div>
-
-        <div className="px-6 pb-6">
-          <div className="space-y-2">
-            {filtered.map((unit) => {
-              const isSelected = selectedUnit?.id === unit.id;
-              return (
-                <button key={unit.id} onClick={() => handleSelectUnit(unit)} className={`w-full rounded-md border p-3 text-left transition-all ${isSelected ? "border-zinc-900 bg-zinc-900 text-white dark:border-white dark:bg-white dark:text-zinc-900" : "border-zinc-200 bg-white hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:bg-zinc-800"}`}>
-                  <div className="flex items-center justify-between">
-                    <p className={`font-bold ${isSelected ? "" : "text-zinc-900 dark:text-white"}`}>{unit.plate_number}</p>
-                    <span className={`text-xs font-bold ${isSelected ? "text-white/70 dark:text-zinc-600" : "text-zinc-500"}`}>{unit.speed} km/h</span>
-                  </div>
-                  <p className={`mt-1 text-xs font-semibold ${isSelected ? "text-white/70 dark:text-zinc-500" : "text-zinc-500"}`}>{unit.driver_name || "Unassigned"} - {unit.brand} {unit.model}</p>
-                  <div className="mt-2 flex items-center gap-3 text-[10px] font-semibold">
-                    <span className={`flex items-center gap-1 ${isSelected ? "text-white/60 dark:text-zinc-400" : "text-zinc-400"}`}><Radio className="h-3 w-3" />{unit.status}</span>
-                    <span className={`flex items-center gap-1 ${isSelected ? "text-white/60 dark:text-zinc-400" : "text-zinc-400"}`}><Navigation className="h-3 w-3" />{Math.round(unit.heading)}°</span>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </aside>
-
-      <main className="relative min-h-[calc(100vh-4rem)] overflow-hidden">
-        <div className="absolute inset-0 bg-zinc-100 dark:bg-zinc-900">
-          <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(0,0,0,.05)_1px,transparent_1px),linear-gradient(rgba(0,0,0,.05)_1px,transparent_1px)] bg-[size:44px_44px]" />
-          {selectedUnit && (
-            <>
-              <div className="absolute z-10 h-24 w-24 -translate-x-1/2 -translate-y-1/2 rounded-full border-4 border-amber-500 bg-amber-500/10" style={{ left: "30%", top: "40%", transform: "translate(-50%, -50%)" }} />
-              <div className="absolute z-20 flex h-12 w-12 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-amber-500 shadow-lg" style={{ left: "30%", top: "40%", transform: "translate(-50%, -50%)" }}>
-                <Truck className="h-6 w-6 text-white" />
-              </div>
-            </>
-          )}
-        </div>
-
-        <div className="absolute left-8 top-8 rounded-md border border-zinc-200 bg-white/95 p-4 shadow-sm backdrop-blur dark:border-zinc-800 dark:bg-zinc-900/95">
-          <div className="flex items-center gap-3">
-            <Crosshair className="h-5 w-5 text-zinc-900 dark:text-white" />
+    <div className="h-[calc(100vh-4rem)] flex flex-col overflow-hidden">
+      {/* ─── Header ─────────────────────────────────────────────────────────── */}
+      <header className="shrink-0 px-6 pt-6 pb-4 border-b border-border bg-surface-1">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start gap-6">
             <div>
-              <p className="font-bold text-zinc-900 dark:text-white">{selectedUnit ? `${selectedUnit.plate_number} located` : "No unit selected"}</p>
-              <p className="text-xs font-semibold text-zinc-500">{selectedUnit ? `${selectedUnit.brand} ${selectedUnit.model}` : "Select a unit from the list"}</p>
+              <p className="text-label uppercase tracking-wide text-muted">Fleet Management</p>
+              <h1 className="text-h1 font-semibold text-foreground mt-0.5">Cari &amp; Lacak Unit</h1>
+              <p className="text-sm text-muted mt-0.5">Ketik plat, driver, atau ID untuk menemukan unit</p>
+            </div>
+            <div className="flex items-center gap-1 mt-6">
+              <KpiStat label="Total Unit" value={counts.total} />
+              <KpiDivider />
+              <KpiStat label="Online" value={counts.online} accent="text-st-driving" />
+              <KpiDivider />
+              <KpiStat label="Bergerak" value={counts.moving} accent="text-brand" />
+              <KpiDivider />
+              <KpiStat label="Offline" value={counts.offline} accent="text-st-offline" />
             </div>
           </div>
         </div>
+      </header>
 
-        {selectedUnit && (
-          <div className="absolute bottom-8 left-8 right-8">
-            <div className="flex gap-3">
-              <div className="flex-1 rounded-md border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xl font-bold text-zinc-900 dark:text-white">{selectedUnit.plate_number}</p>
-                    <p className="text-sm font-semibold text-zinc-500">{selectedUnit.driver_name || "No driver"}</p>
-                  </div>
-                  <span className={`rounded-full border px-3 py-1 text-xs font-bold ${selectedUnit.status === "driving" ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-900/20 dark:text-emerald-300" : selectedUnit.status === "idle" ? "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-900/20 dark:text-amber-300" : "border-zinc-200 bg-zinc-50 text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300"}`}>{selectedUnit.status}</span>
-                </div>
-              </div>
+      {/* ─── Body: 2-column ────────────────────────────────────────────── */}
+      <div className="flex-1 overflow-hidden flex">
+        {/* ── LEFT: Search + List ──────────────────────────────────────── */}
+        <div className="w-[360px] shrink-0 border-r border-border flex flex-col overflow-hidden bg-surface-1">
 
-              <div className="grid w-[360px] grid-cols-3 gap-3">
-                <div className="rounded-md border border-zinc-200 bg-white p-3 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-                  <Radio className="h-4 w-4 text-zinc-500" />
-                  <p className="mt-2 text-xs font-bold uppercase text-zinc-500">GPS</p>
-                  <p className="mt-1 font-bold text-zinc-900 dark:text-white">Online</p>
-                </div>
-                <div className="rounded-md border border-zinc-200 bg-white p-3 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-                  <Navigation className="h-4 w-4 text-zinc-500" />
-                  <p className="mt-2 text-xs font-bold uppercase text-zinc-500">Heading</p>
-                  <p className="mt-1 font-bold text-zinc-900 dark:text-white">{Math.round(selectedUnit.heading)}°</p>
-                </div>
-                <div className="rounded-md border border-zinc-200 bg-white p-3 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-                  <MapPin className="h-4 w-4 text-zinc-500" />
-                  <p className="mt-2 text-xs font-bold uppercase text-zinc-500">Address</p>
-                  <p className="mt-1 truncate text-sm font-semibold text-zinc-700 dark:text-zinc-300">Cikarang Area</p>
-                </div>
-              </div>
+          {/* Search */}
+          <div className="shrink-0 px-4 py-3 border-b border-border">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted pointer-events-none" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Plat, driver, atau ID..."
+                className="w-full pl-9 pr-3 py-1.5 text-sm bg-surface-2 border border-border rounded-lg
+                           placeholder:text-faint text-foreground
+                           focus-visible:outline-2 focus-visible:outline-brand focus-visible:outline-offset-0
+                           transition-colors"
+                aria-label="Cari unit"
+              />
+              {search && (
+                <button
+                  onClick={() => setSearch("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded text-muted
+                             hover:text-foreground focus-visible:outline-2 focus-visible:outline-brand"
+                  aria-label="Hapus pencarian"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
 
-              <div className="flex flex-col gap-2">
-                <button onClick={handleOpenRealtime} className="btn btn-primary"><Crosshair className="h-4 w-4" /> Open Monitor</button>
-                <button onClick={handleOpenHistory} className="btn btn-secondary"><History className="h-4 w-4" /> History</button>
-                <button onClick={handleCopyCoordinates} className="btn btn-secondary"><Copy className="h-4 w-4" /> Copy Coords</button>
-              </div>
+            {/* Status filter */}
+            <div className="flex items-center gap-1 mt-2.5">
+              <span className="text-xs text-muted mr-1">Status:</span>
+              {([
+                { key: "all" as FilterStatus, label: "Semua" },
+                { key: "driving" as FilterStatus, label: "Driving" },
+                { key: "idle" as FilterStatus, label: "Idle" },
+                { key: "stopped" as FilterStatus, label: "Stop" },
+                { key: "offline" as FilterStatus, label: "Offline" },
+              ]).map((f) => (
+                <button
+                  key={f.key}
+                  onClick={() => setFilterStatus(f.key)}
+                  className={"px-2 py-0.5 rounded-md text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-brand " +
+                    (filterStatus === f.key
+                      ? "bg-brand text-white"
+                      : "bg-surface-2 text-muted hover:bg-surface-3 hover:text-foreground border border-border")}
+                >
+                  {f.label}
+                </button>
+              ))}
             </div>
           </div>
-        )}
-      </main>
+
+          {/* Results count */}
+          <div className="shrink-0 px-4 py-2 border-b border-border">
+            <p className="text-xs text-muted">
+              {rows.length} unit ditemukan
+              {isFiltered && (
+                <button onClick={resetFilters} className="ml-2 text-brand hover:underline focus-visible:outline-2 focus-visible:outline-brand">
+                  Reset
+                </button>
+              )}
+            </p>
+          </div>
+
+          {/* Unit list */}
+          <div className="flex-1 overflow-y-auto">
+            {rows.length === 0 ? (
+              <div className="flex items-center justify-center h-full p-6">
+                <EmptyState
+                  icon={<Truck className="w-8 h-8 opacity-40" />}
+                  title="Unit tidak ditemukan"
+                  description="Tidak ada unit yang cocok dengan pencarian."
+                  action={
+                    <Button variant="secondary" size="sm" onClick={resetFilters}>
+                      Reset Pencarian
+                    </Button>
+                  }
+                />
+              </div>
+            ) : (
+              <div className="p-3 space-y-2">
+                {rows.map((v) => {
+                  const isSelected = selected?.id === v.id;
+                  return (
+                    <button
+                      key={v.id}
+                      onClick={() => handleSelect(v)}
+                      aria-label={`Pilih unit ${v.plate_number}`}
+                      className={
+                        "w-full rounded-lg border p-3 text-left transition-all focus-visible:outline-2 focus-visible:outline-brand " +
+                        (isSelected
+                          ? "bg-brand border-brand text-white"
+                          : "bg-surface-2 border-border hover:bg-surface-3 hover:border-border-strong")
+                      }
+                    >
+                      {/* Plat + speed */}
+                      <div className="flex items-center justify-between">
+                        <span className={"font-mono font-bold text-sm tabular-nums " + (isSelected ? "text-white" : "text-foreground")}>
+                          {v.plate_number}
+                        </span>
+                        <span className={"text-xs font-semibold tabular-nums " + (isSelected ? "text-white/70" : "text-muted")}>
+                          {v.speed > 0 ? Math.round(v.speed) + " km/h" : "— km/h"}
+                        </span>
+                      </div>
+                      {/* Driver */}
+                      <p className={"mt-0.5 text-xs " + (isSelected ? "text-white/70" : "text-muted")}>
+                        {v.driver_name || "— belum ditugaskan"}
+                      </p>
+                      {/* Status + heading + update */}
+                      <div className="mt-1.5 flex items-center gap-3">
+                        {isSelected ? (
+                          <StatusPill
+                            status={toBadgeStatus(v.status as VehicleStatus)}
+                            showIcon={false}
+                            showDot={true}
+                            live={v.status === "driving"}
+                            className="bg-white/20 text-white text-xs px-2 py-0.5"
+                          />
+                        ) : (
+                          <span className={"inline-flex items-center gap-1 text-xs font-medium " +
+                            (v.status === "driving" ? "text-st-driving" :
+                             v.status === "idle" ? "text-st-idle" :
+                             v.status === "offline" ? "text-st-offline" : "text-muted")}>
+                            <Radio className="w-3 h-3" />
+                            {v.status.charAt(0).toUpperCase() + v.status.slice(1)}
+                          </span>
+                        )}
+                        <span className={"flex items-center gap-1 text-xs " + (isSelected ? "text-white/60" : "text-faint")}>
+                          <Navigation className="w-3 h-3" />
+                          {Math.round(v.heading)}&deg;
+                        </span>
+                        <span className={"ml-auto text-xs " + (isSelected ? "text-white/50" : "text-faint")}>
+                          {formatLastUpdate(v.last_update)}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ── RIGHT: Map ─────────────────────────────────────────────── */}
+        <div className="flex-1 relative overflow-hidden bg-bg">
+          <LocateMap
+            vehicles={mapVehicles}
+            selectedId={selected?.id ?? null}
+            onMapReady={setMapCommands}
+            className="w-full h-full"
+            zoom={9}
+            pitch={45}
+          />
+
+          {/* Map overlay: info chip top-left */}
+          <div className="absolute top-4 left-4 z-dock">
+            <Card padding="sm">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-brand flex items-center justify-center">
+                  <Truck className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-foreground">
+                    {selected ? selected.plate_number : "Pilih unit"}
+                  </p>
+                  <p className="text-xs text-muted">
+                    {selected ? `${selected.brand} ${selected.model}` : "Klik unit di daftar"}
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  icon={<Crosshair className="w-3.5 h-3.5" />}
+                  onClick={handleFitAll}
+                  aria-label="Pusatkan ke semua unit"
+                  className="ml-2"
+                >
+                  Semua
+                </Button>
+              </div>
+            </Card>
+          </div>
+
+          {/* Detail card bottom */}
+          {selected ? (
+            <div className="absolute bottom-4 left-4 right-4 z-dock">
+              <Card padding="md">
+                {/* Header row */}
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 rounded-lg bg-surface-2 border border-border flex items-center justify-center shrink-0">
+                      <Truck className="w-5 h-5 text-muted" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-bold text-foreground">{selected.plate_number}</span>
+                        <StatusPill
+                          status={toBadgeStatus(selected.status as VehicleStatus)}
+                          showIcon={false}
+                          showDot={true}
+                          live={selected.status === "driving"}
+                          className="text-xs px-1.5 py-0.5"
+                        />
+                      </div>
+                      <p className="text-xs text-muted mt-0.5">
+                        {selected.driver_name || "Belum ditugaskan"} &middot; {selected.brand} {selected.model}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setSelected(null)}
+                    className="shrink-0 p-1 rounded text-muted hover:bg-surface-2 hover:text-foreground
+                               focus-visible:outline-2 focus-visible:outline-brand transition-colors"
+                    aria-label="Tutup detail unit"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Stats grid */}
+                <div className="mt-3 grid grid-cols-4 gap-2">
+                  <div className="rounded bg-surface-2 border border-border px-3 py-2">
+                    <p className="text-[9px] font-semibold uppercase tracking-widest text-muted">Kecepatan</p>
+                    <p className="text-sm font-bold font-mono tabular-nums text-foreground mt-0.5">
+                      {selected.speed > 0 ? Math.round(selected.speed) + " km/h" : "—"}
+                    </p>
+                  </div>
+                  <div className="rounded bg-surface-2 border border-border px-3 py-2">
+                    <p className="text-[9px] font-semibold uppercase tracking-widest text-muted">Heading</p>
+                    <p className="text-sm font-bold font-mono tabular-nums text-foreground mt-0.5">
+                      {Math.round(selected.heading)}&deg;
+                    </p>
+                  </div>
+                  <div className="rounded bg-surface-2 border border-border px-3 py-2">
+                    <p className="text-[9px] font-semibold uppercase tracking-widest text-muted">GPS</p>
+                    <p className="text-sm font-semibold text-foreground mt-0.5">
+                      <span className={"inline-flex items-center gap-1 " + (selected.status !== "offline" ? "text-st-driving" : "text-st-offline")}>
+                        <span className={"w-1.5 h-1.5 rounded-full " + (selected.status !== "offline" ? "bg-st-driving animate-live-pulse" : "bg-st-offline")} />
+                        {selected.status !== "offline" ? "Online" : "Offline"}
+                      </span>
+                    </p>
+                  </div>
+                  <div className="rounded bg-surface-2 border border-border px-3 py-2">
+                    <p className="text-[9px] font-semibold uppercase tracking-widest text-muted">Update</p>
+                    <p className="text-xs font-semibold text-muted mt-0.5">
+                      {formatLastUpdate(selected.last_update)}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Coordinates */}
+                <div className="mt-2 rounded bg-surface-2 border border-border px-3 py-2 flex items-center gap-2">
+                  <MapPin className="w-3.5 h-3.5 text-muted shrink-0" />
+                  <span className="text-xs font-mono tabular-nums text-foreground flex-1">
+                    {selected.latitude?.toFixed(6) ?? "—"}, {selected.longitude?.toFixed(6) ?? "—"}
+                  </span>
+                  <span className="text-xs text-muted truncate max-w-[160px]">
+                    {getMockAddress(selected.latitude, selected.longitude)}
+                  </span>
+                </div>
+
+                {/* Quick actions */}
+                <div className="mt-3 flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    icon={<Radio className="w-3.5 h-3.5" />}
+                    onClick={handleRealtime}
+                    aria-label="Lacak realtime unit"
+                    className="flex-1"
+                  >
+                    Lacak Realtime
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    icon={<History className="w-3.5 h-3.5" />}
+                    onClick={handleHistory}
+                    aria-label="Lihat riwayat unit"
+                  >
+                    Riwayat
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    icon={<MessageSquare className="w-3.5 h-3.5" />}
+                    onClick={handleMessage}
+                    aria-label="Kirim pesan ke driver"
+                  >
+                    Pesan
+                  </Button>
+                  <IconButton
+                    icon={<MapPin className="w-3.5 h-3.5" />}
+                    onClick={handleCopyCoords}
+                    variant="ghost"
+                    size="sm"
+                    aria-label="Salin koordinat"
+                  />
+                </div>
+              </Card>
+            </div>
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <Card padding="md" className="pointer-events-auto">
+                <div className="flex items-center gap-3">
+                  <Truck className="w-6 h-6 text-muted" />
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">Tidak ada unit dipilih</p>
+                    <p className="text-xs text-muted">Klik unit di panel kiri untuk melihat detail.</p>
+                  </div>
+                </div>
+              </Card>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

@@ -1,185 +1,621 @@
 "use client";
 
-import { useState } from "react";
-import { AlertTriangle, Camera, CircleDot, Maximize2, Mic, MicOff, Pause, Play, SkipBack, SkipForward, Video, Volume2 } from "lucide-react";
+import { useMemo, useState } from "react";
+import { motion } from "motion/react";
+import {
+  Camera,
+  Circle,
+  Maximize2,
+  Minimize2,
+  Radio,
+  Search,
+  Square,
+  Video,
+  X,
+} from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
+import { StatusPill } from "@/components/ui/Badge";
+import { Button, IconButton } from "@/components/ui/Button";
+import { Card, EmptyState } from "@/components/ui/Card";
+import { useReducedMotion } from "@/hooks/useReducedMotion";
+import { MOCK_VEHICLES } from "@/lib/mock-data";
+import type { Vehicle } from "@/types";
 
-interface CameraChannel {
-  id: string; unit: string; driver: string; channel: string; status: "Live" | "Review" | "Offline"; event: string; location: string;
+/* ─── Types ─────────────────────────────────────────────────────────────────── */
+
+type CameraPos = "Depan" | "Kabin" | "Belakang";
+type ViewMode = "grid" | "focus";
+
+/** Unit with available cameras */
+interface CameraUnit {
+  vehicle: Vehicle;
+  cameras: Record<CameraPos, boolean>; // available
+  isRecording: boolean;
 }
 
-const cameras: CameraChannel[] = [
-  { id: "1", unit: "B 1234 KJT", driver: "Ahmad Sudirman", channel: "Front", status: "Live", event: "Normal route", location: "Jababeka Gate 2" },
-  { id: "2", unit: "B 5678 TGP", driver: "Budi Santoso", channel: "Cabin", status: "Review", event: "Speed alert", location: "Tol Cikampek" },
-  { id: "3", unit: "L 3456 ABC", driver: "Dedi Kurniawan", channel: "Front", status: "Live", event: "Loading area", location: "Rungkut Industrial" },
-  { id: "4", unit: "H 2345 GHI", driver: "Fajar Ramadhan", channel: "Rear", status: "Offline", event: "Signal lost", location: "Semarang" },
-  { id: "5", unit: "B 7788 BCD", driver: "Muhammad Rizki", channel: "Cabin", status: "Live", event: "Normal route", location: "Bekasi" },
-];
+/** Map Vehicle.status ("stopped") → StatusPill ("stop") */
+function toBadgeStatus(s: Vehicle["status"]): "driving" | "idle" | "stop" | "offline" {
+  return s === "stopped" ? "stop" : (s as "driving" | "idle" | "offline");
+}
 
-const statusColors: Record<string, string> = {
-  Live: "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300",
-  Review: "bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300",
-  Offline: "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300",
-};
+/* ─── Build camera units from MOCK_VEHICLES ──────────────────────────────────── */
 
-const statusDotColors: Record<string, string> = {
-  Live: "bg-emerald-500",
-  Review: "bg-amber-500",
-  Offline: "bg-zinc-400",
-};
+const CAMERA_UNIT_LIST: CameraUnit[] = MOCK_VEHICLES.slice(0, 15).map((v) => ({
+  vehicle: v,
+  cameras: {
+    Depan: true,
+    Kabin: v.status !== "offline",
+    Belakang: v.status !== "offline",
+  },
+  isRecording: v.status === "driving",
+}));
 
-export default function DashcamPage() {
-  const { addToast } = useToast();
-  const [selectedCamera, setSelectedCamera] = useState<CameraChannel>(cameras[0]);
-  const [isPlaying, setIsPlaying] = useState(true);
-  const [isMuted, setIsMuted] = useState(false);
-  const [playbackSpeed, setPlaybackSpeed] = useState(1);
+/* ─── KPI Components ─────────────────────────────────────────────────────────── */
 
-  function handleCameraSelect(camera: CameraChannel) {
-    setSelectedCamera(camera);
-    setIsPlaying(camera.status === "Live");
-    addToast("info", `Switched to ${camera.unit} - ${camera.channel}`);
-  }
+function KpiStat({ label, value, accent }: { label: string; value: number; accent?: string }) {
+  const reducedMotion = useReducedMotion();
+  return (
+    <div className="flex flex-col items-center px-4 py-2 rounded-lg bg-surface-2 border border-border min-w-[72px]">
+      <motion.span
+        key={value}
+        initial={{ opacity: 0.6, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={reducedMotion ? { duration: 0 } : { duration: 0.2 }}
+        className={"text-xl font-bold tabular-nums " + (accent ?? "text-foreground")}
+      >
+        {value}
+      </motion.span>
+      <span className="text-label text-muted">{label}</span>
+    </div>
+  );
+}
 
-  function handlePlayPause() {
-    setIsPlaying(!isPlaying);
-    addToast("info", isPlaying ? "Paused" : "Playing");
-  }
+function KpiDivider() {
+  return <div className="w-px h-8 bg-border self-center" />;
+}
 
-  function handleSnapshot() {
-    addToast("success", "Snapshot captured and saved");
-  }
+/* ─── Camera Feed Placeholder ───────────────────────────────────────────────── */
 
-  function handleFullscreen() {
-    addToast("info", "Fullscreen mode");
-  }
+function CameraFeed({
+  camera,
+  unit,
+  isRecording,
+  isMain,
+  onSnapshot,
+  onToggleRec,
+  onFullscreen,
+  onSwap,
+}: {
+  camera: CameraPos;
+  unit: CameraUnit;
+  isRecording: boolean;
+  isMain: boolean;
+  onSnapshot: () => void;
+  onToggleRec: () => void;
+  onFullscreen: () => void;
+  onSwap?: () => void;
+}) {
+  const CAMERA_GRADIENTS: Record<CameraPos, string> = {
+    Depan: "from-zinc-900 via-zinc-800 to-zinc-950",
+    Kabin: "from-zinc-800 via-zinc-900 to-zinc-950",
+    Belakang: "from-zinc-950 via-zinc-800 to-zinc-900",
+  };
 
-  function handleSpeedChange(speed: number) {
-    setPlaybackSpeed(speed);
-    addToast("info", `Playback speed: ${speed}x`);
-  }
+  const CAMERA_ICON_BG: Record<CameraPos, string> = {
+    Depan: "bg-brand",
+    Kabin: "bg-st-idle",
+    Belakang: "bg-st-driving",
+  };
+
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  const dateStr = now.toLocaleDateString("id-ID", { day: "2-digit", month: "short" });
 
   return (
-    <div className="min-h-full bg-zinc-50 px-7 py-6 dark:bg-zinc-950">
-      <div className="mb-6">
-        <p className="metric-label">Video monitoring</p>
-        <h1 className="mt-2 text-3xl font-bold text-zinc-900 dark:text-white">Dashcam Monitor</h1>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-600 dark:text-zinc-400">Monitor kamera kendaraan untuk safety, bukti pengiriman, dan investigasi event.</p>
+    <div
+      className={
+        "relative w-full flex flex-col bg-gradient-to-br " + CAMERA_GRADIENTS[camera] +
+        (isMain ? " aspect-[16/10]" : " aspect-video")
+      }
+      onClick={onSwap}
+      role={onSwap ? "button" : undefined}
+      tabIndex={onSwap ? 0 : undefined}
+      aria-label={onSwap ? `Jadikan ${camera} utama` : undefined}
+    >
+      {/* Overlay gradient */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20 pointer-events-none" />
+
+      {/* Top overlay: unit name + REC */}
+      <div className="absolute top-0 inset-x-0 flex items-center justify-between px-3 py-2 pointer-events-none">
+        <div className="flex items-center gap-2">
+          <span className="px-2 py-0.5 rounded bg-black/70 backdrop-blur-sm text-[10px] font-bold text-white uppercase tracking-wider">
+            {camera}
+          </span>
+          <span className="font-mono text-xs font-semibold text-white/90">
+            {unit.vehicle.plate_number}
+          </span>
+        </div>
+        {isRecording && (
+          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-st-offline/80 backdrop-blur-sm">
+            <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+            <span className="text-[10px] font-bold text-white uppercase tracking-widest">REC</span>
+          </div>
+        )}
       </div>
 
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1fr_380px]">
-        <section className="card overflow-hidden">
-          <div className="relative h-[520px] bg-zinc-900">
-            <div className="absolute inset-0 bg-gradient-to-br from-zinc-800 to-zinc-950" />
-            <div className="absolute left-5 top-5 z-10 flex items-center gap-2 rounded-full bg-black/45 px-3 py-1.5 text-xs font-bold text-white">
-              <span className={`h-2 w-2 rounded-full ${statusDotColors[selectedCamera.status]}`} />
-              {selectedCamera.status.toUpperCase()} {selectedCamera.unit} - {selectedCamera.channel.toUpperCase()}
-            </div>
+      {/* Center: camera icon */}
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+        <div className={"w-12 h-12 rounded-full " + CAMERA_ICON_BG[camera] + " flex items-center justify-center opacity-50"}>
+          <Camera className="w-6 h-6 text-white" />
+        </div>
+      </div>
 
-            <div className="absolute inset-0 flex items-center justify-center">
-              {selectedCamera.status === "Offline" ? (
-                <div className="text-center text-white/50">
-                  <Video className="mx-auto h-16 w-16 opacity-30" />
-                  <p className="mt-2 text-sm font-semibold">Camera offline</p>
-                </div>
-              ) : !isPlaying ? (
-                <button onClick={handlePlayPause} className="flex h-20 w-20 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur hover:bg-white/25">
-                  <Play className="h-9 w-9 fill-current" />
+      {/* Bottom overlay: timestamp */}
+      <div className="absolute bottom-0 inset-x-0 flex items-center justify-between px-3 py-2 pointer-events-none">
+        <span className="font-mono text-[10px] text-white/70 tabular-nums">
+          {dateStr}
+        </span>
+        <span className="font-mono text-[10px] text-white/70 tabular-nums">
+          {timeStr}
+        </span>
+      </div>
+
+      {/* Controls overlay (on hover) */}
+      <div className="absolute inset-0 flex items-center justify-center gap-2 opacity-0 hover:opacity-100 focus-within:opacity-100 bg-black/30 transition-opacity pointer-events-auto">
+        <IconButton
+          icon={<Camera className="w-4 h-4" />}
+          onClick={(e) => { e.stopPropagation(); onSnapshot(); }}
+          variant="secondary"
+          size="sm"
+          aria-label={"Snapshot " + unit.vehicle.plate_number + " " + camera}
+          className="bg-black/70 border-white/20 text-white hover:bg-black/90"
+        />
+        <IconButton
+          icon={isRecording
+            ? <Square className="w-4 h-4 fill-current" />
+            : <Circle className="w-4 h-4" />
+          }
+          onClick={(e) => { e.stopPropagation(); onToggleRec(); }}
+          variant={isRecording ? "danger" : "secondary"}
+          size="sm"
+          aria-label={isRecording ? "Stop rekam" : "Mulai rekam"}
+          className={isRecording ? "bg-st-offline/80 text-white hover:bg-st-offline" : "bg-black/70 border-white/20 text-white hover:bg-black/90"}
+        />
+        <IconButton
+          icon={<Maximize2 className="w-4 h-4" />}
+          onClick={(e) => { e.stopPropagation(); onFullscreen(); }}
+          variant="secondary"
+          size="sm"
+          aria-label="Fullscreen"
+          className="bg-black/70 border-white/20 text-white hover:bg-black/90"
+        />
+      </div>
+    </div>
+  );
+}
+
+/* ─── Main Page ─────────────────────────────────────────────────────────────── */
+
+export default function DashcamPage() {
+  const { success, info } = useToast();
+
+  const [search, setSearch] = useState("");
+  const [filterStatus, setFilterStatus] = useState<"all" | Vehicle["status"]>("all");
+  const [selectedIdx, setSelectedIdx] = useState<number>(0);
+  const [viewMode, setViewMode] = useState<ViewMode>("grid");
+  const [fullscreenFeed, setFullscreenFeed] = useState<CameraPos | null>(null);
+  const [recording, setRecording] = useState<Record<string, boolean>>(
+    Object.fromEntries(CAMERA_UNIT_LIST.filter((u) => u.isRecording).map((u) => [String(u.vehicle.id), true]))
+  );
+
+  // KPI counts
+  const counts = useMemo(() => ({
+    unitOnline: CAMERA_UNIT_LIST.filter((u) => u.vehicle.status !== "offline").length,
+    kameraAktif: CAMERA_UNIT_LIST.reduce((sum, u) => sum + Object.values(u.cameras).filter(Boolean).length, 0),
+    merekam: Object.values(recording).filter(Boolean).length,
+    offline: CAMERA_UNIT_LIST.filter((u) => u.vehicle.status === "offline").length,
+  }), [recording]);
+
+  // Filtered units
+  const rows = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return CAMERA_UNIT_LIST.filter((u) => {
+      if (q && !u.vehicle.plate_number.toLowerCase().includes(q)
+        && !(u.vehicle.driver_name ?? "").toLowerCase().includes(q)) return false;
+      if (filterStatus !== "all" && u.vehicle.status !== filterStatus) return false;
+      return true;
+    });
+  }, [search, filterStatus]);
+
+  const selectedUnit = rows[selectedIdx] ?? rows[0] ?? null;
+
+  function handleSelectUnit(idx: number) {
+    setSelectedIdx(idx);
+    info("Unit dipilih", rows[idx]?.vehicle.plate_number);
+  }
+
+  function handleSnapshotAll() {
+    if (!selectedUnit) return;
+    const active = (Object.entries(selectedUnit.cameras) as [CameraPos, boolean][])
+      .filter(([, a]) => a).map(([pos]) => pos);
+    success("Snapshot semua kamera", `${selectedUnit.vehicle.plate_number}: ${active.join(", ")}`);
+  }
+
+  function handleSnapshotFeed(camera: CameraPos) {
+    if (!selectedUnit) return;
+    success("Snapshot diambil", `${selectedUnit.vehicle.plate_number} — Kamera ${camera}`);
+  }
+
+  function handleToggleRec(camera: CameraPos) {
+    if (!selectedUnit) return;
+    const key = String(selectedUnit.vehicle.id);
+    const isOn = !!recording[key + camera];
+    setRecording((prev) => ({ ...prev, [key + camera]: !isOn }));
+    if (isOn) {
+      info("Rekaman dihentikan", `${selectedUnit.vehicle.plate_number} — Kamera ${camera}`);
+    } else {
+      success("Rekaman dimulai", `${selectedUnit.vehicle.plate_number} — Kamera ${camera}`);
+    }
+  }
+
+  function handleFullscreen(camera: CameraPos) {
+    setFullscreenFeed(camera === fullscreenFeed ? null : camera);
+    info("Fullscreen", camera === fullscreenFeed ? "Mode normal" : `Kamera ${camera}`);
+  }
+
+  function handleSwapFeed(camera: CameraPos) {
+    // In focus mode, clicking a thumbnail swaps it to main
+    if (viewMode === "focus") {
+      info("Swap feed", `${camera} dijadikan feed utama`);
+    }
+  }
+
+  function resetFilters() {
+    setSearch("");
+    setFilterStatus("all");
+  }
+
+  const isFiltered = search !== "" || filterStatus !== "all";
+
+  const CAMERA_ORDER: CameraPos[] = ["Depan", "Kabin", "Belakang"];
+
+  return (
+    <div className="h-[calc(100vh-4rem)] flex flex-col overflow-hidden">
+      {/* ─── Header ─────────────────────────────────────────────────────────── */}
+      <header className="shrink-0 px-6 pt-6 pb-4 border-b border-border bg-surface-1">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start gap-6">
+            <div>
+              <p className="text-label uppercase tracking-wide text-muted">Fleet Management</p>
+              <h1 className="text-h1 font-semibold text-foreground mt-0.5">Dashcam Monitor</h1>
+              <p className="text-sm text-muted mt-0.5">Live feed multi-kamera kendaraan armada</p>
+            </div>
+            <div className="flex items-center gap-1 mt-6">
+              <KpiStat label="Unit Online" value={counts.unitOnline} accent="text-st-driving" />
+              <KpiDivider />
+              <KpiStat label="Kamera Aktif" value={counts.kameraAktif} accent="text-brand" />
+              <KpiDivider />
+              <KpiStat label="Merekam" value={counts.merekam} accent={counts.merekam > 0 ? "text-st-offline" : undefined} />
+              <KpiDivider />
+              <KpiStat label="Offline" value={counts.offline} accent="text-st-offline" />
+            </div>
+          </div>
+
+          {/* View mode toggle */}
+          <div className="flex items-center gap-2 mt-1">
+            <div className="flex items-center rounded-lg bg-surface-2 p-0.5">
+              <button
+                onClick={() => setViewMode("grid")}
+                className={"flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all focus-visible:outline-2 focus-visible:outline-brand " +
+                  (viewMode === "grid"
+                    ? "bg-surface-1 text-foreground shadow-sm"
+                    : "text-muted hover:text-foreground")}
+                aria-pressed={viewMode === "grid"}
+              >
+                <Video className="w-3.5 h-3.5" />
+                Grid
+              </button>
+              <button
+                onClick={() => setViewMode("focus")}
+                className={"flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all focus-visible:outline-2 focus-visible:outline-brand " +
+                  (viewMode === "focus"
+                    ? "bg-surface-1 text-foreground shadow-sm"
+                    : "text-muted hover:text-foreground")}
+                aria-pressed={viewMode === "focus"}
+              >
+                <Maximize2 className="w-3.5 h-3.5" />
+                Fokus
+              </button>
+            </div>
+            <Button
+              variant="primary"
+              size="sm"
+              icon={<Camera className="w-4 h-4" />}
+              onClick={handleSnapshotAll}
+              disabled={!selectedUnit}
+              aria-label="Snapshot semua kamera unit terpilih"
+            >
+              Snapshot Semua
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      {/* ─── Body ─────────────────────────────────────────────────────────── */}
+      <div className="flex-1 overflow-hidden flex">
+        {/* ── LEFT: Unit list ──────────────────────────────────────────────── */}
+        <div className="w-[320px] shrink-0 border-r border-border flex flex-col overflow-hidden bg-surface-1">
+
+          {/* Search */}
+          <div className="shrink-0 px-4 py-3 border-b border-border">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted pointer-events-none" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Plat atau driver..."
+                className="w-full pl-9 pr-3 py-1.5 text-sm bg-surface-2 border border-border rounded-lg
+                           placeholder:text-faint text-foreground
+                           focus-visible:outline-2 focus-visible:outline-brand focus-visible:outline-offset-0
+                           transition-colors"
+                aria-label="Cari unit"
+              />
+              {search && (
+                <button
+                  onClick={() => setSearch("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded text-muted
+                             hover:text-foreground focus-visible:outline-2 focus-visible:outline-brand"
+                  aria-label="Hapus pencarian"
+                >
+                  <X className="w-3.5 h-3.5" />
                 </button>
-              ) : null}
+              )}
             </div>
 
-            <div className="absolute bottom-5 left-5 right-5 rounded-md bg-black/45 p-4 text-white backdrop-blur">
-              <div className="mb-3 flex items-center gap-4">
-                {selectedCamera.status === "Review" && (
-                  <div className="flex-1">
-                    <div className="h-1 rounded-full bg-white/20"><div className="h-full w-1/3 rounded-full bg-emerald-500" /></div>
-                    <div className="mt-1 flex justify-between text-[10px] opacity-75"><span>00:05:32</span><span>00:15:45</span></div>
+            {/* Status filter */}
+            <div className="flex items-center gap-1 mt-2">
+              {([
+                { key: "all" as const, label: "Semua" },
+                { key: "driving" as const, label: "Driving" },
+                { key: "idle" as const, label: "Idle" },
+                { key: "offline" as const, label: "Offline" },
+              ]).map((f) => (
+                <button
+                  key={f.key}
+                  onClick={() => setFilterStatus(f.key)}
+                  className={"px-2 py-0.5 rounded-md text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-brand " +
+                    (filterStatus === f.key
+                      ? "bg-brand text-white"
+                      : "bg-surface-2 text-muted hover:bg-surface-3 hover:text-foreground border border-border")}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Count */}
+          <div className="shrink-0 px-4 py-2 border-b border-border">
+            <p className="text-xs text-muted">
+              {rows.length} unit
+              {isFiltered && (
+                <button onClick={resetFilters} className="ml-2 text-brand hover:underline focus-visible:outline-2 focus-visible:outline-brand">
+                  Reset
+                </button>
+              )}
+            </p>
+          </div>
+
+          {/* List */}
+          <div className="flex-1 overflow-y-auto">
+            {rows.length === 0 ? (
+              <div className="flex items-center justify-center h-full p-4">
+                <EmptyState
+                  icon={<Video className="w-8 h-8 opacity-40" />}
+                  title="Unit tidak ditemukan"
+                  description="Tidak ada unit yang cocok dengan pencarian."
+                  action={
+                    <Button variant="secondary" size="sm" onClick={resetFilters}>
+                      Reset
+                    </Button>
+                  }
+                />
+              </div>
+            ) : (
+              <div className="p-2 space-y-1">
+                {rows.map((unit, idx) => {
+                  const listIdx = idx;
+                  const isSelected = selectedUnit?.vehicle.id === unit.vehicle.id;
+                  const isRec = Object.entries(unit.cameras).some(
+                    ([pos, avail]) => avail && recording[String(unit.vehicle.id) + pos]
+                  );
+                  const camCount = Object.values(unit.cameras).filter(Boolean).length;
+
+                  return (
+                    <button
+                      key={unit.vehicle.id}
+                      onClick={() => handleSelectUnit(listIdx)}
+                      className={
+                        "w-full rounded-lg border p-3 text-left transition-all focus-visible:outline-2 focus-visible:outline-brand " +
+                        (isSelected
+                          ? "bg-brand/10 border-brand"
+                          : "bg-surface-2 border-border hover:bg-surface-3 hover:border-border-strong")
+                      }
+                      aria-pressed={isSelected}
+                      aria-label={"Pilih unit " + unit.vehicle.plate_number}
+                    >
+                      {/* Plat + REC */}
+                      <div className="flex items-center justify-between">
+                        <span className={"font-mono font-bold text-sm tabular-nums " + (isSelected ? "text-brand" : "text-foreground")}>
+                          {unit.vehicle.plate_number}
+                        </span>
+                        {isRec && (
+                          <span className="flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-st-offline animate-pulse" />
+                            <span className="text-[9px] font-bold text-st-offline uppercase tracking-widest">REC</span>
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Driver */}
+                      <p className={"mt-0.5 text-xs " + (isSelected ? "text-brand/70" : "text-muted")}>
+                        {unit.vehicle.driver_name || "— belum ditugaskan"}
+                      </p>
+
+                      {/* Status + cameras */}
+                      <div className="mt-1.5 flex items-center gap-2">
+                        <StatusPill
+                          status={toBadgeStatus(unit.vehicle.status)}
+                          showIcon={false}
+                          showDot={true}
+                          live={unit.vehicle.status === "driving"}
+                          className={"text-[10px] px-1.5 py-0.5 " + (isSelected ? "bg-brand/20 text-brand" : "")}
+                        />
+                        <span className={"text-[10px] " + (isSelected ? "text-brand/60" : "text-faint")}>
+                          {camCount} kamera
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ── RIGHT: Video wall ────────────────────────────────────────────── */}
+        <div className="flex-1 overflow-hidden bg-bg flex flex-col">
+          {!selectedUnit ? (
+            <div className="flex-1 flex items-center justify-center">
+              <EmptyState
+                icon={<Video className="w-8 h-8 opacity-40" />}
+                title="Pilih unit untuk melihat feed"
+                description="Klik unit di panel kiri untuk menampilkan feed kamera."
+              />
+            </div>
+          ) : (
+            <>
+              {/* Wall toolbar */}
+              <div className="shrink-0 px-4 py-2 border-b border-border bg-surface-1 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="font-mono font-semibold text-sm text-foreground">{selectedUnit.vehicle.plate_number}</span>
+                  <span className="text-xs text-muted">&middot;</span>
+                  <span className="text-xs text-muted">
+                    {selectedUnit.vehicle.driver_name || "Belum ditugaskan"}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    icon={<Camera className="w-3.5 h-3.5" />}
+                    onClick={handleSnapshotAll}
+                    aria-label="Snapshot semua kamera"
+                  >
+                    Snapshot
+                  </Button>
+                </div>
+              </div>
+
+              {/* Feeds */}
+              <div className="flex-1 overflow-hidden p-3">
+                {viewMode === "grid" ? (
+                  /* Grid: 3 equal panels */
+                  <div className="grid grid-cols-3 gap-3 h-full">
+                    {CAMERA_ORDER.map((camera) => {
+                      const available = selectedUnit.cameras[camera];
+                      const isRec = !!recording[String(selectedUnit.vehicle.id) + camera];
+                      if (!available) return null;
+                      return (
+                        <div key={camera} className="flex flex-col overflow-hidden rounded-lg border border-border">
+                          <CameraFeed
+                            camera={camera}
+                            unit={selectedUnit}
+                            isRecording={isRec}
+                            isMain={true}
+                            onSnapshot={() => handleSnapshotFeed(camera)}
+                            onToggleRec={() => handleToggleRec(camera)}
+                            onFullscreen={() => handleFullscreen(camera)}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  /* Focus: 1 main + 2 thumbnails */
+                  <div className="grid grid-cols-5 gap-3 h-full">
+                    {/* Main: col-span-3 */}
+                    <div className="col-span-3 flex flex-col overflow-hidden rounded-lg border border-border">
+                      <CameraFeed
+                        camera="Depan"
+                        unit={selectedUnit}
+                        isRecording={!!recording[String(selectedUnit.vehicle.id) + "Depan"]}
+                        isMain={true}
+                        onSnapshot={() => handleSnapshotFeed("Depan")}
+                        onToggleRec={() => handleToggleRec("Depan")}
+                        onFullscreen={() => handleFullscreen("Depan")}
+                      />
+                    </div>
+                    {/* Thumbnails: col-span-2, stacked */}
+                    <div className="col-span-2 flex flex-col gap-3">
+                      {(["Kabin", "Belakang"] as CameraPos[]).map((cam) => {
+                        const available = selectedUnit.cameras[cam];
+                        if (!available) return null;
+                        return (
+                          <div key={cam} className="flex-1 flex flex-col overflow-hidden rounded-lg border border-border cursor-pointer hover:border-brand transition-colors">
+                            <CameraFeed
+                              camera={cam}
+                              unit={selectedUnit}
+                              isRecording={!!recording[String(selectedUnit.vehicle.id) + cam]}
+                              isMain={false}
+                              onSnapshot={() => handleSnapshotFeed(cam)}
+                              onToggleRec={() => handleToggleRec(cam)}
+                              onFullscreen={() => handleFullscreen(cam)}
+                              onSwap={() => handleSwapFeed(cam)}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
-                {selectedCamera.status === "Live" && <div className="flex-1 text-center"><span className="font-mono text-lg">{new Date().toLocaleTimeString("id-ID")}</span></div>}
               </div>
-
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  {selectedCamera.status !== "Offline" && (
-                    <button onClick={handlePlayPause} className="rounded-md bg-white/15 p-2 hover:bg-white/25">
-                      {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5 fill-current" />}
-                    </button>
-                  )}
-                  {selectedCamera.status === "Review" && (
-                    <>
-                      <button className="rounded-md bg-white/15 p-2 hover:bg-white/25"><SkipBack className="h-5 w-5" /></button>
-                      <button className="rounded-md bg-white/15 p-2 hover:bg-white/25"><SkipForward className="h-5 w-5" /></button>
-                    </>
-                  )}
-                  <button onClick={() => setIsMuted(!isMuted)} className="rounded-md bg-white/15 p-2 hover:bg-white/25">
-                    {isMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
-                  </button>
-                  {!isMuted && <Volume2 className="h-5 w-5 opacity-75" />}
-                </div>
-
-                <div className="text-right">
-                  <p className="text-sm font-bold">{selectedCamera.driver}</p>
-                  <p className="text-xs font-semibold opacity-75">{selectedCamera.location}</p>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  {selectedCamera.status === "Review" && (
-                    <div className="flex items-center gap-1 mr-2">
-                      {[1, 2, 4].map((speed) => (
-                        <button key={speed} onClick={() => handleSpeedChange(speed)} className={`rounded px-2 py-1 text-xs font-bold ${playbackSpeed === speed ? "bg-emerald-500 text-white" : "bg-white/15 hover:bg-white/25"}`}>{speed}x</button>
-                      ))}
-                    </div>
-                  )}
-                  <button onClick={handleSnapshot} className="rounded-md bg-white/15 p-2 hover:bg-white/25"><Camera className="h-5 w-5" /></button>
-                  <button onClick={handleFullscreen} className="rounded-md bg-white/15 p-2 hover:bg-white/25"><Maximize2 className="h-5 w-5" /></button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <aside className="space-y-5">
-          <div className="card p-5">
-            <p className="metric-label">Camera channels</p>
-            <div className="mt-4 space-y-3">
-              {cameras.map((camera) => (
-                <button key={camera.id} onClick={() => handleCameraSelect(camera)} className={`w-full rounded-md border p-3 text-left transition-all ${selectedCamera.id === camera.id ? "border-zinc-900 bg-zinc-50 dark:border-white dark:bg-zinc-900" : "border-zinc-200 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-900"}`}>
-                  <div className="flex items-center justify-between">
-                    <p className={`font-bold ${selectedCamera.id === camera.id ? "text-zinc-900 dark:text-white" : "text-zinc-800 dark:text-white"}`}>{camera.unit}</p>
-                    <span className={`rounded-full px-2 py-1 text-[10px] font-bold ${statusColors[camera.status]}`}>{camera.status}</span>
-                  </div>
-                  <p className="mt-1 text-xs font-semibold text-zinc-500">{camera.driver} - {camera.channel}</p>
-                  <p className="mt-1 flex items-center gap-1.5 text-xs font-semibold text-zinc-600 dark:text-zinc-300"><CircleDot className="h-3 w-3 text-amber-500" /> {camera.event}</p>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {cameras.filter((c) => c.status === "Offline").length > 0 && (
-            <div className="rounded-md border border-amber-200 bg-amber-50 p-5 text-amber-800 dark:border-amber-900 dark:bg-amber-900/20 dark:text-amber-200">
-              <AlertTriangle className="h-5 w-5" />
-              <p className="mt-3 text-sm font-bold">{cameras.filter((c) => c.status === "Offline").length} dashcam offline and needs attention.</p>
-            </div>
+            </>
           )}
-
-          <div className="card p-5">
-            <p className="metric-label">Recent events</p>
-            <div className="mt-4 space-y-3">
-              {[{ time: "09:42", unit: "B 1234 KJT", event: "Arrival gate", type: "Normal" }, { time: "09:28", unit: "B 5678 TGP", event: "Speed alert 95km/h", type: "Alert" }, { time: "09:15", unit: "L 3456 ABC", event: "Harsh brake", type: "Alert" }, { time: "08:55", unit: "B 7788 BCD", event: "Geofence entry", type: "Normal" }].map((event, i) => (
-                <div key={i} className="flex items-start gap-3 rounded-md border border-zinc-100 p-3 dark:border-zinc-800">
-                  <div className="text-center"><p className="text-xs font-bold text-zinc-500">{event.time}</p></div>
-                  <div>
-                    <p className="font-semibold text-zinc-800 dark:text-white">{event.unit}</p>
-                    <p className={`text-xs font-semibold ${event.type === "Alert" ? "text-amber-600 dark:text-amber-400" : "text-zinc-500"}`}>{event.event}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </aside>
+        </div>
       </div>
+
+      {/* ─── Fullscreen Overlay ─────────────────────────────────────────── */}
+      {fullscreenFeed && selectedUnit && (
+        <div
+          className="fixed inset-0 z-50 bg-black flex items-center justify-center"
+          role="dialog"
+          aria-modal="true"
+          aria-label={"Fullscreen " + fullscreenFeed + " - " + selectedUnit.vehicle.plate_number}
+        >
+          <div className="relative w-full h-full max-w-7xl max-h-screen">
+            <CameraFeed
+              camera={fullscreenFeed}
+              unit={selectedUnit}
+              isRecording={!!recording[String(selectedUnit.vehicle.id) + fullscreenFeed]}
+              isMain={true}
+              onSnapshot={() => { handleSnapshotFeed(fullscreenFeed); }}
+              onToggleRec={() => handleToggleRec(fullscreenFeed)}
+              onFullscreen={() => setFullscreenFeed(null)}
+            />
+          </div>
+          {/* Close button */}
+          <button
+            onClick={() => setFullscreenFeed(null)}
+            className="absolute top-4 right-4 p-2 rounded-lg bg-black/60 text-white hover:bg-black/80
+                       focus-visible:outline-2 focus-visible:outline-brand transition-colors"
+            aria-label="Tutup fullscreen"
+          >
+            <Minimize2 className="w-5 h-5" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }

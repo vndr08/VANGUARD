@@ -2,11 +2,13 @@
 
 import { type ReactNode } from "react";
 import { cx } from "./utils";
+import { toCanonicalStatus } from "@/lib/status";
 
 /* ─── Status Types ─────────────────────────────────────────────────────────── */
 
 /**
- * Vehicle status from DESIGN.md §2.3
+ * Vehicle status from DESIGN.md §2.3 — canonical form.
+ * Use toCanonicalStatus(raw) to convert from API/mock values.
  */
 export type VehicleStatus = "driving" | "idle" | "stop" | "offline" | "delayed";
 
@@ -76,7 +78,8 @@ const TASK_STATUS_CONFIG: Record<
  * Design tokens: DESIGN.md §8 Components - Status Pill
  */
 interface StatusPillProps {
-  status: VehicleStatus;
+  /** Accepts canonical status or raw API values (e.g. "stopped"). Internally normalized. */
+  status: VehicleStatus | string;
   showIcon?: boolean;
   showDot?: boolean;
   live?: boolean; // Add pulse animation for driving
@@ -90,20 +93,22 @@ export function StatusPill({
   live = false,
   className,
 }: StatusPillProps) {
-  const config = STATUS_CONFIG[status];
-  const isLive = live && status === "driving";
+  // Normalize status on the fly — handles "stopped" → "stop" transparently
+  const canonical = toCanonicalStatus(status);
+  const config = STATUS_CONFIG[canonical];
+  const isLive = live && canonical === "driving";
 
   return (
     <span
       className={cx(
         "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-sm font-semibold",
-        STATUS_PILL_STYLES[status],
+        STATUS_PILL_STYLES[canonical],
         isLive && "animate-live-pulse",
         className
       )}
     >
       {showDot && (
-        <span className={cx("w-1.5 h-1.5 rounded-full", STATUS_DOT_STYLES[status])} />
+        <span className={cx("w-1.5 h-1.5 rounded-full", STATUS_DOT_STYLES[canonical])} />
       )}
       {showIcon && <span className="w-3 h-3">{config.icon}</span>}
       {config.label}

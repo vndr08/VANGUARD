@@ -130,7 +130,7 @@ export function DetailPanel({ vehicle, visibility, onToggleLayer, onClose, class
               <DetailRow label="State" value={vehicle.displayStatus} color={color} />
               <DetailRow label="Speed" value={`${vehicle.speed} km/h`} mono />
               <DetailRow label="Direction" value={`${vehicle.heading.toFixed(0)}°`} mono icon={<Compass className="h-3 w-3" />} />
-              <DetailRow label="Location" value={`${vehicle.latitude?.toFixed(5)}, ${vehicle.longitude?.toFixed(5)}`} mono />
+              <DetailRow label="Location" value={`${vehicle.latitude?.toFixed(5) ?? "—"}, ${vehicle.longitude?.toFixed(5) ?? "—"}`} mono />
             </Section>
 
             {/* Task Info */}

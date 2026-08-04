@@ -832,6 +832,22 @@ body {
   }
 }
 
+/* ══════════════════════════════════════════════════════════════════════════════
+   MapLibre GL JS — Fix canvas height
+   Problem: MapLibre's internal maplibregl-map and maplibregl-canvas-container divs
+   sometimes render with height: 0 when initialized inside a flex/grid parent, causing
+   the canvas to render at its default 300px instead of filling the container.
+   Fix: force these divs to 100% height so the canvas fills the parent.
+══════════════════════════════════════════════════════════════════════════════ */
+.maplibregl-map,
+.maplibregl-canvas-container {
+  height: 100% !important;
+  min-height: 100% !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   Keyframe animations
+══════════════════════════════════════════════════════════════════════════════ */
 @keyframes fade-in {
   from { opacity: 0; }
   to { opacity: 1; }

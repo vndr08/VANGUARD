@@ -1,171 +1,716 @@
 "use client";
 
-import { useState } from "react";
-import { AlertTriangle, Edit, Eye, EyeOff, MapPinned, Plus, RadioTower, Trash2, Warehouse, X } from "lucide-react";
+import { useMemo, useState } from "react";
+import dynamic from "next/dynamic";
+import { motion } from "motion/react";
+import {
+  Download,
+  Edit2,
+  Eye,
+  EyeOff,
+  MapPin,
+  MapPinned,
+  Plus,
+  Search,
+  Trash2,
+  X,
+} from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
+import { Badge } from "@/components/ui/Badge";
+import {
+  TableContainer,
+  TableHead,
+  TableHeadCell,
+  TableBody,
+  TableRow,
+  TableCell,
+} from "@/components/ui/Table";
+import { Button, IconButton } from "@/components/ui/Button";
+import { Panel, PanelSection, PanelDivider } from "@/components/ui/Panel";
+import { Card, EmptyState } from "@/components/ui/Card";
+import { useReducedMotion } from "@/hooks/useReducedMotion";
+
+/* ─── Types ─────────────────────────────────────────────────────────────────── */
+
+type ZoneType = "Depot" | "Customer" | "Port" | "Checkpoint";
+type ZoneStatus = "active" | "inactive";
+type ZoneShape = "circle" | "polygon";
 
 interface Geofence {
-  id: string; name: string; type: string; units: number; radius: string; alert: string; visible: boolean; coordinates: { lat: number; lng: number };
+  id: string;
+  name: string;
+  type: ZoneType;
+  shape: ZoneShape;
+  lat: number;
+  lng: number;
+  radius: number; // meters
+  color: string;
+  status: ZoneStatus;
+  units: number;
+  notes: string;
 }
 
-const zones: Geofence[] = [
-  { id: "1", name: "Warehouse Cikarang", type: "Depot", units: 7, radius: "650 m", alert: "2 dwell alerts", visible: true, coordinates: { lat: -6.4523, lng: 107.1234 } },
-  { id: "2", name: "Jababeka Customer Area", type: "Customer", units: 4, radius: "420 m", alert: "Normal", visible: true, coordinates: { lat: -6.4256, lng: 107.1567 } },
-  { id: "3", name: "Tanjung Priok Gate 4", type: "Port", units: 3, radius: "900 m", alert: "1 queue risk", visible: true, coordinates: { lat: -6.0989, lng: 106.8901 } },
-  { id: "4", name: "Rest Area KM57", type: "Checkpoint", units: 2, radius: "300 m", alert: "Normal", visible: false, coordinates: { lat: -6.7234, lng: 108.4567 } },
-  { id: "5", name: "MM2100 Industrial", type: "Customer", units: 5, radius: "550 m", alert: "Normal", visible: true, coordinates: { lat: -6.3823, lng: 107.0890 } },
-  { id: "6", name: "Sentul City Depot", type: "Depot", units: 3, radius: "400 m", alert: "Normal", visible: true, coordinates: { lat: -6.5678, lng: 106.8234 } },
-];
+/* ─── Type config ───────────────────────────────────────────────────────────── */
 
-const typeColors: Record<string, string> = {
-  Depot: "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300",
-  Customer: "bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300",
-  Port: "bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-300",
-  Checkpoint: "bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300",
+const TYPE_COLORS: Record<ZoneType, string> = {
+  Depot: "bg-st-driving",
+  Customer: "bg-brand",
+  Port: "bg-st-idle",
+  Checkpoint: "bg-st-stop",
 };
 
-const typeFilter = ["All", "Depot", "Customer", "Port", "Checkpoint"];
+const ZONE_COLORS = [
+  "#10B981",
+  "#3B82F6",
+  "#8B5CF6",
+  "#F59E0B",
+  "#EF4444",
+  "#EC4899",
+  "#06B6D4",
+  "#84CC16",
+];
 
-export default function GeofencesPage() {
-  const { addToast } = useToast();
-  const [geofences, setGeofences] = useState(zones);
-  const [selectedZone, setSelectedZone] = useState<Geofence | null>(null);
-  const [typeFilterValue, setTypeFilterValue] = useState("All");
+/* ─── Initial mock data ─────────────────────────────────────────────────────── */
 
-  const filtered = geofences.filter((z) => typeFilterValue === "All" || z.type === typeFilterValue);
+const INITIAL_ZONES: Geofence[] = [
+  { id: "1", name: "Warehouse Cikarang",    type: "Depot",      shape: "circle", lat: -6.4523, lng: 107.1234, radius: 650,  color: "#10B981", status: "active",   units: 7, notes: "Gudang utama Cikarang" },
+  { id: "2", name: "Jababeka Customer Area", type: "Customer",  shape: "circle", lat: -6.4256, lng: 107.1567, radius: 420,  color: "#3B82F6", status: "active",   units: 4, notes: "Area customer Jababeka" },
+  { id: "3", name: "Tanjung Priok Gate 4",   type: "Port",      shape: "circle", lat: -6.0989, lng: 106.8901, radius: 900,  color: "#8B5CF6", status: "active",   units: 3, notes: "Gerbang masuk pelabuhan" },
+  { id: "4", name: "Rest Area KM57",          type: "Checkpoint",shape: "circle", lat: -6.7234, lng: 108.4567, radius: 300,  color: "#F59E0B", status: "inactive", units: 2, notes: "Rest area Km57 Tol Cipali" },
+  { id: "5", name: "MM2100 Industrial",       type: "Customer",  shape: "circle", lat: -6.3823, lng: 107.0890, radius: 550,  color: "#EF4444", status: "active",   units: 5, notes: "Kawasan industri MM2100" },
+  { id: "6", name: "Sentul City Depot",       type: "Depot",     shape: "circle", lat: -6.5678, lng: 106.8234, radius: 400,  color: "#EC4899", status: "active",   units: 3, notes: "Depot Sentul City" },
+  { id: "7", name: "Bintaro Trade Center",    type: "Customer",  shape: "circle", lat: -6.2256, lng: 106.7456, radius: 350,  color: "#06B6D4", status: "active",   units: 6, notes: "Pusat niaga Bintaro" },
+  { id: "8", name: "Tangerang Logistik Hub",  type: "Depot",     shape: "circle", lat: -6.1789, lng: 106.6234, radius: 700,  color: "#84CC16", status: "active",   units: 9, notes: "Hub logistik Tangerang" },
+];
 
-  function handleZoneClick(zone: Geofence) {
-    setSelectedZone(zone === selectedZone ? null : zone);
-  }
+/* ─── KPI Components ────────────────────────────────────────────────────────── */
 
-  function handleToggleVisibility(zone: Geofence) {
-    setGeofences((prev) => prev.map((z) => (z.id === zone.id ? { ...z, visible: !z.visible } : z)));
-    addToast("info", `${zone.name} ${zone.visible ? "hidden" : "shown"} on map`);
-  }
+function KpiStat({ label, value, accent }: { label: string; value: number; accent?: string }) {
+  const reducedMotion = useReducedMotion();
+  return (
+    <div className="flex flex-col items-center px-4 py-2 rounded-lg bg-surface-2 border border-border min-w-[72px]">
+      <motion.span
+        key={value}
+        initial={{ opacity: 0.6, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={reducedMotion ? { duration: 0 } : { duration: 0.2 }}
+        className={"text-xl font-bold tabular-nums " + (accent ?? "text-foreground")}
+      >
+        {value}
+      </motion.span>
+      <span className="text-label text-muted">{label}</span>
+    </div>
+  );
+}
 
-  function handleAddZone() {
-    addToast("info", "Add geofence form");
-  }
+function KpiDivider() {
+  return <div className="w-px h-8 bg-border self-center" />;
+}
 
-  function handleDeleteZone(zone: Geofence) {
-    setGeofences((prev) => prev.filter((z) => z.id !== zone.id));
-    if (selectedZone?.id === zone.id) setSelectedZone(null);
-    addToast("success", `${zone.name} deleted`);
+/* ─── Delete Confirm ─────────────────────────────────────────────────────────── */
+
+function DeleteConfirm({
+  zoneName,
+  onConfirm,
+  onCancel,
+}: {
+  zoneName: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  const reducedMotion = useReducedMotion();
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={reducedMotion ? { duration: 0 } : { duration: 0.15 }}
+      className="flex items-center gap-2 p-2 bg-surface-2 border border-border rounded-lg"
+    >
+      <span className="text-xs text-foreground flex-1 truncate">
+        Hapus <strong>{zoneName}</strong>?
+      </span>
+      <Button size="sm" variant="danger" onClick={onConfirm} aria-label="Konfirmasi hapus">
+        Ya
+      </Button>
+      <Button size="sm" variant="ghost" onClick={onCancel} aria-label="Batal hapus">
+        Batal
+      </Button>
+    </motion.div>
+  );
+}
+
+/* ─── Zone Form ─────────────────────────────────────────────────────────────── */
+
+interface ZoneFormData {
+  name: string;
+  type: ZoneType;
+  shape: ZoneShape;
+  lat: string;
+  lng: string;
+  radius: string;
+  color: string;
+  status: ZoneStatus;
+  notes: string;
+}
+
+const EMPTY_FORM: ZoneFormData = {
+  name: "", type: "Depot", shape: "circle",
+  lat: "-6.2000", lng: "106.8000", radius: "500",
+  color: "#10B981", status: "active", notes: "",
+};
+
+function ZoneForm({
+  initial,
+  onSubmit,
+  onCancel,
+}: {
+  initial?: ZoneFormData;
+  onSubmit: (data: ZoneFormData) => void;
+  onCancel: () => void;
+}) {
+  const [form, setForm] = useState<ZoneFormData>(initial ?? EMPTY_FORM);
+
+  function set(field: keyof ZoneFormData, value: string) {
+    setForm((prev) => ({ ...prev, [field]: value }));
   }
 
   return (
-    <div className="grid min-h-full grid-cols-1 bg-zinc-50 dark:bg-zinc-950 xl:grid-cols-[420px_1fr]">
-      <aside className="border-r border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
-        <div className="flex items-start justify-between">
-          <div>
-            <p className="metric-label">Smart geofence</p>
-            <h1 className="mt-2 text-3xl font-bold text-zinc-900 dark:text-white">Geofence</h1>
-            <p className="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-400">Area penting untuk monitoring arrival, departure, dwell time, dan penyimpangan rute.</p>
+    <form onSubmit={(e) => { e.preventDefault(); onSubmit(form); }} className="flex flex-col h-full">
+      <div className="flex-1 overflow-y-auto">
+        <PanelSection title="Info Zona">
+          <div className="space-y-3">
+            <FormField label="Nama Zona *" required>
+              <input type="text" value={form.name} onChange={(e) => set("name", e.target.value)}
+                placeholder="cth: Warehouse Cikarang" className="form-input" autoFocus />
+            </FormField>
+            <div className="grid grid-cols-2 gap-3">
+              <FormField label="Tipe">
+                <select value={form.type} onChange={(e) => set("type", e.target.value)} className="form-input">
+                  <option value="Depot">Depot</option>
+                  <option value="Customer">Customer</option>
+                  <option value="Port">Port</option>
+                  <option value="Checkpoint">Checkpoint</option>
+                </select>
+              </FormField>
+              <FormField label="Bentuk">
+                <select value={form.shape} onChange={(e) => set("shape", e.target.value)} className="form-input">
+                  <option value="circle">Lingkaran</option>
+                  <option value="polygon">Poligon</option>
+                </select>
+              </FormField>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <FormField label="Latitude *">
+                <input type="number" step="0.0001" value={form.lat}
+                  onChange={(e) => set("lat", e.target.value)} className="form-input" />
+              </FormField>
+              <FormField label="Longitude *">
+                <input type="number" step="0.0001" value={form.lng}
+                  onChange={(e) => set("lng", e.target.value)} className="form-input" />
+              </FormField>
+              <FormField label="Radius (m)">
+                <input type="number" min="1" value={form.radius}
+                  onChange={(e) => set("radius", e.target.value)} className="form-input" />
+              </FormField>
+            </div>
           </div>
-          <button onClick={handleAddZone} className="btn btn-primary"><Plus className="h-4 w-4" /></button>
-        </div>
+        </PanelSection>
 
-        <div className="mt-5 flex flex-wrap gap-2">
-          {typeFilter.map((type) => (
-            <button key={type} onClick={() => setTypeFilterValue(type)} className={`rounded-full px-3 py-1.5 text-xs font-bold transition-colors ${typeFilterValue === type ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "border border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300"}`}>{type}</button>
-          ))}
-        </div>
+        <PanelDivider />
 
-        <div className="mt-5 space-y-3">
-          {filtered.map((zone) => (
-            <button key={zone.id} onClick={() => handleZoneClick(zone)} className={`w-full rounded-md border p-4 text-left transition-all ${selectedZone?.id === zone.id ? "border-zinc-900 bg-zinc-50 dark:border-white dark:bg-zinc-900" : "border-zinc-200 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-900"}`}>
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="font-bold text-zinc-900 dark:text-white">{zone.name}</p>
-                  <div className="mt-1 flex items-center gap-2">
-                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${typeColors[zone.type]}`}>{zone.type}</span>
-                    <span className="text-xs font-semibold text-zinc-500">{zone.radius}</span>
-                  </div>
-                </div>
-                <span className="rounded-full bg-zinc-100 px-2 py-1 text-xs font-bold text-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">{zone.units} units</span>
+        <PanelSection title="Tampilan">
+          <div className="space-y-3">
+            <FormField label="Warna Zona">
+              <div className="flex flex-wrap gap-2">
+                {ZONE_COLORS.map((c) => (
+                  <button key={c} type="button"
+                    onClick={() => set("color", c)}
+                    className={"w-7 h-7 rounded-full border-2 transition-all " + (form.color === c ? "border-foreground scale-110" : "border-border hover:scale-105")}
+                    style={{ backgroundColor: c }}
+                    aria-label={"Pilih warna " + c}
+                  />
+                ))}
               </div>
-              <div className="mt-3 flex items-center justify-between">
-                <p className={`inline-flex items-center gap-2 text-xs font-bold ${zone.alert === "Normal" ? "text-emerald-700 dark:text-emerald-300" : "text-amber-700 dark:text-amber-300"}`}>
-                  {zone.alert === "Normal" ? <RadioTower className="h-3.5 w-3.5" /> : <AlertTriangle className="h-3.5 w-3.5" />}{zone.alert}
-                </p>
-                <div className="flex items-center gap-1">
-                  <button onClick={(e) => { e.stopPropagation(); handleToggleVisibility(zone); }} className="rounded p-1 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800">{zone.visible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}</button>
-                </div>
-              </div>
-            </button>
-          ))}
-        </div>
-
-        {filtered.length === 0 && (
-          <div className="mt-10 text-center text-zinc-400 dark:text-zinc-600">
-            <MapPinned className="mx-auto h-10 w-10 opacity-30" />
-            <p className="mt-2 text-sm font-semibold">No geofences found</p>
+            </FormField>
+            <FormField label="Status">
+              <select value={form.status} onChange={(e) => set("status", e.target.value)} className="form-input">
+                <option value="active">Aktif</option>
+                <option value="inactive">Nonaktif</option>
+              </select>
+            </FormField>
+            <FormField label="Catatan">
+              <textarea value={form.notes} onChange={(e) => set("notes", e.target.value)}
+                placeholder="Keterangan tambahan..." rows={2} className="form-input resize-none" />
+            </FormField>
           </div>
-        )}
-      </aside>
+        </PanelSection>
+      </div>
 
-      <main className="relative min-h-[calc(100vh-4rem)] overflow-hidden">
-        <div className="absolute inset-0 bg-zinc-100 dark:bg-zinc-900">
-          <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(0,0,0,.05)_1px,transparent_1px),linear-gradient(rgba(0,0,0,.05)_1px,transparent_1px)] bg-[size:48px_48px]" />
-          <div className="absolute left-[20%] top-[30%] h-52 w-52 rounded-full border-4 border-emerald-500/70 bg-emerald-500/10" style={{ transform: "translate(-50%, -50%)" }} />
-          <div className="absolute left-[65%] top-[40%] h-44 w-44 rounded-full border-4 border-blue-500/60 bg-blue-500/10" style={{ transform: "translate(-50%, -50%)" }} />
-          <div className="absolute left-[45%] top-[70%] h-36 w-36 rounded-full border-4 border-amber-500/50 bg-amber-500/10" style={{ transform: "translate(-50%, -50%)" }} />
-        </div>
+      <div className="pt-4 border-t border-border flex items-center gap-2">
+        <Button type="button" variant="ghost" onClick={onCancel} className="flex-1">Batal</Button>
+        <Button type="submit" variant="primary" className="flex-1">
+          {initial ? "Simpan Perubahan" : "Tambah Zona"}
+        </Button>
+      </div>
+    </form>
+  );
+}
 
-        <div className="absolute left-8 top-8 rounded-md border border-zinc-200 bg-white/95 p-4 shadow-sm backdrop-blur dark:border-zinc-800 dark:bg-zinc-900/95">
-          <div className="flex items-center gap-3">
-            <MapPinned className="h-5 w-5 text-zinc-900 dark:text-white" />
+function FormField({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="block text-sm font-medium text-muted mb-1.5">
+        {label}{required && <span className="text-st-offline ml-0.5">*</span>}
+      </label>
+      {children}
+    </div>
+  );
+}
+
+/* ─── Geofence Map Preview (lazy, SSR-safe) ─────────────────────────────────── */
+
+const GeofenceMapPreview = dynamic(() => import("@/components/map/MapView").then((m) => {
+  return function GeofenceMapInner({ zones, selectedId }: { zones: Geofence[]; selectedId: string | null }) {
+    // Convert zones to MapVehicle shape — cast to any to bypass strict Vehicle extension fields
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const vehicles: any[] = zones
+      .filter((z) => z.status === "active")
+      .map((z) => ({
+        id: parseInt(z.id) || 0,
+        plate_number: z.name.slice(0, 12),
+        status: "stop" as const,
+        displayStatus: "stop" as const,
+        lat: z.lat,
+        lng: z.lng,
+        displayLat: z.lat,
+        displayLng: z.lng,
+        heading: 0,
+        displayHeading: 0,
+        speed: 0,
+        fuel_level: 0,
+        odometer: 0,
+        vehicle_type: "truck",
+        brand: z.type,
+        model: "",
+        year: 2024,
+        latitude: z.lat,
+        longitude: z.lng,
+        engine_on: false,
+        last_update: "",
+        driver_name: null,
+      }));
+
+    return (
+      <m.default
+        vehicles={vehicles}
+        selectedId={selectedId ? parseInt(selectedId) : null}
+        className="w-full h-full"
+        zoom={10}
+        pitch={30}
+      />
+    );
+  };
+}), { ssr: false });
+
+/* ─── Main Page ─────────────────────────────────────────────────────────────── */
+
+export default function GeofencesPage() {
+  const { success, error, info } = useToast();
+  const reducedMotion = useReducedMotion();
+
+  const [zones, setZones] = useState<Geofence[]>(INITIAL_ZONES);
+  const [selected, setSelected] = useState<Geofence | null>(null);
+  const [search, setSearch] = useState("");
+  const [filterType, setFilterType] = useState<ZoneType | "all">("all");
+  const [filterStatus, setFilterStatus] = useState<ZoneStatus | "all">("all");
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerMode, setDrawerMode] = useState<"add" | "edit">("add");
+  const [editZone, setEditZone] = useState<Geofence | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+
+  const counts = useMemo(() => ({
+    total: zones.length,
+    aktif: zones.filter((z) => z.status === "active").length,
+    circle: zones.filter((z) => z.shape === "circle").length,
+    polygon: zones.filter((z) => z.shape === "polygon").length,
+  }), [zones]);
+
+  const rows = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return zones.filter((z) => {
+      if (q && !z.name.toLowerCase().includes(q)) return false;
+      if (filterType !== "all" && z.type !== filterType) return false;
+      if (filterStatus !== "all" && z.status !== filterStatus) return false;
+      return true;
+    });
+  }, [zones, search, filterType, filterStatus]);
+
+  function openAdd() {
+    setDrawerMode("add");
+    setEditZone(null);
+    setDrawerOpen(true);
+  }
+
+  function openEdit(z: Geofence) {
+    setDrawerMode("edit");
+    setEditZone(z);
+    setDrawerOpen(true);
+  }
+
+  function closeDrawer() {
+    setDrawerOpen(false);
+    setEditZone(null);
+  }
+
+  function handleSubmitForm(data: ZoneFormData) {
+    if (!data.name.trim()) { error("Nama zona wajib diisi"); return; }
+    const lat = parseFloat(data.lat);
+    const lng = parseFloat(data.lng);
+    if (isNaN(lat) || isNaN(lng)) { error("Koordinat pusat wajib diisi"); return; }
+
+    if (drawerMode === "add") {
+      const newZone: Geofence = {
+        id: String(zones.length + 1),
+        name: data.name.trim(),
+        type: data.type,
+        shape: data.shape,
+        lat, lng,
+        radius: parseInt(data.radius) || 500,
+        color: data.color,
+        status: data.status,
+        units: 0,
+        notes: data.notes.trim(),
+      };
+      setZones((prev) => [...prev, newZone]);
+      success("Zona " + newZone.name + " ditambahkan");
+      closeDrawer();
+    } else if (editZone) {
+      setZones((prev) =>
+        prev.map((z) =>
+          z.id === editZone.id
+            ? { ...z, name: data.name.trim(), type: data.type, shape: data.shape, lat, lng, radius: parseInt(data.radius) || 500, color: data.color, status: data.status, notes: data.notes.trim() }
+            : z
+        )
+      );
+      success("Zona " + data.name + " diperbarui");
+      closeDrawer();
+    }
+  }
+
+  function handleDelete(z: Geofence) {
+    setZones((prev) => prev.filter((x) => x.id !== z.id));
+    if (selected?.id === z.id) setSelected(null);
+    setDeleteConfirm(null);
+    success("Zona " + z.name + " dihapus");
+  }
+
+  function handleToggle(z: Geofence) {
+    const newStatus: ZoneStatus = z.status === "active" ? "inactive" : "active";
+    setZones((prev) => prev.map((x) => x.id === z.id ? { ...x, status: newStatus } : x));
+    info(newStatus === "active" ? "Zona diaktifkan" : "Zona dinonaktifkan", z.name);
+  }
+
+  function handleExport() {
+    success("Export CSV", "Mengunduh data " + zones.length + " zona...");
+  }
+
+  function resetFilters() {
+    setSearch("");
+    setFilterType("all");
+    setFilterStatus("all");
+  }
+
+  const isFiltered = search !== "" || filterType !== "all" || filterStatus !== "all";
+
+  return (
+    <div className="h-[calc(100vh-4rem)] flex flex-col overflow-hidden">
+      {/* ─── Header ─────────────────────────────────────────────────────────── */}
+      <header className="shrink-0 px-6 pt-6 pb-4 border-b border-border bg-surface-1">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start gap-6">
             <div>
-              <p className="font-bold text-zinc-900 dark:text-white">Geofence map</p>
-              <p className="text-xs font-semibold text-zinc-500">{geofences.filter((z) => z.visible).length} zones visible</p>
+              <p className="text-label uppercase tracking-wide text-muted">Fleet Management</p>
+              <h1 className="text-h1 font-semibold text-foreground mt-0.5">Manajemen Geofence</h1>
+              <p className="text-sm text-muted mt-0.5">Zona monitoring arrival, departure &amp; dwell time</p>
+            </div>
+            <div className="flex items-center gap-1 mt-6">
+              <KpiStat label="Total" value={counts.total} />
+              <KpiDivider />
+              <KpiStat label="Aktif" value={counts.aktif} accent="text-st-driving" />
+              <KpiDivider />
+              <KpiStat label="Lingkaran" value={counts.circle} />
+              <KpiDivider />
+              <KpiStat label="Poligon" value={counts.polygon} />
             </div>
           </div>
-        </div>
-
-        <div className="absolute bottom-8 right-8 rounded-md bg-zinc-900 p-5 text-white shadow-sm dark:bg-white dark:text-zinc-900">
-          <Warehouse className="h-5 w-5" />
-          <p className="mt-3 text-2xl font-bold">{geofences.length}</p>
-          <p className="text-xs font-semibold opacity-70">active zones</p>
-        </div>
-
-        {selectedZone && (
-          <div className="absolute right-8 top-8 w-[380px] rounded-md border border-zinc-200 bg-white p-5 shadow-lg dark:border-zinc-800 dark:bg-zinc-900">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-bold text-zinc-900 dark:text-white">{selectedZone.name}</h3>
-              <button onClick={() => setSelectedZone(null)} className="rounded-md p-1 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"><X className="h-5 w-5" /></button>
-            </div>
-            <div className="mt-4 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <p className="text-[10px] font-bold uppercase text-zinc-500">Type</p>
-                  <span className={`inline-block rounded-full px-2.5 py-1 text-xs font-bold ${typeColors[selectedZone.type]}`}>{selectedZone.type}</span>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-[10px] font-bold uppercase text-zinc-500">Radius</p>
-                  <p className="font-semibold text-zinc-900 dark:text-white">{selectedZone.radius}</p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-[10px] font-bold uppercase text-zinc-500">Units inside</p>
-                  <p className="font-semibold text-zinc-900 dark:text-white">{selectedZone.units}</p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-[10px] font-bold uppercase text-zinc-500">Status</p>
-                  <p className={`font-semibold ${selectedZone.alert === "Normal" ? "text-emerald-700 dark:text-emerald-300" : "text-amber-700 dark:text-amber-300"}`}>{selectedZone.alert}</p>
-                </div>
-              </div>
-              <div className="space-y-1">
-                <p className="text-[10px] font-bold uppercase text-zinc-500">Coordinates</p>
-                <p className="font-mono text-sm text-zinc-700 dark:text-zinc-300">{selectedZone.coordinates.lat.toFixed(6)}, {selectedZone.coordinates.lng.toFixed(6)}</p>
-              </div>
-              <div className="flex gap-2 pt-2">
-                <button onClick={() => addToast("info", "Editing geofence...")} className="btn btn-primary flex-1"><Edit className="mr-2 h-4 w-4" /> Edit</button>
-                <button onClick={() => handleToggleVisibility(selectedZone)} className="btn btn-secondary">{selectedZone.visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button>
-                <button onClick={() => handleDeleteZone(selectedZone)} className="btn btn-secondary text-red-600"><Trash2 className="h-4 w-4" /></button>
-              </div>
-            </div>
+          <div className="flex items-center gap-2 mt-1">
+            <Button variant="secondary" size="sm" icon={<Download className="w-4 h-4" />} onClick={handleExport} aria-label="Export data geofence">
+              Export
+            </Button>
+            <Button variant="primary" size="sm" icon={<Plus className="w-4 h-4" />} onClick={openAdd} aria-label="Tambah zona baru">
+              Tambah Zona
+            </Button>
           </div>
-        )}
-      </main>
+        </div>
+      </header>
+
+      {/* ─── Toolbar ────────────────────────────────────────────────────────── */}
+      <div className="shrink-0 px-6 py-3 border-b border-border bg-surface-1">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative flex-1 min-w-[200px] max-w-xs">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted pointer-events-none" />
+            <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
+              placeholder="Cari nama zona..."
+              className="w-full pl-9 pr-3 py-1.5 text-sm bg-surface-2 border border-border rounded-lg placeholder:text-faint text-foreground focus-visible:outline-2 focus-visible:outline-brand focus-visible:outline-offset-0 transition-colors" />
+          </div>
+
+          {/* Type filter */}
+          <div className="flex items-center gap-1">
+            <span className="text-xs text-muted mr-1">Tipe:</span>
+            {(["all", "Depot", "Customer", "Port", "Checkpoint"] as (ZoneType | "all")[]).map((f) => (
+              <button key={f} onClick={() => setFilterType(f)}
+                className={"px-2.5 py-1 rounded-md text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-brand " + (filterType === f ? "bg-brand text-white" : "bg-surface-2 text-muted hover:bg-surface-3 hover:text-foreground border border-border")}>
+                {f === "all" ? "Semua" : f}
+              </button>
+            ))}
+          </div>
+
+          {/* Status filter */}
+          <div className="flex items-center gap-1">
+            <span className="text-xs text-muted mr-1">Status:</span>
+            {(["all", "active", "inactive"] as (ZoneStatus | "all")[]).map((f) => (
+              <button key={f} onClick={() => setFilterStatus(f)}
+                className={"px-2.5 py-1 rounded-md text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-brand " + (filterStatus === f ? "bg-brand text-white" : "bg-surface-2 text-muted hover:bg-surface-3 hover:text-foreground border border-border")}>
+                {f === "all" ? "Semua" : f === "active" ? "Aktif" : "Nonaktif"}
+              </button>
+            ))}
+          </div>
+
+          {isFiltered && (
+            <button onClick={resetFilters}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium bg-surface-2 border border-border text-muted hover:bg-surface-3 hover:text-foreground focus-visible:outline-2 focus-visible:outline-brand transition-colors">
+              <X className="w-3 h-3" />Reset
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* ─── Content: 2-column ────────────────────────────────────────────── */}
+      <div className="flex-1 overflow-hidden flex">
+        {/* ── LEFT: Zone list ──────────────────────────────────────────────── */}
+        <div className="w-[420px] shrink-0 border-r border-border flex flex-col overflow-hidden bg-surface-1">
+          {rows.length === 0 ? (
+            <div className="flex-1 flex items-center justify-center p-6">
+              <EmptyState
+                icon={<MapPinned className="w-8 h-8 opacity-40" />}
+                title={isFiltered ? "Tidak ada zona" : "Belum ada zona"}
+                description={isFiltered ? "Tidak ada zona yang cocok dengan filter." : "Tambahkan zona pertama."}
+                action={isFiltered ? (
+                  <Button variant="secondary" size="sm" onClick={resetFilters}>Reset Filter</Button>
+                ) : (
+                  <Button variant="primary" size="sm" icon={<Plus className="w-4 h-4" />} onClick={openAdd}>Tambah Zona</Button>
+                )}
+              />
+            </div>
+          ) : (
+            <div className="flex-1 overflow-y-auto">
+              <TableContainer scrollable={false}>
+                <TableHead>
+                  <tr>
+                    <TableHeadCell width={160}>Nama Zona</TableHeadCell>
+                    <TableHeadCell width={80}>Tipe</TableHeadCell>
+                    <TableHeadCell width={80}>Radius</TableHeadCell>
+                    <TableHeadCell width={60} className="text-right">Unit</TableHeadCell>
+                    <TableHeadCell width={50} className="text-right">Aksi</TableHeadCell>
+                  </tr>
+                </TableHead>
+                <TableBody>
+                  {rows.map((z) => {
+                    const isDeleteConfirming = deleteConfirm === z.id;
+                    return (
+                      <TableRow
+                        key={z.id}
+                        selectable
+                        selected={selected?.id === z.id}
+                        onClick={() => setSelected(isDeleteConfirming ? null : (selected?.id === z.id ? null : z))}
+                        className="group"
+                      >
+                        {/* Nama */}
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: z.color }} />
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold text-foreground truncate">{z.name}</p>
+                              <p className="text-xs font-mono tabular-nums text-faint">
+                                {z.lat.toFixed(4)}, {z.lng.toFixed(4)}
+                              </p>
+                            </div>
+                          </div>
+                        </TableCell>
+                        {/* Tipe */}
+                        <TableCell>
+                          <Badge variant={TYPE_COLORS[z.type].replace("bg-", "") as "brand" | "success" | "warning" | "default"}>
+                            {z.type}
+                          </Badge>
+                        </TableCell>
+                        {/* Radius */}
+                        <TableCell>
+                          <span className="text-xs font-mono tabular-nums text-muted">{z.radius}m</span>
+                        </TableCell>
+                        {/* Units */}
+                        <TableCell className="text-right">
+                          <span className="text-xs font-mono tabular-nums text-muted">{z.units}</span>
+                        </TableCell>
+                        {/* Aksi */}
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            {isDeleteConfirming ? (
+                              <DeleteConfirm
+                                zoneName={z.name}
+                                onConfirm={() => handleDelete(z)}
+                                onCancel={() => setDeleteConfirm(null)}
+                              />
+                            ) : (
+                              <>
+                                <IconButton
+                                  icon={<Edit2 className="w-3.5 h-3.5" />}
+                                  onClick={(e) => { e.stopPropagation(); openEdit(z); }}
+                                  variant="ghost" size="sm" aria-label={"Edit " + z.name}
+                                />
+                                <IconButton
+                                  icon={<Trash2 className="w-3.5 h-3.5" />}
+                                  onClick={(e) => { e.stopPropagation(); setDeleteConfirm(z.id); }}
+                                  variant="ghost" size="sm" aria-label={"Hapus " + z.name}
+                                  className="hover:text-st-offline focus-visible:outline-st-offline"
+                                />
+                              </>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </TableContainer>
+            </div>
+          )}
+        </div>
+
+        {/* ── RIGHT: Map preview ─────────────────────────────────────────── */}
+        <div className="flex-1 relative overflow-hidden bg-bg">
+          {selected ? (
+            <>
+              <GeofenceMapPreview zones={zones} selectedId={selected.id} />
+              {/* Selected zone overlay card */}
+              <div className="absolute top-4 right-4 z-dock w-[320px]">
+                <Card padding="md">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: selected.color }} />
+                      <h3 className="text-sm font-semibold text-foreground truncate">{selected.name}</h3>
+                    </div>
+                    <button onClick={() => setSelected(null)} className="shrink-0 p-1 rounded text-muted hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-brand" aria-label="Tutup pratinjau">
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <div className="rounded bg-surface-2 border border-border px-2.5 py-1.5">
+                      <p className="text-[9px] font-semibold uppercase tracking-widest text-muted">Tipe</p>
+                      <p className="text-xs font-medium text-foreground mt-0.5">{selected.type}</p>
+                    </div>
+                    <div className="rounded bg-surface-2 border border-border px-2.5 py-1.5">
+                      <p className="text-[9px] font-semibold uppercase tracking-widest text-muted">Radius</p>
+                      <p className="text-xs font-mono tabular-nums font-medium text-foreground mt-0.5">{selected.radius}m</p>
+                    </div>
+                    <div className="rounded bg-surface-2 border border-border px-2.5 py-1.5">
+                      <p className="text-[9px] font-semibold uppercase tracking-widest text-muted">Unit</p>
+                      <p className="text-xs font-semibold text-foreground mt-0.5">{selected.units} kendaraan</p>
+                    </div>
+                    <div className="rounded bg-surface-2 border border-border px-2.5 py-1.5">
+                      <p className="text-[9px] font-semibold uppercase tracking-widest text-muted">Status</p>
+                      <Badge variant={selected.status === "active" ? "success" : "default"} className="mt-0.5">
+                        {selected.status === "active" ? "Aktif" : "Nonaktif"}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="mt-2 rounded bg-surface-2 border border-border px-2.5 py-1.5">
+                    <p className="text-[9px] font-semibold uppercase tracking-widest text-muted">Koordinat</p>
+                    <p className="text-xs font-mono tabular-nums text-foreground mt-0.5">
+                      {selected.lat.toFixed(6)}, {selected.lng.toFixed(6)}
+                    </p>
+                  </div>
+                  {selected.notes && (
+                    <div className="mt-2 rounded bg-surface-2 border border-border px-2.5 py-1.5">
+                      <p className="text-[9px] font-semibold uppercase tracking-widest text-muted">Catatan</p>
+                      <p className="text-xs text-muted mt-0.5">{selected.notes}</p>
+                    </div>
+                  )}
+                  <div className="mt-3 flex items-center gap-2">
+                    <Button size="sm" variant="primary" icon={<Edit2 className="w-3.5 h-3.5" />} onClick={() => openEdit(selected)} className="flex-1">
+                      Edit
+                    </Button>
+                    <IconButton
+                      icon={selected.status === "active" ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      onClick={() => handleToggle(selected)}
+                      variant="ghost" size="sm"
+                      aria-label={selected.status === "active" ? "Nonaktifkan zona" : "Aktifkan zona"}
+                    />
+                    <IconButton
+                      icon={<Trash2 className="w-3.5 h-3.5" />}
+                      onClick={() => setDeleteConfirm(selected.id)}
+                      variant="ghost" size="sm"
+                      aria-label={"Hapus " + selected.name}
+                      className="hover:text-st-offline"
+                    />
+                  </div>
+                </Card>
+              </div>
+            </>
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <EmptyState
+                icon={<MapPin className="w-8 h-8 opacity-40" />}
+                title="Pilih zona untuk pratinjau"
+                description="Klik zona di daftar untuk melihat lokasi di peta."
+                action={
+                  <Button variant="primary" size="sm" icon={<Plus className="w-4 h-4" />} onClick={openAdd}>
+                    Tambah Zona
+                  </Button>
+                }
+              />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ─── Drawer Panel ──────────────────────────────────────────────────── */}
+      <Panel
+        open={drawerOpen}
+        onClose={closeDrawer}
+        title={drawerMode === "add" ? "Tambah Zona" : "Edit Zona"}
+        subtitle={drawerMode === "edit" && editZone ? editZone.name : undefined}
+        width={420}
+      >
+        <ZoneForm
+          initial={
+            drawerMode === "edit" && editZone
+              ? {
+                  name: editZone.name,
+                  type: editZone.type,
+                  shape: editZone.shape,
+                  lat: String(editZone.lat),
+                  lng: String(editZone.lng),
+                  radius: String(editZone.radius),
+                  color: editZone.color,
+                  status: editZone.status,
+                  notes: editZone.notes,
+                }
+              : undefined
+          }
+          onSubmit={handleSubmitForm}
+          onCancel={closeDrawer}
+        />
+      </Panel>
     </div>
   );
 }

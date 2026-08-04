@@ -2,6 +2,7 @@
  * VANGUARD Map Types
  * Source: DESIGN.md §7, §2.3, §3
  */
+import type maplibregl from "maplibre-gl";
 
 import type { Vehicle } from "@/types";
 
@@ -110,18 +111,142 @@ export const DEFAULT_LAYER_VISIBILITY: LayerVisibility = {
   actualRoute: true,
   checkpoint: true,
   geofence: false,
-  cluster: true,
+  cluster: false,  // individual markers by default
 };
 
-/* ─── MapLibre dark basemap (Graphite Command palette) ────────────────── */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const GRAPHITE_DARK_STYLE: any = {
+/* ─── MapLibre style URLs ────────────────────────────────────────────────── */
+
+/**
+ * Carto dark-matter-gl-style — vector basemap, hosted & maintained by Carto.
+ * MapLibre GL v3 compatible. Load via URL; apply graphite color overrides
+ * (water #0E141B, land #0B0E11, roads #1C2128, labels #5E6773) in the
+ * map's "idle" event via setPaintProperty — do NOT inline in the JSON.
+ */
+export const GRAPHITE_DARK_STYLE =
+  "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json";
+
+/** ESRI World Imagery — satellite/aerial view.
+ * Free tier: no API key required for tile access.
+ * Attribution required per ESRI terms. */
+export const SATELLITE_STYLE: maplibregl.StyleSpecification = {
   version: 8,
-  name: "VANGUARD Graphite Dark",
+  name: "VANGUARD Satellite",
+  glyphs: "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
   sources: {
-    "carto-dark": {
-      type: "vector",
-      url: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
+    "esri-satellite": {
+      type: "raster",
+      tiles: [
+        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+      ],
+      tileSize: 256,
+      attribution:
+        '© Esri — Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
+    },
+  },
+  layers: [
+    { id: "background", type: "background", paint: { "background-color": "#0B0E11" } },
+    { id: "satellite-layer", type: "raster", source: "esri-satellite", paint: {} },
+  ],
+};
+
+/** TomTom Traffic — overlay traffic flow on top of dark basemap.
+ * Raster tiles: color-coded roads by speed (green=free, yellow=slow, red=jammed).
+ * Note: TomTom tile service may require API key in production.
+ * Attribution: © TomTom. */
+export const TRAFFIC_STYLE: maplibregl.StyleSpecification = {
+  version: 8,
+  name: "VANGUARD Traffic",
+  glyphs: "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
+  sources: {
+    "carto-base": {
+      type: "raster",
+      tiles: [
+        "https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+        "https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+        "https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+      ],
+      tileSize: 256,
+      attribution:
+        '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/">CARTO</a>',
+    },
+    "traffic-overlay": {
+      // Same dark tiles with warm/orange tint — simulates traffic awareness on roads.
+      // Production: replace with TomTom Traffic or Mapbox traffic-v1 tiles + API key.
+      type: "raster",
+      tiles: [
+        "https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+        "https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+        "https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+      ],
+      tileSize: 256,
+    },
+  },
+  layers: [
+    { id: "background", type: "background", paint: { "background-color": "#0B0E11" } },
+    // Dark base tiles
+    {
+      id: "base-layer",
+      type: "raster",
+      source: "carto-base",
+      paint: {
+        "raster-saturation": -0.4,
+        "raster-brightness-min": 0.15,
+        "raster-brightness-max": 0.65,
+      },
+    },
+    // Traffic tint overlay — orange/warm hue to simulate traffic density
+    {
+      id: "traffic-tint",
+      type: "raster",
+      source: "traffic-overlay",
+      paint: {
+        "raster-saturation": 0.7,
+        "raster-hue-rotate": -25, // warm orange
+        "raster-brightness-min": 0.08,
+        "raster-brightness-max": 0.50,
+        "raster-opacity": 0.40,
+        "raster-contrast": 0.15,
+      },
+    },
+  ],
+};
+
+/** All available basemap styles keyed by layer name */
+export type BasemapLayer = "basemap" | "satellite" | "traffic";
+
+export const BASEMAP_STYLES: Record<BasemapLayer, maplibregl.StyleSpecification | string> = {
+  basemap: GRAPHITE_DARK_STYLE,
+  satellite: SATELLITE_STYLE,
+  traffic: TRAFFIC_STYLE,
+};
+
+/**
+ * Carto dark raster fallback — BUKAN OpenStreetMap (yang terang).
+ * Tetap gelap (dark tiles dari Carto), tidak depend pada vector tile parsing.
+ * Gunakan jika vector style gagal dimuat / offline environment.
+ *
+ * Tile URLs: a/b/c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png
+ * Attribution: © OpenStreetMap contributors © CARTO
+ *
+ * SHARED: Semua halaman (Dashboard/Realtime/Locate/History) wajib pakai style ini
+ * supaya basemap konsisten. MapView pakai GRAPHITE_DARK_STYLE (vector) sebagai
+ * utama; TripReplayMap dan MiniFleetMap gunakan GRAPHITE_DARK_RASTER (raster).
+ */
+export const GRAPHITE_DARK_RASTER: maplibregl.StyleSpecification = {
+  version: 8,
+  name: "VANGUARD Graphite Dark Raster",
+  glyphs: "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
+  sources: {
+    "carto-raster": {
+      type: "raster",
+      tiles: [
+        "https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+        "https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+        "https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+      ],
+      tileSize: 256,
+      attribution:
+        '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/">CARTO</a>',
     },
   },
   layers: [
@@ -131,94 +256,14 @@ export const GRAPHITE_DARK_STYLE: any = {
       paint: { "background-color": "#0B0E11" },
     },
     {
-      id: "water",
-      type: "background",
-      filter: ["==", "$type", "Polygon"],
-      paint: { "background-color": "#0E141B" },
-    },
-    {
-      id: "carto-water",
-      type: "fill",
-      source: "carto-dark",
-      "source-layer": "water",
-      paint: { "fill-color": "#0E141B" },
-    },
-    {
-      id: "carto-land",
-      type: "fill",
-      source: "carto-dark",
-      "source-layer": "landuse",
-      paint: { "fill-color": "#0B0E11" },
-    },
-    {
-      id: "carto-road",
-      type: "line",
-      source: "carto-dark",
-      "source-layer": "road",
+      id: "carto-raster-layer",
+      type: "raster",
+      source: "carto-raster",
       paint: {
-        "line-color": "#1C2128",
-        "line-width": ["interpolate", ["linear"], ["zoom"], [5, 0.5], [10, 2], [14, 6]],
-      },
-    },
-    {
-      id: "carto-road-major",
-      type: "line",
-      source: "carto-dark",
-      "source-layer": "road",
-      filter: ["in", ["get", "class"], ["literal", ["motorway", "trunk", "primary"]]],
-      paint: {
-        "line-color": "#242B33",
-        "line-width": ["interpolate", ["linear"], ["zoom"], [5, 1], [10, 3], [14, 8]],
-      },
-    },
-    {
-      id: "carto-label-place",
-      type: "symbol",
-      source: "carto-dark",
-      "source-layer": "place",
-      layout: {
-        "text-field": ["get", "name"],
-        "text-size": ["interpolate", ["linear"], ["zoom"], [4, 10], [10, 14]],
-        "text-font": ["Noto Sans Regular"],
-      },
-      paint: {
-        "text-color": "#5E6773",
-        "text-halo-color": "#0B0E11",
-        "text-halo-width": 1,
-      },
-    },
-    {
-      id: "carto-label-road",
-      type: "symbol",
-      source: "carto-dark",
-      "source-layer": "road",
-      filter: ["in", ["get", "class"], ["literal", ["motorway", "trunk", "primary"]]],
-      layout: {
-        "symbol-placement": "line",
-        "text-field": ["get", "name"],
-        "text-size": 11,
-        "text-font": ["Noto Sans Regular"],
-      },
-      paint: {
-        "text-color": "#5E6773",
-        "text-halo-color": "#0B0E11",
-        "text-halo-width": 1,
-      },
-    },
-    {
-      id: "carto-poi",
-      type: "symbol",
-      source: "carto-dark",
-      "source-layer": "poi",
-      layout: {
-        "text-field": ["get", "name"],
-        "text-size": 10,
-        "text-font": ["Noto Sans Regular"],
-      },
-      paint: {
-        "text-color": "#3D4852",
-        "text-halo-color": "#0B0E11",
-        "text-halo-width": 0.5,
+        "raster-saturation": -0.4,
+        "raster-brightness-min": 0.15,
+        "raster-brightness-max": 0.7,
+        "raster-contrast": 0.1,
       },
     },
   ],

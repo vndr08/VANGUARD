@@ -1,37 +1,47 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import MapView from "./MapView";
 import { LayerControlPanel } from "./LayerControlPanel";
 import { DetailPanel } from "./DetailPanel";
-import { useLayerVisibility } from "@/hooks/useMapHooks";
-import { DEFAULT_LAYER_VISIBILITY } from "./types";
 import type { Vehicle } from "@/types";
 import { toMapVehicle } from "@/lib/mock-data";
+import type { LayerVisibility } from "./types";
 
 /* ─── TrackingMap ─────────────────────────────────────────────────────── */
 /**
  * Main realtime tracking map for VANGUARD.
- * Uses MapLibre GL JS with graphite dark basemap.
+ * Receives toolbar state from the parent page and wires it through to MapView.
  */
+export type MapLayerType = "basemap" | "satellite" | "traffic";
+
 interface TrackingMapProps {
   vehicles: Vehicle[];
   selectedId?: number | null;
   onSelectVehicle?: (id: number) => void;
+  /** Layer visibility — SINGLE SOURCE OF TRUTH (passed from page level) */
+  visibility: LayerVisibility;
+  /** Toggle a layer visibility key */
+  toggleLayer: (key: keyof LayerVisibility) => void;
+  /** Active basemap: "basemap" | "satellite" | "traffic" */
+  mapLayer?: MapLayerType;
 }
 
 export default function TrackingMap({
   vehicles,
   selectedId,
   onSelectVehicle,
+  visibility,
+  toggleLayer,
+  mapLayer = "basemap",
 }: TrackingMapProps) {
   const [internalSelected, setInternalSelected] = useState<number | null>(null);
   const selected = selectedId ?? internalSelected;
 
-  const { visibility, toggle } = useLayerVisibility(DEFAULT_LAYER_VISIBILITY);
-
-  // Convert to MapVehicle (with display positions)
-  const mapVehicles = vehicles.map((v) => toMapVehicle(v));
+  // Convert to MapVehicle (with display positions) — memoized so the reference
+  // stays stable unless the vehicles array actually changes. This prevents MapView's
+  // marker effects from being triggered by unrelated parent re-renders.
+  const mapVehicles = useMemo(() => vehicles.map((v) => toMapVehicle(v)), [vehicles]);
 
   // Resolve selected vehicle
   const selectedVehicle = selected != null
@@ -54,6 +64,9 @@ export default function TrackingMap({
         vehicles={mapVehicles}
         selectedId={selected}
         onSelectVehicle={handleSelect}
+        visibility={visibility}
+        onToggleLayer={toggleLayer}
+        mapLayer={mapLayer}
         pitch={45}
         center={[107.0, -6.5]}
         zoom={9}
@@ -61,14 +74,14 @@ export default function TrackingMap({
         {/* Layer controls — glass dock top-right */}
         <LayerControlPanel
           visibility={visibility}
-          onToggle={toggle}
+          onToggle={toggleLayer}
         />
 
-        {/* Detail panel — right side, slides in when vehicle selected */}
+        {/* Detail panel — slides in from right when vehicle selected */}
         <DetailPanel
           vehicle={selectedVehicle}
           visibility={visibility}
-          onToggleLayer={toggle}
+          onToggleLayer={toggleLayer}
           onClose={handleClose}
         />
       </MapView>
@@ -110,8 +123,9 @@ function LegendItem({
       <span
         className="h-0.5 flex-1 rounded-full"
         style={{
-          background: color,
-          ...(dashed ? { background: `repeating-linear-gradient(to right, ${color} 0, ${color} 4px, transparent 4px, transparent 8px)` } : {}),
+          background: dashed
+            ? `repeating-linear-gradient(to right, ${color} 0, ${color} 4px, transparent 4px, transparent 8px)`
+            : color,
         }}
       />
       <span className="text-[10px] text-muted w-20">{label}</span>

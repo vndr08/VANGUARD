@@ -2,9 +2,40 @@
 
 import { Bell, Search } from "lucide-react";
 import { usePathname } from "next/navigation";
+import { useState, useEffect } from "react";
 import Sidebar from "./Sidebar";
 import { useLiveClock } from "@/hooks/useLiveClock";
-import { useState } from "react";
+import { CommandPalette } from "@/components/ui/CommandPalette";
+import { NotificationDropdown } from "@/components/ui/NotificationDropdown";
+import { UserMenuDropdown } from "@/components/ui/UserMenuDropdown";
+import { useNotifications } from "@/hooks/useNotifications";
+import { AppContextProvider, useAppContext } from "@/components/context/AppContext";
+import { useSpeedingMonitor } from "@/hooks/useSpeedingMonitor";
+
+/* ─── Telemetri Refresh Bus ──────────────────────────────────────────────── */
+/** Dispatches "vanguard:telemetri-refresh" CustomEvent on window at each interval. */
+
+function TelemetriBus({ children }: { children: React.ReactNode }) {
+  const { telemetriInterval } = useAppContext();
+
+  // Start/stop/change polling interval
+  useEffect(() => {
+    const id = setInterval(() => {
+      window.dispatchEvent(new CustomEvent("vanguard:telemetri-refresh"));
+    }, telemetriInterval);
+    // Fire once immediately on mount/change
+    window.dispatchEvent(new CustomEvent("vanguard:telemetri-refresh"));
+    return () => clearInterval(id);
+  }, [telemetriInterval]);
+
+  return <>{children}</>;
+}
+
+/* ─── Speeding monitor ─────────────────────────────────────────────────── */
+function SpeedingMonitor() {
+  useSpeedingMonitor();
+  return null;
+}
 
 /* ─── Page title map (TRAMOS §2) ─────────────────────────────────────────── */
 const PAGE_TITLES: Record<string, { title: string; summary: string }> = {
@@ -30,11 +61,52 @@ const PAGE_TITLES: Record<string, { title: string; summary: string }> = {
 const W_EXPANDED = 248;
 const W_RAIL = 64;
 
-export default function AppShell({ children }: { children: React.ReactNode }) {
+/* ─── Mock user context (single source of truth) ─────────────────────────── */
+interface MockUser {
+  name: string;
+  role: string;
+  initials: string;
+}
+
+const MOCK_USER: MockUser = {
+  name: "Ahmad Wijaya",
+  role: "Fleet Manager",
+  initials: "AW",
+};
+
+function AppShellInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const clock = useLiveClock();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const pageInfo = PAGE_TITLES[pathname] ?? { title: "VANGUARD", summary: "" };
+
+  // ── Command palette
+  const [paletteOpen, setPaletteOpen] = useState(false);
+
+  // ── Notification dropdown
+  const [notifOpen, setNotifOpen] = useState(false);
+  const { notifications, unreadCount, markRead, markAllRead, dismiss } = useNotifications();
+
+  // ── User menu dropdown
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+
+  // ── Global ⌘K / Ctrl+K listener
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setPaletteOpen(prev => !prev);
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, []);
+
+  // Close dropdowns on route change
+  useEffect(() => {
+    setNotifOpen(false);
+    setUserMenuOpen(false);
+  }, [pathname]);
 
   const sidebarWidth = sidebarCollapsed ? W_RAIL : W_EXPANDED;
 
@@ -42,6 +114,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     <div className="flex min-h-screen bg-bg">
       {/* ── Sidebar (state managed here, passed as prop) ─────── */}
       <Sidebar collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed((c) => !c)} />
+
+      {/* ── Command Palette ─────────────────────────────────── */}
+      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
 
       {/* ── Main content area ─────────────────────────────────── */}
       <div
@@ -60,14 +135,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             </p>
           </div>
 
-          {/* Tengah: global search */}
+          {/* Tengah: global search → opens command palette */}
           <div className="relative flex-1 max-w-sm mx-auto hidden md:block">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-faint pointer-events-none" />
-            <input
-              type="text"
-              placeholder="Search units, drivers, tasks..."
-              className="input w-full pl-9 pr-12 h-8 text-sm"
-            />
+            <button
+              type="button"
+              onClick={() => setPaletteOpen(true)}
+              className="input w-full pl-9 pr-12 h-8 text-sm text-left cursor-text"
+              aria-label="Buka pencarian (⌘K)"
+            >
+              <span className="text-muted">Search units, drivers, tasks...</span>
+            </button>
             <kbd className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none hidden lg:inline-flex">
               <span className="inline-flex items-center gap-0.5 rounded border border-border bg-surface-2 px-1.5 py-0.5 font-mono text-[10px] text-muted tabular-nums">
                 <span>⌘</span><span>K</span>
@@ -87,40 +165,89 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
             <div className="h-5 w-px bg-border hidden sm:block" />
 
-            {/* Bell notifikasi */}
-            <button
-              type="button"
-              className="relative rounded-lg p-2 text-muted transition-colors hover:bg-surface-2 hover:text-foreground focus-visible:outline-2 focus-visible:outline-brand"
-              aria-label="Notifications (3 unread)"
-            >
-              <Bell className="h-5 w-5" />
-              <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-st-offline text-[9px] font-semibold text-white tabular-nums">
-                3
-              </span>
-            </button>
+            {/* Bell notifikasi — opens dropdown */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => {
+                  setNotifOpen(prev => !prev);
+                  setUserMenuOpen(false);
+                }}
+                className="relative rounded-lg p-2 text-muted transition-colors hover:bg-surface-2 hover:text-foreground focus-visible:outline-2 focus-visible:outline-brand"
+                aria-label={`Notifications (${unreadCount} unread)`}
+                aria-expanded={notifOpen}
+                aria-haspopup="dialog"
+              >
+                <Bell className="h-5 w-5" />
+                {unreadCount > 0 && (
+                  <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-st-offline text-[9px] font-semibold text-white tabular-nums">
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </span>
+                )}
+              </button>
+              {notifOpen && (
+                <NotificationDropdown
+                  notifications={notifications}
+                  unreadCount={unreadCount}
+                  onMarkRead={markRead}
+                  onMarkAllRead={markAllRead}
+                  onDismiss={dismiss}
+                  onClose={() => setNotifOpen(false)}
+                />
+              )}
+            </div>
 
-            {/* Avatar + role */}
-            <button
-              type="button"
-              className="flex items-center gap-2 rounded-lg p-1.5 transition-colors hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-brand"
-              aria-label="User menu"
-            >
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand text-white text-xs font-bold shrink-0">
-                JE
-              </div>
-              <div className="hidden lg:flex flex-col items-start">
-                <span className="text-sm font-medium text-foreground leading-tight">Jhon Erizal</span>
-                <span className="text-[10px] text-muted leading-tight">Dispatcher</span>
-              </div>
-            </button>
+            {/* Avatar + role — opens user menu */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => {
+                  setUserMenuOpen(prev => !prev);
+                  setNotifOpen(false);
+                }}
+                className="flex items-center gap-2 rounded-lg p-1.5 transition-colors hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-brand"
+                aria-label="User menu"
+                aria-expanded={userMenuOpen}
+                aria-haspopup="dialog"
+              >
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand text-white text-xs font-bold shrink-0">
+                  {MOCK_USER.initials}
+                </div>
+                <div className="hidden lg:flex flex-col items-start">
+                  <span className="text-sm font-medium text-foreground leading-tight">{MOCK_USER.name}</span>
+                  <span className="text-[10px] text-muted leading-tight">{MOCK_USER.role}</span>
+                </div>
+              </button>
+              {userMenuOpen && (
+                <UserMenuDropdown
+                  userName={MOCK_USER.name}
+                  userRole={MOCK_USER.role}
+                  userInitials={MOCK_USER.initials}
+                  onClose={() => setUserMenuOpen(false)}
+                />
+              )}
+            </div>
           </div>
         </header>
 
         {/* ── Content ─────────────────────────────────────────── */}
         <main className="min-h-[calc(100dvh-3.5rem)]">
+          <SpeedingMonitor />
           {children}
         </main>
       </div>
     </div>
+  );
+}
+
+/* ─── Exported AppShell ─────────────────────────────────────────────────── */
+
+export default function AppShell({ children }: { children: React.ReactNode }) {
+  return (
+    <AppContextProvider>
+      <TelemetriBus>
+        <AppShellInner>{children}</AppShellInner>
+      </TelemetriBus>
+    </AppContextProvider>
   );
 }

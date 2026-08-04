@@ -1,220 +1,804 @@
 "use client";
 
-import { useState } from "react";
-import { Bell, Bot, Database, KeyRound, Plus, Radio, Save, ShieldCheck, SlidersHorizontal, Trash2, Users, Webhook, X } from "lucide-react";
+import { useMemo, useState } from "react";
+import { motion } from "motion/react";
+import {
+  AlertTriangle,
+  Bell,
+  Car,
+  CheckCircle2,
+  Clock,
+  Gauge,
+  History,
+  Lock,
+  Maximize2,
+  Navigation,
+  Power,
+  Radio,
+  RefreshCw,
+  Search,
+  Settings,
+  Snowflake,
+  Speaker,
+  Truck,
+  Unlock,
+  VolumeX,
+  X,
+  Zap,
+} from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
+import { StatusPill } from "@/components/ui/Badge";
+import { Button, IconButton } from "@/components/ui/Button";
+import { Card, EmptyState } from "@/components/ui/Card";
+import { useReducedMotion } from "@/hooks/useReducedMotion";
+import { MOCK_VEHICLES } from "@/lib/mock-data";
+import type { Vehicle } from "@/types";
 
-const modules = [
-  { name: "Units", desc: "Vehicle master data, GPS pairing, device health", icon: Radio, status: "Active", key: "units" },
-  { name: "Drivers", desc: "License, RFID, assignment and safety profile", icon: Users, status: "Active", key: "drivers" },
-  { name: "Users & Roles", desc: "Supervisor, dispatcher, viewer permissions", icon: KeyRound, status: "Draft", key: "users" },
-  { name: "Telegram Alerts", desc: "Speed, geofence, fuel, GPS lost notifications", icon: Bell, status: "Ready", key: "telegram" },
-  { name: "API Webhook", desc: "Receive GPS hardware data via HTTP/MQTT bridge", icon: Webhook, status: "Ready", key: "webhook" },
-  { name: "Database", desc: "Telemetry retention, backup and archive policy", icon: Database, status: "Healthy", key: "database" },
-];
+/* ─── Types ─────────────────────────────────────────────────────────────────── */
 
-const statusColors: Record<string, string> = {
-  Active: "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300",
-  Draft: "bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300",
-  Ready: "bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300",
-  Healthy: "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300",
-};
+type CommandStatus = "pending" | "sent" | "success" | "failed";
+type SpeedLimitCmdStatus = "idle" | "pending" | "success" | "failed";
+
+interface CommandLogEntry {
+  id: string;
+  vehicleId: number;
+  plate_number: string;
+  command: string;
+  status: CommandStatus;
+  timestamp: string;
+}
+
+/* ─── KPI Components ─────────────────────────────────────────────────────────── */
+
+function KpiStat({ label, value, accent }: { label: string; value: number; accent?: string }) {
+  const reducedMotion = useReducedMotion();
+  return (
+    <div className="flex flex-col items-center px-4 py-2 rounded-lg bg-surface-2 border border-border min-w-[72px]">
+      <motion.span
+        key={value}
+        initial={{ opacity: 0.6, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={reducedMotion ? { duration: 0 } : { duration: 0.2 }}
+        className={"text-xl font-bold tabular-nums " + (accent ?? "text-foreground")}
+      >
+        {value}
+      </motion.span>
+      <span className="text-label text-muted">{label}</span>
+    </div>
+  );
+}
+
+function KpiDivider() {
+  return <div className="w-px h-8 bg-border self-center" />;
+}
+
+/* ─── Status Badge ─────────────────────────────────────────────────────────── */
+
+function CommandStatusBadge({ status }: { status: CommandStatus }) {
+  const variants: Record<CommandStatus, "warning" | "success" | "danger" | "default"> = {
+    pending: "warning",
+    sent: "warning",
+    success: "success",
+    failed: "danger",
+  };
+  const labels: Record<CommandStatus, string> = {
+    pending: "Menunggu",
+    sent: "Terkirim",
+    success: "Berhasil",
+    failed: "Gagal",
+  };
+  const colorClass = status === "pending" || status === "sent" ? "st-idle" : status === "success" ? "st-driving" : "st-offline";
+  return <span className={`inline-flex items-center gap-1 text-label font-semibold text-${colorClass} px-2 py-0.5 rounded-full bg-surface-2 border border-border`}>{labels[status]}</span>;
+}
+
+/* ─── Confirm Dialog ─────────────────────────────────────────────────────────── */
+
+function ConfirmDialog({
+  title,
+  description,
+  confirmLabel,
+  onConfirm,
+  onCancel,
+  variant,
+}: {
+  title: string;
+  description: string;
+  confirmLabel: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+  variant?: "danger" | "warning";
+}) {
+  const reducedMotion = useReducedMotion();
+  const colorClass = variant === "danger" ? "text-st-offline" : "text-st-idle";
+  const btnVariant = variant === "danger" ? "danger" : "secondary";
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={reducedMotion ? { duration: 0 } : { duration: 0.15 }}
+      className="flex flex-col gap-3 p-4 bg-surface-2 border border-border rounded-lg"
+    >
+      <div className="flex items-start gap-3">
+        {variant === "danger" ? (
+          <AlertTriangle className={`w-5 h-5 shrink-0 mt-0.5 ${colorClass}`} />
+        ) : (
+          <Bell className={`w-5 h-5 shrink-0 mt-0.5 ${colorClass}`} />
+        )}
+        <div>
+          <p className="text-sm font-semibold text-foreground">{title}</p>
+          <p className="text-xs text-muted mt-0.5">{description}</p>
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
+        <Button size="sm" variant="ghost" onClick={onCancel} aria-label="Batal" className="flex-1">
+          Batal
+        </Button>
+        <Button size="sm" variant={btnVariant} onClick={onConfirm} aria-label={confirmLabel} className="flex-1">
+          {confirmLabel}
+        </Button>
+      </div>
+    </motion.div>
+  );
+}
+
+/* ─── Speed Limit Dialog ──────────────────────────────────────────────────────── */
+
+function SpeedLimitDialog({
+  currentLimit,
+  onConfirm,
+  onCancel,
+}: {
+  currentLimit: number;
+  onConfirm: (limit: number) => void;
+  onCancel: () => void;
+}) {
+  const [value, setValue] = useState(String(currentLimit));
+  return (
+    <div className="flex flex-col gap-3 p-4 bg-surface-2 border border-border rounded-lg">
+      <p className="text-sm font-semibold text-foreground">Set Batas Kecepatan</p>
+      <div className="flex items-center gap-2">
+        <input
+          type="number"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          min={20}
+          max={200}
+          className="form-input flex-1"
+          autoFocus
+        />
+        <span className="text-sm text-muted">km/j</span>
+      </div>
+      <div className="flex items-center gap-2">
+        <Button size="sm" variant="ghost" onClick={onCancel} className="flex-1">Batal</Button>
+        <Button
+          size="sm"
+          variant="primary"
+          onClick={() => {
+            const v = parseInt(value);
+            if (v >= 20 && v <= 200) onConfirm(v);
+          }}
+          className="flex-1"
+          aria-label="Kirim batas kecepatan"
+        >
+          Kirim
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Command Card ───────────────────────────────────────────────────────────── */
+
+function CommandCard({
+  icon,
+  label,
+  description,
+  onSend,
+  confirmDialog,
+  disabled,
+  variant,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  description: string;
+  onSend: () => void;
+  confirmDialog?: React.ReactNode;
+  disabled?: boolean;
+  variant?: "danger" | "default";
+}) {
+  const isDanger = variant === "danger";
+  return (
+    <div className="flex flex-col gap-2 p-4 rounded-lg bg-surface-2 border border-border hover:border-border-strong transition-colors">
+      <div className="flex items-center gap-3">
+        <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${isDanger ? "bg-st-offline/10" : "bg-surface-3"}`}>
+          <span className={isDanger ? "text-st-offline" : "text-muted"}>{icon}</span>
+        </div>
+        <div className="min-w-0">
+          <p className={`text-sm font-semibold ${isDanger ? "text-st-offline" : "text-foreground"}`}>{label}</p>
+          <p className="text-xs text-muted mt-0.5 line-clamp-2">{description}</p>
+        </div>
+      </div>
+      {confirmDialog ?? (
+        <Button
+          size="sm"
+          variant={isDanger ? "danger" : "secondary"}
+          onClick={onSend}
+          disabled={disabled}
+          className="w-full mt-1"
+          aria-label={"Kirim perintah " + label}
+        >
+          Kirim
+        </Button>
+      )}
+    </div>
+  );
+}
+
+/* ─── Main Page ─────────────────────────────────────────────────────────────── */
 
 export default function ControlPage() {
-  const { addToast } = useToast();
-  const [selectedModule, setSelectedModule] = useState<string | null>(null);
-  const [telegramEnabled, setTelegramEnabled] = useState(true);
-  const [webhookUrl, setWebhookUrl] = useState("https://api.tempo-group.com/gps/ingest");
-  const [retentionDays, setRetentionDays] = useState(90);
+  const { success, error, info, warning } = useToast();
 
-  function handleModuleClick(key: string) {
-    setSelectedModule(key);
+  // Target vehicles
+  const [search, setSearch] = useState("");
+  const [filterStatus, setFilterStatus] = useState<"all" | Vehicle["status"]>("all");
+  const [selectedVehicles, setSelectedVehicles] = useState<Set<number>>(new Set());
+
+  // Engine cut-off state per vehicle
+  const [engineCutOff, setEngineCutOff] = useState<Set<number>>(new Set());
+
+  // Speed limit command dialog
+  const [speedLimitTarget, setSpeedLimitTarget] = useState<number | null>(null);
+  const [speedLimit, setSpeedLimit] = useState<number>(80);
+
+  // Confirm dialogs
+  const [confirmKey, setConfirmKey] = useState<string | null>(null);
+
+  // Command log
+  const [commandLog, setCommandLog] = useState<CommandLogEntry[]>([]);
+
+  // KPI counts
+  const counts = useMemo(() => ({
+    unitOnline: MOCK_VEHICLES.filter((v) => v.status !== "offline").length,
+    sent: commandLog.filter((l) => l.status === "sent" || l.status === "pending").length,
+    waiting: commandLog.filter((l) => l.status === "pending").length,
+    failed: commandLog.filter((l) => l.status === "failed").length,
+  }), [commandLog]);
+
+  // Vehicle lookup
+  const vehicleMap = useMemo(() => {
+    const m = new Map<number, typeof MOCK_VEHICLES[0]>();
+    MOCK_VEHICLES.forEach((v) => m.set(v.id, v));
+    return m;
+  }, []);
+
+  // Filtered vehicles
+  const rows = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return MOCK_VEHICLES.filter((v) => {
+      if (q && !v.plate_number.toLowerCase().includes(q) && !(v.driver_name ?? "").toLowerCase().includes(q)) return false;
+      if (filterStatus !== "all" && v.status !== filterStatus) return false;
+      return true;
+    });
+  }, [search, filterStatus]);
+
+  function toggleVehicle(id: number) {
+    setSelectedVehicles((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
   }
 
-  function handleClosePanel() {
-    setSelectedModule(null);
+  function sendCommand(command: string, vehicleIds: number[]) {
+    if (vehicleIds.length === 0) {
+      error("Pilih unit terlebih dahulu");
+      return;
+    }
+    const entries: CommandLogEntry[] = vehicleIds.map((vid) => ({
+      id: String(Date.now()) + "-" + vid,
+      vehicleId: vid,
+      plate_number: vehicleMap.get(vid)?.plate_number ?? "—",
+      command,
+      status: "sent",
+      timestamp: new Date().toISOString(),
+    }));
+    setCommandLog((prev) => [...entries, ...prev].slice(0, 50));
+
+    success("Perintah dikirim", `${command} ke ${vehicleIds.length} unit`);
+    setConfirmKey(null);
+
+    // Mock: resolve after 2-4s
+    const delay = 2000 + Math.random() * 2000;
+    setTimeout(() => {
+      const resolvedStatus: CommandStatus = Math.random() > 0.15 ? "success" : "failed";
+      setCommandLog((prev) =>
+        prev.map((l) => vehicleIds.includes(l.vehicleId) && l.command === command && l.status === "sent"
+          ? { ...l, status: resolvedStatus }
+          : l)
+      );
+      if (resolvedStatus === "success") {
+        info("Perintah berhasil", `${command} dieksekusi`);
+      } else {
+        warning("Perintah gagal", `${command} — coba lagi`);
+      }
+    }, delay);
   }
 
-  function handleSave() {
-    addToast("success", "Settings saved successfully");
+  function handleEngineCutOff(enable: boolean) {
+    const ids = selectedVehicles.size > 0 ? Array.from(selectedVehicles) : [speedLimitTarget].filter(Boolean) as number[];
+    if (ids.length === 0) { error("Pilih unit terlebih dahulu"); return; }
+    if (enable) {
+      setEngineCutOff((prev) => { const n = new Set(prev); ids.forEach((id) => n.add(id)); return n; });
+    } else {
+      setEngineCutOff((prev) => { const n = new Set(prev); ids.forEach((id) => n.delete(id)); return n; });
+    }
+    sendCommand(enable ? "Engine Cut-off" : "Engine Resume", ids);
   }
 
-  function handleAddUser() {
-    addToast("info", "Add user form would open here");
+  function handleHorn() {
+    sendCommand("Klakson", Array.from(selectedVehicles));
   }
 
-  function handleTestWebhook() {
-    addToast("info", "Testing webhook connection...");
+  function handleLockDoor(lock: boolean) {
+    sendCommand(lock ? "Kunci Pintu" : "Buka Pintu", Array.from(selectedVehicles));
+  }
+
+  function handleReboot() {
+    sendCommand("Reboot GPS", Array.from(selectedVehicles));
+  }
+
+  function handlePing() {
+    sendCommand("Minta Lokasi", Array.from(selectedVehicles));
+  }
+
+  function handleStandby() {
+    sendCommand("Mode Siaga", Array.from(selectedVehicles));
+  }
+
+  function handleSpeedLimit(limit: number) {
+    if (!speedLimitTarget && selectedVehicles.size === 0) { error("Pilih unit terlebih dahulu"); return; }
+    const ids = speedLimitTarget ? [speedLimitTarget] : Array.from(selectedVehicles);
+    setSpeedLimit(limit);
+    setSpeedLimitTarget(null);
+    sendCommand(`Set Batas ${limit} km/j`, ids);
+  }
+
+  function handleAC(on: boolean) {
+    sendCommand(on ? "Nyalakan AC" : "Matikan AC", Array.from(selectedVehicles));
+  }
+
+  const isEngineCutOff = selectedVehicles.size > 0 && Array.from(selectedVehicles).some((id) => engineCutOff.has(id));
+  const hasSelection = selectedVehicles.size > 0;
+
+  function resetFilters() {
+    setSearch("");
+    setFilterStatus("all");
   }
 
   return (
-    <div className="min-h-full bg-zinc-50 px-7 py-6 dark:bg-zinc-950">
-      <div className="mb-6">
-        <p className="metric-label">System administration</p>
-        <h1 className="mt-2 text-3xl font-bold text-zinc-900 dark:text-white">Control Panel</h1>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-600 dark:text-zinc-400">Pusat konfigurasi untuk unit, driver, user, notifikasi, dan integrasi perangkat GPS.</p>
-      </div>
-
-      <div className={`grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 transition-all ${selectedModule ? "xl:grid-cols-2" : ""}`}>
-        {modules.map((module) => (
-          <button key={module.key} onClick={() => handleModuleClick(module.key)} className={`card p-5 text-left transition-all ${selectedModule === module.key ? "ring-2 ring-zinc-900 dark:ring-white" : "hover:shadow-md"}`}>
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-md bg-zinc-900 text-white dark:bg-white dark:text-zinc-900">
-                <module.icon className="h-5 w-5" />
-              </div>
-              <span className={`rounded-full border px-2.5 py-1 text-xs font-bold ${statusColors[module.status]}`}>{module.status}</span>
+    <div className="h-[calc(100vh-4rem)] flex flex-col overflow-hidden">
+      {/* ─── Header ─────────────────────────────────────────────────────────── */}
+      <header className="shrink-0 px-6 pt-6 pb-4 border-b border-border bg-surface-1">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start gap-6">
+            <div>
+              <p className="text-label uppercase tracking-wide text-muted">Fleet Management</p>
+              <h1 className="text-h1 font-semibold text-foreground mt-0.5">Control Panel</h1>
+              <p className="text-sm text-muted mt-0.5">Kirim perintah jarak jauh ke unit armada</p>
             </div>
-            <h2 className="mt-4 text-lg font-bold text-zinc-900 dark:text-white">{module.name}</h2>
-            <p className="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-400">{module.desc}</p>
-          </button>
-        ))}
-      </div>
-
-      {selectedModule && (
-        <div className="mt-6 grid grid-cols-1 gap-5 xl:grid-cols-[1fr_400px]">
-          <section className="card rounded-md p-5">
-            <div className="mb-5 flex items-center justify-between">
-              <h2 className="text-lg font-bold text-zinc-900 dark:text-white">{modules.find((m) => m.key === selectedModule)?.name} Configuration</h2>
-              <button onClick={handleClosePanel} className="rounded-md p-2 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"><X className="h-5 w-5" /></button>
+            <div className="flex items-center gap-1 mt-6">
+              <KpiStat label="Unit Online" value={counts.unitOnline} accent="text-st-driving" />
+              <KpiDivider />
+              <KpiStat label="Terkirim" value={counts.sent} accent="text-st-idle" />
+              <KpiDivider />
+              <KpiStat label="Menunggu" value={counts.waiting} />
+              <KpiDivider />
+              <KpiStat label="Gagal" value={counts.failed} accent={counts.failed > 0 ? "text-st-offline" : undefined} />
             </div>
+          </div>
 
-            {selectedModule === "units" && (
-              <div className="space-y-4">
-                <p className="text-sm text-zinc-600 dark:text-zinc-400">Vehicle master data management. All registered units, GPS device pairing, and device health monitoring.</p>
-                <div className="rounded-md border border-zinc-200 p-4 dark:border-zinc-800">
-                  <div className="flex items-center justify-between mb-3"><span className="font-semibold text-zinc-700 dark:text-zinc-300">Total Units</span><span className="text-xl font-bold text-zinc-900 dark:text-white">103</span></div>
-                  <div className="flex items-center justify-between mb-3"><span className="font-semibold text-zinc-700 dark:text-zinc-300">GPS Online</span><span className="text-xl font-bold text-emerald-700 dark:text-emerald-300">98</span></div>
-                  <div className="flex items-center justify-between"><span className="font-semibold text-zinc-700 dark:text-zinc-300">Needs Attention</span><span className="text-xl font-bold text-amber-700 dark:text-amber-300">5</span></div>
-                </div>
-                <button onClick={() => addToast("info", "Opening vehicle management...")} className="btn btn-primary">Manage Units</button>
-              </div>
-            )}
-
-            {selectedModule === "drivers" && (
-              <div className="space-y-4">
-                <p className="text-sm text-zinc-600 dark:text-zinc-400">Driver master data, license management, RFID pairing, and safety profile tracking.</p>
-                <div className="rounded-md border border-zinc-200 p-4 dark:border-zinc-800">
-                  <div className="flex items-center justify-between mb-3"><span className="font-semibold text-zinc-700 dark:text-zinc-300">Total Drivers</span><span className="text-xl font-bold text-zinc-900 dark:text-white">85</span></div>
-                  <div className="flex items-center justify-between mb-3"><span className="font-semibold text-zinc-700 dark:text-zinc-300">Active</span><span className="text-xl font-bold text-emerald-700 dark:text-emerald-300">72</span></div>
-                  <div className="flex items-center justify-between"><span className="font-semibold text-zinc-700 dark:text-zinc-300">Avg Safety Score</span><span className="text-xl font-bold text-zinc-900 dark:text-white">87.3</span></div>
-                </div>
-              </div>
-            )}
-
-            {selectedModule === "users" && (
-              <div className="space-y-4">
-                <p className="text-sm text-zinc-600 dark:text-zinc-400">User accounts and role-based access control for dispatcher, supervisor, and admin.</p>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-zinc-200 text-left text-[11px] uppercase text-zinc-500">
-                        <th className="pb-2">Name</th>
-                        <th className="pb-2">Email</th>
-                        <th className="pb-2">Role</th>
-                        <th className="pb-2">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {[{ name: "Jhon Erizal", email: "jhon.erizal@tempo-group.com", role: "Dispatcher", status: "Active" }, { name: "Ahmad Wijaya", email: "ahmad.wijaya@tempo-group.com", role: "Supervisor", status: "Active" }, { name: "Budi Santoso", email: "budi.santoso@tempo-group.com", role: "Admin", status: "Active" }].map((user, i) => (
-                        <tr key={i} className="border-b border-zinc-100 last:border-0 dark:border-zinc-800">
-                          <td className="py-2 font-semibold text-zinc-900 dark:text-white">{user.name}</td>
-                          <td className="py-2 text-zinc-600 dark:text-zinc-400">{user.email}</td>
-                          <td className="py-2 text-zinc-600 dark:text-zinc-400">{user.role}</td>
-                          <td className="py-2"><span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-bold text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300">{user.status}</span></td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <button onClick={handleAddUser} className="btn btn-primary"><Plus className="h-4 w-4" /> Add User</button>
-              </div>
-            )}
-
-            {selectedModule === "telegram" && (
-              <div className="space-y-4">
-                <p className="text-sm text-zinc-600 dark:text-zinc-400">Configure Telegram bot for real-time alerts on speeding, geofence events, and GPS issues.</p>
-                <div className="flex items-center justify-between rounded-md border border-zinc-200 p-4 dark:border-zinc-800">
-                  <div><p className="font-semibold text-zinc-900 dark:text-white">Enable Telegram Alerts</p><p className="text-xs text-zinc-500">Send notifications to configured bot</p></div>
-                  <button onClick={() => setTelegramEnabled(!telegramEnabled)} className={`relative h-6 w-11 rounded-full p-0.5 transition-colors ${telegramEnabled ? "bg-emerald-500" : "bg-zinc-300 dark:bg-zinc-700"}`}><span className={`block h-5 w-5 rounded-full bg-white transition-transform ${telegramEnabled ? "translate-x-5" : ""}`} /></button>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Bot Token</label>
-                  <input type="text" defaultValue="1234567890:ABCdefGHIjklMNOpqrsTUVwxyz" className="w-full rounded-lg border border-zinc-200 bg-white px-4 py-2.5 text-sm dark:border-zinc-800 dark:bg-zinc-900" />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Alert Types</label>
-                  <div className="space-y-2">
-                    {["Speeding", "Geofence Entry/Exit", "GPS Offline", "Low Fuel", "Driver Fatigue"].map((type) => (
-                      <label key={type} className="flex items-center gap-2 text-sm font-semibold text-zinc-700 dark:text-zinc-300">
-                        <input type="checkbox" defaultChecked className="h-4 w-4" />{type}
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {selectedModule === "webhook" && (
-              <div className="space-y-4">
-                <p className="text-sm text-zinc-600 dark:text-zinc-400">Configure API webhook endpoint for receiving GPS data from hardware devices.</p>
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Webhook URL</label>
-                  <input type="text" value={webhookUrl} onChange={(e) => setWebhookUrl(e.target.value)} className="w-full rounded-lg border border-zinc-200 bg-white px-4 py-2.5 text-sm dark:border-zinc-800 dark:bg-zinc-900" />
-                </div>
-                <div className="flex gap-2">
-                  <button onClick={handleTestWebhook} className="btn btn-secondary">Test Connection</button>
-                  <button onClick={handleSave} className="btn btn-primary"><Save className="h-4 w-4" /> Save</button>
-                </div>
-              </div>
-            )}
-
-            {selectedModule === "database" && (
-              <div className="space-y-4">
-                <p className="text-sm text-zinc-600 dark:text-zinc-400">Telemetry data retention policy and backup configuration.</p>
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Retention Period</label>
-                  <select value={retentionDays} onChange={(e) => setRetentionDays(Number(e.target.value))} className="w-full rounded-lg border border-zinc-200 bg-white px-4 py-2.5 text-sm dark:border-zinc-800 dark:bg-zinc-900">
-                    <option value={30}>30 days</option>
-                    <option value={60}>60 days</option>
-                    <option value={90}>90 days</option>
-                    <option value={180}>180 days</option>
-                    <option value={365}>1 year</option>
-                  </select>
-                </div>
-                <div className="rounded-md border border-zinc-200 p-4 dark:border-zinc-800">
-                  <div className="flex items-center justify-between mb-3"><span className="font-semibold text-zinc-700 dark:text-zinc-300">Database Size</span><span className="font-bold text-zinc-900 dark:text-white">2.4 GB</span></div>
-                  <div className="flex items-center justify-between mb-3"><span className="font-semibold text-zinc-700 dark:text-zinc-300">Total Records</span><span className="font-bold text-zinc-900 dark:text-white">15.2M</span></div>
-                  <div className="flex items-center justify-between"><span className="font-semibold text-zinc-700 dark:text-zinc-300">Last Backup</span><span className="font-bold text-zinc-900 dark:text-white">12 Jun 2026, 03:00</span></div>
-                </div>
-              </div>
-            )}
-          </section>
-
-          <aside className="space-y-5">
-            <div className="rounded-md bg-zinc-900 p-5 text-white dark:bg-white dark:text-zinc-900">
-              <SlidersHorizontal className="h-5 w-5" />
-              <p className="mt-4 text-3xl font-bold">VANGUARD</p>
-              <p className="mt-2 text-sm font-semibold opacity-75">Control tower modern untuk fleet monitoring operational.</p>
-              <div className="mt-6 flex items-center gap-2 rounded-md bg-white/10 p-3 dark:bg-zinc-900/10">
-                <Bot className="h-4 w-4" />
-                <p className="text-xs font-bold">Integration layer ready</p>
-              </div>
+          {/* Engine cut-off warning */}
+          {isEngineCutOff && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-st-offline/10 border border-st-offline/30">
+              <AlertTriangle className="w-4 h-4 text-st-offline" />
+              <span className="text-xs font-semibold text-st-offline">Engine cut-off aktif</span>
+              <button
+                onClick={() => handleEngineCutOff(false)}
+                className="text-xs font-semibold text-st-offline hover:underline focus-visible:outline-2 focus-visible:outline-st-offline"
+              >
+                Resume
+              </button>
             </div>
-
-            <div className="card rounded-md p-5">
-              <p className="metric-label">Smart handling rules</p>
-              <div className="mt-4 space-y-3">
-                {["If GPS data delayed above 30 minutes, mark unit as attention and notify supervisor.", "If speed exceeds 90 km/h, create speeding report and request dashcam snapshot.", "If vehicle enters customer geofence, start unloading timer automatically.", "If telemetry API fails, keep UI on last-known position and show degraded state."].map((rule, i) => (
-                  <div key={i} className="flex items-start gap-3 rounded-md border border-zinc-200 p-3 dark:border-zinc-800">
-                    <ShieldCheck className="mt-0.5 h-4 w-4 text-emerald-600 shrink-0" />
-                    <p className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">{rule}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </aside>
+          )}
         </div>
-      )}
+      </header>
+
+      {/* ─── Body ─────────────────────────────────────────────────────────── */}
+      <div className="flex-1 overflow-hidden flex">
+        {/* ── LEFT: Unit selection ─────────────────────────────────────────── */}
+        <div className="w-[320px] shrink-0 border-r border-border flex flex-col overflow-hidden bg-surface-1">
+
+          {/* Search */}
+          <div className="shrink-0 px-4 py-3 border-b border-border">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted pointer-events-none" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Plat atau driver..."
+                className="w-full pl-9 pr-3 py-1.5 text-sm bg-surface-2 border border-border rounded-lg
+                           placeholder:text-faint text-foreground
+                           focus-visible:outline-2 focus-visible:outline-brand focus-visible:outline-offset-0
+                           transition-colors"
+                aria-label="Cari unit"
+              />
+              {search && (
+                <button onClick={() => setSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded text-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-brand" aria-label="Hapus pencarian">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Status filter */}
+            <div className="flex items-center gap-1 mt-2">
+              {([
+                { key: "all" as const, label: "Semua" },
+                { key: "driving" as const, label: "Driving" },
+                { key: "idle" as const, label: "Idle" },
+                { key: "offline" as const, label: "Offline" },
+              ]).map((f) => (
+                <button
+                  key={f.key}
+                  onClick={() => setFilterStatus(f.key)}
+                  className={`px-2 py-0.5 rounded-md text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-brand ${
+                    filterStatus === f.key
+                      ? "bg-brand text-white"
+                      : "bg-surface-2 text-muted hover:bg-surface-3 hover:text-foreground border border-border"
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Selection info */}
+          <div className="shrink-0 px-4 py-2 border-b border-border flex items-center justify-between">
+            <p className="text-xs text-muted">{selectedVehicles.size} unit dipilih</p>
+            {selectedVehicles.size > 0 && (
+              <button
+                onClick={() => setSelectedVehicles(new Set())}
+                className="text-xs text-brand hover:underline focus-visible:outline-2 focus-visible:outline-brand"
+              >
+                Reset
+              </button>
+            )}
+          </div>
+
+          {/* Vehicle list */}
+          <div className="flex-1 overflow-y-auto">
+            {rows.length === 0 ? (
+              <div className="flex items-center justify-center h-full p-4">
+                <EmptyState
+                  icon={<Truck className="w-8 h-8 opacity-40" />}
+                  title="Unit tidak ditemukan"
+                  description="Tidak ada unit yang cocok."
+                  action={<Button variant="secondary" size="sm" onClick={resetFilters}>Reset</Button>}
+                />
+              </div>
+            ) : (
+              <div className="p-2 space-y-1">
+                {rows.map((v) => {
+                  const isSelected = selectedVehicles.has(v.id);
+                  const isCutOff = engineCutOff.has(v.id);
+                  return (
+                    <button
+                      key={v.id}
+                      onClick={() => toggleVehicle(v.id)}
+                      className={`w-full rounded-lg border p-3 text-left transition-all focus-visible:outline-2 focus-visible:outline-brand ${
+                        isSelected
+                          ? "bg-brand/10 border-brand"
+                          : "bg-surface-2 border-border hover:bg-surface-3"
+                      }`}
+                      aria-pressed={isSelected}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 min-w-0">
+                          {/* Checkbox visual */}
+                          <span className={`w-4 h-4 rounded border-2 shrink-0 flex items-center justify-center transition-colors ${
+                            isSelected ? "bg-brand border-brand" : "border-border-strong"
+                          }`}>
+                            {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+                          </span>
+                          <span className={`font-mono font-bold text-sm tabular-nums truncate ${
+                            isCutOff ? "text-st-offline" : isSelected ? "text-brand" : "text-foreground"
+                          }`}>
+                            {v.plate_number}
+                          </span>
+                        </div>
+                        {isCutOff && (
+                          <AlertTriangle className="w-3.5 h-3.5 text-st-offline shrink-0" />
+                        )}
+                      </div>
+                      <p className={`mt-0.5 text-xs ${isSelected ? "text-brand/70" : "text-muted"}`}>
+                        {v.driver_name || "—"}
+                      </p>
+                      <div className="mt-1">
+                        <StatusPill
+                          status={v.status === "stopped" ? "stop" : v.status as "driving" | "idle" | "offline"}
+                          showIcon={false}
+                          showDot={true}
+                          live={v.status === "driving"}
+                          className={`text-[10px] px-1.5 py-0.5 ${isSelected ? "bg-brand/20" : ""}`}
+                        />
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ── RIGHT: Commands + Log ─────────────────────────────────────────── */}
+        <div className="flex-1 overflow-hidden flex flex-col bg-bg">
+          {!hasSelection && !speedLimitTarget ? (
+            <div className="flex-1 flex items-center justify-center">
+              <EmptyState
+                icon={<Radio className="w-8 h-8 opacity-40" />}
+                title="Pilih unit untuk mengirim perintah"
+                description="Klik unit di panel kiri untuk memilih. Gunakan multi-select untuk broadcast."
+              />
+            </div>
+          ) : (
+            <>
+              {/* Commands grid */}
+              <div className="shrink-0 px-4 pt-4 pb-2 border-b border-border">
+                <div className="flex items-center gap-2 mb-3">
+                  <Radio className="w-4 h-4 text-muted" />
+                  <p className="text-xs font-semibold uppercase tracking-widest text-muted">
+                    Perintah{hasSelection ? ` — ${selectedVehicles.size} unit` : ""}
+                  </p>
+                  {hasSelection && (
+                    <button
+                      onClick={() => setSelectedVehicles(new Set())}
+                      className="ml-auto text-xs text-brand hover:underline focus-visible:outline-2 focus-visible:outline-brand"
+                    >
+                      Reset pemilihan
+                    </button>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-2 lg:grid-cols-3">
+                  {/* Engine Cut-off */}
+                  <CommandCard
+                    icon={<Power className="w-5 h-5" />}
+                    label="Engine Cut-off"
+                    description="Matikan mesin unit dari jarak jauh (DESTRUCTIVE)"
+                    variant="danger"
+                    disabled={!hasSelection}
+                    confirmDialog={
+                      confirmKey === "engine-off" ? (
+                        <ConfirmDialog
+                          title="Engine Cut-off?"
+                          description="Perintah ini akan MENGHENTIKAN mesin kendaraan. Gunakan dengan hati-hati. Lanjutkan?"
+                          confirmLabel="Ya, Matikan"
+                          variant="danger"
+                          onConfirm={() => handleEngineCutOff(true)}
+                          onCancel={() => setConfirmKey(null)}
+                        />
+                      ) : undefined
+                    }
+                    onSend={() => setConfirmKey("engine-off")}
+                  />
+
+                  {/* Engine Resume */}
+                  <CommandCard
+                    icon={<Power className="w-5 h-5" />}
+                    label="Engine Resume"
+                    description="Nyalakan kembali mesin unit (setelah cut-off)"
+                    disabled={!hasSelection || !isEngineCutOff}
+                    confirmDialog={
+                      confirmKey === "engine-resume" ? (
+                        <ConfirmDialog
+                          title="Resume Engine?"
+                          description="Nyalakan kembali mesin unit yang di-cut-off?"
+                          confirmLabel="Ya, Nyalakan"
+                          variant="warning"
+                          onConfirm={() => handleEngineCutOff(false)}
+                          onCancel={() => setConfirmKey(null)}
+                        />
+                      ) : undefined
+                    }
+                    onSend={() => setConfirmKey("engine-resume")}
+                  />
+
+                  {/* Horn */}
+                  <CommandCard
+                    icon={<Speaker className="w-5 h-5" />}
+                    label="Klakson / Buzzer"
+                    description="Tekan klakson unit sekali untuk lokalisasi"
+                    disabled={!hasSelection}
+                    onSend={handleHorn}
+                  />
+
+                  {/* Lock */}
+                  <CommandCard
+                    icon={<Lock className="w-5 h-5" />}
+                    label="Kunci Pintu"
+                    description="Kunci semua pintu kabin unit"
+                    disabled={!hasSelection}
+                    onSend={() => handleLockDoor(true)}
+                  />
+
+                  {/* Unlock */}
+                  <CommandCard
+                    icon={<Unlock className="w-5 h-5" />}
+                    label="Buka Pintu"
+                    description="Buka kunci pintu kabin unit"
+                    disabled={!hasSelection}
+                    onSend={() => handleLockDoor(false)}
+                  />
+
+                  {/* Reboot */}
+                  <CommandCard
+                    icon={<RefreshCw className="w-5 h-5" />}
+                    label="Reboot GPS"
+                    description="Reboot perangkat GPS unit dari jarak jauh"
+                    disabled={!hasSelection}
+                    confirmDialog={
+                      confirmKey === "reboot" ? (
+                        <ConfirmDialog
+                          title="Reboot GPS?"
+                          description="Perangkat GPS akan restart. Unit mungkin offline sesaat."
+                          confirmLabel="Ya, Reboot"
+                          variant="warning"
+                          onConfirm={handleReboot}
+                          onCancel={() => setConfirmKey(null)}
+                        />
+                      ) : undefined
+                    }
+                    onSend={() => setConfirmKey("reboot")}
+                  />
+
+                  {/* Ping */}
+                  <CommandCard
+                    icon={<Navigation className="w-5 h-5" />}
+                    label="Minta Lokasi"
+                    description="Kirim ping — unit akan kirim posisi GPS sekarang"
+                    disabled={!hasSelection}
+                    onSend={handlePing}
+                  />
+
+                  {/* Standby */}
+                  <CommandCard
+                    icon={<Zap className="w-5 h-5" />}
+                    label="Mode Siaga"
+                    description="Aktifkan mode siaga — mengurangi polling telemetry"
+                    disabled={!hasSelection}
+                    onSend={handleStandby}
+                  />
+
+                  {/* AC On */}
+                  <CommandCard
+                    icon={<Snowflake className="w-5 h-5" />}
+                    label="Nyalakan AC"
+                    description="Nyalakan AC kabin (jika didukung)"
+                    disabled={!hasSelection}
+                    onSend={() => handleAC(true)}
+                  />
+
+                  {/* AC Off */}
+                  <CommandCard
+                    icon={<VolumeX className="w-5 h-5" />}
+                    label="Matikan AC"
+                    description="Matikan AC kabin unit"
+                    disabled={!hasSelection}
+                    onSend={() => handleAC(false)}
+                  />
+
+                  {/* Speed Limit */}
+                  <div className="flex flex-col gap-2 p-4 rounded-lg bg-surface-2 border border-border hover:border-border-strong transition-colors">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-lg bg-surface-3 flex items-center justify-center shrink-0">
+                        <Gauge className="w-5 h-5 text-muted" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-foreground">Set Batas Kecepatan</p>
+                        <p className="text-xs text-muted mt-0.5">Atur batas max speed unit</p>
+                      </div>
+                    </div>
+                    {speedLimitTarget !== null ? (
+                      <SpeedLimitDialog
+                        currentLimit={speedLimit}
+                        onConfirm={handleSpeedLimit}
+                        onCancel={() => setSpeedLimitTarget(null)}
+                      />
+                    ) : (
+                      <div className="flex items-center gap-2 mt-1">
+                        <input
+                          type="number"
+                          value={speedLimit}
+                          onChange={(e) => setSpeedLimit(parseInt(e.target.value) || 80)}
+                          min={20}
+                          max={200}
+                          className="form-input w-20"
+                          aria-label="Batas kecepatan"
+                        />
+                        <span className="text-xs text-muted">km/j</span>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => setSpeedLimitTarget(Array.from(selectedVehicles)[0] ?? 0)}
+                          disabled={!hasSelection}
+                          className="flex-1"
+                          aria-label="Kirim batas kecepatan"
+                        >
+                          Kirim
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Command log */}
+              <div className="flex-1 overflow-y-auto p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <History className="w-4 h-4 text-muted" />
+                  <p className="text-xs font-semibold uppercase tracking-widest text-muted">Riwayat Perintah</p>
+                  {commandLog.length > 0 && (
+                    <button
+                      onClick={() => setCommandLog([])}
+                      className="ml-auto text-xs text-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-brand"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+
+                {commandLog.length === 0 ? (
+                  <Card padding="md">
+                    <EmptyState
+                      icon={<History className="w-8 h-8 opacity-40" />}
+                      title="Belum ada perintah"
+                      description="Kirim perintah pertama menggunakan kartu di atas."
+                    />
+                  </Card>
+                ) : (
+                  <div className="space-y-2">
+                    {commandLog.map((entry) => {
+                      const isPending = entry.status === "pending" || entry.status === "sent";
+                      return (
+                        <div
+                          key={entry.id}
+                          className="flex items-center gap-3 px-4 py-3 rounded-lg bg-surface-2 border border-border"
+                        >
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            <span className="font-mono text-xs font-semibold text-foreground">{entry.plate_number}</span>
+                            <span className="text-muted text-xs">—</span>
+                            <span className="text-sm font-medium text-foreground truncate">{entry.command}</span>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="font-mono text-[10px] text-muted tabular-nums">
+                              {new Date(entry.timestamp).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                            </span>
+                            <CommandStatusBadge status={entry.status} />
+                            {isPending && (
+                              <RefreshCw className="w-3.5 h-3.5 text-st-idle animate-spin" />
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

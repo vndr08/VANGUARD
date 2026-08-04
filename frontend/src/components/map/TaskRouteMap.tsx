@@ -3,15 +3,13 @@
 import { useEffect, useRef, useMemo, useState } from "react";
 import maplibregl, { Map as MLMap, Marker } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import {
-  GRAPHITE_DARK_STYLE,
-  LngLat,
-} from "./types";
+import { GRAPHITE_DARK_RASTER } from "./types";
+import { toLngLat, toLngLatArray, isValidLngLat, buildFitBounds } from "@/lib/geo";
 
 /* ─── TaskRouteMap ──────────────────────────────────────────────────────── */
 export interface TaskRoutePoint {
   label: string;
-  coord: [number, number];
+  coord: { lng: number; lat: number };
 }
 
 export interface TaskRouteData {
@@ -23,8 +21,8 @@ export interface TaskRouteData {
   origin: TaskRoutePoint;
   destination: TaskRoutePoint;
   current: TaskRoutePoint;
-  plannedRoute: [number, number][];
-  traveledRoute: [number, number][];
+  plannedRoute: { lng: number; lat: number }[];
+  traveledRoute: { lng: number; lat: number }[];
 }
 
 interface TaskRouteMapProps {
@@ -48,32 +46,43 @@ export default function TaskRouteMap({ task }: TaskRouteMapProps) {
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
-    const bounds: [number, number, number, number] = [
-      Math.min(task.origin.coord[0], task.destination.coord[0], task.current.coord[0]) - 0.1,
-      Math.min(task.origin.coord[1], task.destination.coord[1], task.current.coord[1]) - 0.1,
-      Math.max(task.origin.coord[0], task.destination.coord[0], task.current.coord[0]) + 0.1,
-      Math.max(task.origin.coord[1], task.destination.coord[1], task.current.coord[1]) + 0.1,
-    ];
+    // Gather all points for bounds
+    const allPoints = [task.origin.coord, task.destination.coord, task.current.coord];
+    const fitResult = buildFitBounds(allPoints, 64, 14);
+
+    // Compute a reasonable center from first point
+    const firstValid = allPoints.find(isValidLngLat);
+    const defaultCenter: [number, number] = firstValid
+      ? [firstValid.lng, firstValid.lat]
+      : [107.0, -6.5];
 
     const map = new MLMap({
       container: containerRef.current,
-      style: GRAPHITE_DARK_STYLE,
-      bounds,
-      fitBoundsOptions: { padding: 64, maxZoom: 12 },
+      style: GRAPHITE_DARK_RASTER,
+      center: defaultCenter,
+      zoom: 10,
+      maxZoom: 18,
+      minZoom: 4,
     });
 
     map.addControl(new maplibregl.NavigationControl(), "top-right" as maplibregl.ControlPosition);
 
     map.on("load", () => {
+      // Fit bounds AFTER load so tiles are ready (not in constructor — v3 compatibility)
+      if (fitResult) {
+        map.fitBounds(fitResult.bounds, fitResult.options);
+      }
+
       // ── Planned route (dashed gray) ───────────────────────────────
       if (task.plannedRoute.length > 0) {
+        const plannedCoords = toLngLatArray(task.plannedRoute);
         map.addSource("planned-route", {
           type: "geojson",
           data: {
             type: "Feature",
             geometry: {
               type: "LineString",
-              coordinates: task.plannedRoute,
+              coordinates: plannedCoords,
             },
             properties: {},
           },
@@ -92,15 +101,16 @@ export default function TaskRouteMap({ task }: TaskRouteMapProps) {
         });
       }
 
-      // ── Actual route (solid green → cyan) ─────────────────────────
+      // ── Actual route (solid green) ─────────────────────────
       if (task.traveledRoute.length > 0) {
+        const traveledCoords = toLngLatArray(task.traveledRoute);
         map.addSource("actual-route", {
           type: "geojson",
           data: {
             type: "Feature",
             geometry: {
               type: "LineString",
-              coordinates: task.traveledRoute,
+              coordinates: traveledCoords,
             },
             properties: {},
           },
@@ -116,15 +126,13 @@ export default function TaskRouteMap({ task }: TaskRouteMapProps) {
             "line-opacity": 0.9,
           },
         });
-
-        // Animate draw-on for actual route (stroke-dashoffset)
-        const totalLength = (document.querySelector("#actual-route-line") as SVGPathElement)?.getTotalLength?.() ?? 1000;
-        map.setPaintProperty("actual-route-line", "line-dasharray", [0, totalLength]);
-        map.setPaintProperty("actual-route-line", "line-dasharray", [0, 2, totalLength]);
       }
 
       // ── Route markers [START] [END] ─────────────────────────────
-      const addMarker = (coord: [number, number], label: string, type: "start" | "end" | "current") => {
+      const addMarker = (coord: { lng: number; lat: number }, label: string, type: "start" | "end" | "current") => {
+        const ll = toLngLat(coord);
+        if (!ll) return; // skip invalid coords (toLngLat already warned)
+
         const el = document.createElement("div");
         const color = type === "start" ? MARKER_COLORS.start
           : type === "end" ? MARKER_COLORS.end
@@ -148,9 +156,8 @@ export default function TaskRouteMap({ task }: TaskRouteMapProps) {
         `;
         el.innerHTML = `<span style="opacity:0.6;font-weight:400;">[</span>${label}<span style="opacity:0.6;font-weight:400;">]</span>`;
 
-        const marker = new Marker({ element: el, anchor: "center" })
-          .setLngLat(coord)
-          .addTo(map);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const marker = new Marker({ element: el, anchor: "center" }).setLngLat(ll as any).addTo(map);
 
         markersRef.current.push(marker);
       };

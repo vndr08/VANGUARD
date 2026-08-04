@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback, forwardRef, useImperativeHandle } from "react";
 import maplibregl, { Map as MLMap, Marker } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { motion } from "motion/react";
@@ -11,6 +11,7 @@ import {
   STATUS_COLORS,
   LngLat,
   GRAPHITE_DARK_STYLE,
+  BASEMAP_STYLES,
   InterpolatedVehicle,
 } from "./types";
 import {
@@ -18,9 +19,10 @@ import {
   useLayerVisibility,
   useMapTheme,
 } from "@/hooks/useMapHooks";
+import { toLngLat, toLngLatArray, isValidLngLat, buildFitBounds } from "@/lib/geo";
 
 /* ─── Props ──────────────────────────────────────────────────────────────── */
-interface MapViewProps {
+export interface MapViewProps {
   vehicles: MapVehicle[];
   selectedId?: number | null;
   onSelectVehicle?: (id: number) => void;
@@ -29,10 +31,113 @@ interface MapViewProps {
   pitch?: number;
   className?: string;
   children?: React.ReactNode;
+  /** Called once the map is ready with an object containing imperative commands (e.g. fitAll) */
+  onMapReady?: (commands: MapViewRef) => void;
+  /** Layer visibility — single source of truth from page (not internal hook) */
+  visibility?: LayerVisibility;
+  /** Toggle a layer visibility key (for DetailPanel callbacks) */
+  onToggleLayer?: (key: keyof LayerVisibility) => void;
+  /** Active basemap: "basemap" | "satellite" | "traffic" */
+  mapLayer?: "basemap" | "satellite" | "traffic";
 }
 
-/* ─── MapView ─────────────────────────────────────────────────────────── */
-export default function MapView({
+/* ─── Graphite color overrides (applied after style loads) ───────────────── */
+
+/**
+ * Apply graphite palette overrides to Carto dark-matter-gl-style layers.
+ * Uses map.setPaintProperty / setLayoutProperty after "idle" so we don't
+ * depend on inline style JSON expressions (the root cause of the v3 parse crash).
+ *
+ * Graphite palette (DESIGN.md §7):
+ *   water       #0E141B   (was #101521)
+ *   land        #0B0E11   (was #0B0E11)
+ *   roads       #1C2128   (was #2D3440)
+ *   major roads #242B33   (was #3B4654)
+ *   labels      #5E6773   (was #8B9AAD)
+ */
+function applyGraphiteOverrides(map: MLMap) {
+  // Background / land
+  const bgLayers = ["land", "landcover", "earth"];
+  bgLayers.forEach((id) => {
+    if (map.getLayer(id)) {
+      try { map.setPaintProperty(id, "background-color", "#0B0E11"); } catch { /* noop */ }
+    }
+  });
+
+  // Water
+  const waterLayers = ["water", "waterway"];
+  waterLayers.forEach((id) => {
+    if (map.getLayer(id)) {
+      try { map.setPaintProperty(id, "fill-color", "#0E141B"); } catch { /* noop */ }
+    }
+  });
+
+  // Roads — apply to all road layers; skip if missing
+  const roadLayers = [
+    "road",
+    "road-trunk",
+    "road-primary",
+    "road-secondary-tertiary",
+    "road-street",
+    "road-path",
+    "tunnel",
+    "bridge",
+  ];
+  roadLayers.forEach((id) => {
+    if (map.getLayer(id)) {
+      try {
+        map.setPaintProperty(id, "line-color", "#1C2128");
+      } catch { /* noop */ }
+    }
+  });
+
+  // Major roads — thicker, slightly lighter
+  const majorLayers = [
+    "road-motorway",
+    "road-trunk",
+    "road-primary",
+    "road-motorway-link",
+    "road-trunk-link",
+    "road-primary-link",
+  ];
+  majorLayers.forEach((id) => {
+    if (map.getLayer(id)) {
+      try {
+        map.setPaintProperty(id, "line-color", "#242B33");
+        map.setPaintProperty(id, "line-width", 3);
+      } catch { /* noop */ }
+    }
+  });
+
+  // Labels — desaturate + darken
+  const labelLayers = [
+    "place-label",
+    "place-label-other",
+    "place-label-city",
+    "road-label",
+    "road-label-small",
+    "road-label-medium",
+    "road-label-large",
+    "poi-label",
+    "waterway-label",
+  ];
+  labelLayers.forEach((id) => {
+    if (map.getLayer(id)) {
+      try {
+        map.setPaintProperty(id, "text-color", "#5E6773");
+        map.setPaintProperty(id, "text-halo-color", "#0B0E11");
+        map.setPaintProperty(id, "text-halo-width", 1);
+      } catch { /* noop */ }
+    }
+  });
+}
+
+/* ─── MapView (forwardRef for imperative fitAll) ──────────────────────────── */
+export interface MapViewRef {
+  fitAll: () => void;
+}
+
+const MapView = forwardRef<MapViewRef, MapViewProps>(function MapView({
   vehicles,
   selectedId,
   onSelectVehicle,
@@ -41,29 +146,70 @@ export default function MapView({
   pitch = 45,
   className = "",
   children,
-}: MapViewProps) {
+  onMapReady,
+  visibility,
+  onToggleLayer,
+  mapLayer = "basemap",
+}: MapViewProps, _forwardedRef) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MLMap | null>(null);
-  const markersRef = useRef<Map<number, Marker>>(new Map());
+  /** Vehicle markers — NEVER removed from this ref; only shown/hidden for cluster toggle */
+  const vehicleMarkersRef = useRef<Map<number, Marker>>(new Map());
+  /** Cluster bubble markers — created when cluster mode is ON */
+  const clusterBubbleRefs = useRef<Map<number, Marker>>(new Map());
   const routeLayerIds = useRef<Set<string>>(new Set());
   const routeSources = useRef<Set<string>>(new Set());
+  const zoneLayerIds = useRef<Set<string>>(new Set());
+  const zoneSources = useRef<Set<string>>(new Set());
 
   const [isReady, setIsReady] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
 
   // Hooks
   const interpolatedVehicles = useMapInterpolation(vehicles);
-  const { visibility, toggle } = useLayerVisibility(DEFAULT_LAYER_VISIBILITY);
+  // visibility is optionally passed from parent (TrackingMap), or from local default
+  const { visibility: localVis, toggle: localToggle } = useLayerVisibility(DEFAULT_LAYER_VISIBILITY);
+  const effectiveVisibility = visibility ?? localVis;
+  const effectiveToggle = onToggleLayer ?? localToggle;
   const isDark = useMapTheme();
+
+  // Expose fitAll() via ref for parent components (e.g. Locate "Pusatkan semua unit")
+  const fitAll = useCallback(() => {
+    if (!isReady || !mapRef.current) return;
+    const map = mapRef.current;
+    const result = buildFitBounds(interpolatedVehicles, 64, 16);
+    if (!result) return;
+    map.fitBounds(result.bounds, result.options);
+  }, [isReady, interpolatedVehicles]);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (useImperativeHandle as any)(_forwardedRef, () => ({ fitAll }), [fitAll]);
+
+  // Stable counter — incremented each effect run; used to detect stale map/load callbacks
+  const mapInstanceIdRef = useRef(0);
 
   /* ── Init MapLibre ─────────────────────────────────────────── */
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
+    const currentInstanceId = ++mapInstanceIdRef.current; // capture for this run
+    let readyTimeout: ReturnType<typeof setTimeout> | null = null;
+
+    // Safety net: if style never fires "load" (CDN down / offline), force isReady=true
+    // after 5 s so the map at least renders its container (markers via coords, not tiles).
+    readyTimeout = setTimeout(() => {
+      // Only fire if this is STILL the current map instance
+      if (mapInstanceIdRef.current === currentInstanceId) {
+        console.warn("[MapView] Style load timeout — forcing isReady=true");
+        setIsReady(true);
+        onMapReady?.({ fitAll });
+      }
+    }, 5000);
+
     try {
       const map = new MLMap({
         container: containerRef.current,
-        style: GRAPHITE_DARK_STYLE as maplibregl.StyleSpecification,
+        style: GRAPHITE_DARK_STYLE, // string URL — Carto dark-matter-gl-style v3-compatible
         center,
         zoom,
         pitch,
@@ -77,7 +223,22 @@ export default function MapView({
         "top-right" as maplibregl.ControlPosition
       );
 
-      map.on("load", () => setIsReady(true));
+      map.on("load", () => {
+        // Only respond if this is the current map instance (not removed by HMR cleanup)
+        if (mapInstanceIdRef.current !== currentInstanceId) return;
+        if (readyTimeout) { clearTimeout(readyTimeout); readyTimeout = null; }
+        console.log("[MapView] setIsReady(true) — map.load fired", {
+          vehicleCount: vehicles.length,
+          mapLayer,
+          style: map.getStyle()?.name,
+          instance: currentInstanceId,
+        });
+        setIsReady(true);
+        onMapReady?.({ fitAll });
+        map.once("idle", () => {
+          if (mapInstanceIdRef.current === currentInstanceId) applyGraphiteOverrides(map);
+        });
+      });
       map.on("error", (e) => {
         console.error("[MapView] MapLibre error:", e.error?.message);
         setMapError(e.error?.message ?? "Map failed to load");
@@ -86,15 +247,24 @@ export default function MapView({
       mapRef.current = map;
 
       return () => {
-        markersRef.current.forEach((m) => m.remove());
-        markersRef.current.clear();
+        // Only clean up if THIS is the current map instance.
+        // If HMR has already started a new map, this old cleanup must NOT remove it.
+        if (mapInstanceIdRef.current !== currentInstanceId) return;
+        if (readyTimeout) { clearTimeout(readyTimeout); readyTimeout = null; }
+        vehicleMarkersRef.current.forEach((m) => m.remove());
+        vehicleMarkersRef.current.clear();
+        clusterBubbleRefs.current.forEach((m) => m.remove());
+        clusterBubbleRefs.current.clear();
         routeLayerIds.current.forEach((id) => { if (map.getLayer(id)) map.removeLayer(id); });
         routeSources.current.forEach((id) => { if (map.getSource(id)) map.removeSource(id); });
+        zoneLayerIds.current.forEach((id) => { if (map.getLayer(id)) map.removeLayer(id); });
+        zoneSources.current.forEach((id) => { if (map.getSource(id)) map.removeSource(id); });
         map.remove();
         mapRef.current = null;
       };
     } catch (err) {
       console.error("[MapView] Init error:", err);
+      if (readyTimeout) { clearTimeout(readyTimeout); readyTimeout = null; }
       setMapError(String(err));
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -103,9 +273,15 @@ export default function MapView({
   useEffect(() => {
     if (!isReady || !mapRef.current) return;
     const map = mapRef.current;
-    const currentMarkers = markersRef.current;
-    const selectedVehicle = vehicles.find((v) => v.id === selectedId);
+    const currentMarkers = vehicleMarkersRef.current;
+    console.log("[MapView] Marker effect running:", {
+      isReady,
+      mapExists: !!map,
+      vehicleCount: interpolatedVehicles.length,
+      existingMarkers: currentMarkers.size,
+    });
 
+    try {
     // Remove markers no longer in vehicle list
     const currentIds = new Set(interpolatedVehicles.map((v) => v.id));
     currentMarkers.forEach((marker, id) => {
@@ -116,15 +292,34 @@ export default function MapView({
     });
 
     interpolatedVehicles.forEach((v) => {
-      if (v.lat === 0 && v.lng === 0) return;
+      // Guard: skip zero or invalid coordinates (prevents MapLibre crash)
+      if (!isValidLngLat(v)) {
+        if (v.lat !== 0 || v.lng !== 0) {
+          console.warn("[MapView] Skipping vehicle with invalid coords:", v.id, { lat: v.lat, lng: v.lng });
+        }
+        return;
+      }
+
+      console.log("[MapView] Processing marker:", v.id, "hasMarker:", currentMarkers.has(v.id));
 
       if (currentMarkers.has(v.id)) {
-        // Update position + rotation
-        const marker = currentMarkers.get(v.id)!;
-        marker.setLngLat([v.lng, v.lat]);
-        const el = marker.getElement();
-        el.style.transform = `rotate(${v.heading}deg)`;
+        // Existing marker — update position. Also re-add if removed by cluster effect
+        // by checking a custom flag (marker._added = false after remove())
+        const marker = currentMarkers.get(v.id);
+        console.log("[MapView] Existing marker for", v.id, "marker:", !!marker);
+        if (!marker) {
+          console.error("[MapView] BUG: has()=true but get()=null for vehicle", v.id);
+          currentMarkers.delete(v.id);
+          return;
+        }
+        if (!(marker as any)._added) {
+          marker.addTo(map);
+          (marker as any)._added = true;
+        }
+        marker.setLngLat([v.lng, v.lat]); // [lng, lat] ✓
+
         // Update selected ring
+        const el = marker.getElement();
         const hasRing = el.querySelector(".marker-selected-ring");
         const shouldHaveRing = v.id === selectedId;
         if (shouldHaveRing && !hasRing) {
@@ -141,20 +336,87 @@ export default function MapView({
           hasRing.remove();
         }
       } else {
-        // Create new marker
+        // Create new marker — rotation handled separately via updateHeading effect
         const el = createTruckMarkerElement(v, v.id === selectedId);
-        const marker = new Marker({ element: el, anchor: "center" })
-          .setLngLat([v.lng, v.lat])
-          .addTo(map);
+        // Restore pointer-events so the click handler fires
+        el.style.pointerEvents = "auto";
+        console.log("[MapView] Creating new marker:", v.id, "plate:", v.plate, "at", v.lng, v.lat);
+        try {
+          const marker = new Marker({ element: el, anchor: "center" })
+            .setLngLat([v.lng, v.lat])
+            .addTo(map);
+          (marker as any)._added = true;
+          currentMarkers.set(v.id, marker);
+          console.log("[MapView] ✅ Marker added to map:", v.id, "parent:", el.parentElement?.className, "mapReady:", !!(mapRef.current));
+        } catch (err) {
+          console.error("[MapView] ❌ Marker addTo failed:", v.id, err);
+          return; // skip to next vehicle in forEach
+        }
 
         el.addEventListener("click", () => {
           onSelectVehicle?.(v.id);
+          // Fly to the clicked vehicle immediately
+          if (isValidLngLat(v)) {
+            map.easeTo({
+              center: [v.lng, v.lat],
+              zoom: Math.max(map.getZoom(), 13),
+              pitch: 45,
+              duration: 400,
+            });
+          }
         });
-
-        currentMarkers.set(v.id, marker);
       }
     });
-  }, [isReady, interpolatedVehicles, selectedId, onSelectVehicle]);
+
+    // DIAGNOSTIC: Check DOM state right after forEach
+    const containerDiv = map.getContainer();
+    const mapCanvasContainer = (map as any)._canvasContainer;
+    const markerEls = containerDiv.querySelectorAll('.maplibregl-marker');
+    const markerPaneEl = containerDiv.querySelector('.maplibregl-marker-pane');
+    const canvasContainerChildren = mapCanvasContainer ? Array.from(mapCanvasContainer.children).map(c => c.tagName + '.' + c.className) : 'N/A';
+    const directChildren = Array.from(containerDiv.children).map(c => c.className);
+    console.log("[MapView] Post-forEach DOM check:", {
+      containerDivTag: containerDiv.tagName + '.' + containerDiv.className,
+      canvasContainerSame: mapCanvasContainer === containerDiv,
+      canvasContainerChildren,
+      containerChildren: directChildren,
+      markerElsCount: markerEls.length,
+      markerPaneExists: !!markerPaneEl,
+    });
+    } catch (err) {
+      console.error("[MapView] Marker effect error:", err);
+    }
+    console.log("[MapView] Marker update complete:", {
+      totalVehicles: interpolatedVehicles.length,
+      markersCreated: currentMarkers.size,
+      mapLayer,
+      selectedId,
+    });
+    if (interpolatedVehicles.length > 0 && currentMarkers.size === 0) {
+      // Check first vehicle's coords
+      const first = interpolatedVehicles[0];
+      console.warn("[MapView] ⚠️ markers = 0 despite vehicles available:", {
+        firstVehicle: { id: first.id, lat: first.lat, lng: first.lng },
+        isValid: isValidLngLat(first),
+        isReady,
+      });
+    }
+  }, [isReady, interpolatedVehicles, selectedId, onSelectVehicle]); // heading intentionally excluded — rotation handled in updateHeading effect
+
+  /* ── Update heading/rotation separately (no marker recreation) ── */
+  useEffect(() => {
+    if (!isReady) return;
+    interpolatedVehicles.forEach((v) => {
+      const marker = vehicleMarkersRef.current.get(v.id);
+      if (!marker) return;
+      const el = marker.getElement();
+      // innerEl is the rotating content inside the marker wrapper
+      const innerEl = el.querySelector<HTMLElement>(".marker-inner");
+      if (innerEl) {
+        innerEl.style.transform = `rotate(${v.heading}deg)`;
+      }
+    });
+  }, [isReady, interpolatedVehicles]);
 
   /* ── Fly to selected ────────────────────────────────────────── */
   useEffect(() => {
@@ -162,8 +424,14 @@ export default function MapView({
     const v = interpolatedVehicles.find((x) => x.id === selectedId);
     if (!v) return;
 
+    // Guard: validate before flyTo to prevent "Invalid LngLat" crash
+    if (!isValidLngLat(v)) {
+      console.warn("[MapView] Cannot flyTo: invalid vehicle coords:", v.id, v);
+      return;
+    }
+
     mapRef.current.easeTo({
-      center: [v.lng, v.lat],
+      center: [v.lng, v.lat], // [lng, lat] ✓
       zoom: 14,
       pitch: 45,
       duration: 600,
@@ -196,7 +464,8 @@ export default function MapView({
           type: "geojson",
           data: {
             type: "Feature",
-            geometry: { type: "LineString", coordinates: coords.map((c) => [c.lng, c.lat]) },
+            // coords.map((c) => [c.lng, c.lat]) → toLngLatArray
+            geometry: { type: "LineString", coordinates: toLngLatArray(coords) },
             properties: {},
           } as GeoJSON.Feature,
         });
@@ -215,7 +484,7 @@ export default function MapView({
     const deviation = (originalVehicle as MapVehicle).deviationPoints;
 
     // Planned route — dashed gray
-    if (visibility.plannedRoute && planned?.length) {
+    if (effectiveVisibility.plannedRoute && planned?.length) {
       addGeoJSONLine(
         "planned-route",
         planned,
@@ -225,7 +494,7 @@ export default function MapView({
     }
 
     // Actual route — solid green
-    if (visibility.actualRoute && actual?.length) {
+    if (effectiveVisibility.actualRoute && actual?.length) {
       addGeoJSONLine(
         "actual-route",
         actual,
@@ -235,14 +504,15 @@ export default function MapView({
     }
 
     // Deviation points
-    if (visibility.actualRoute && deviation?.length) {
+    if (effectiveVisibility.actualRoute && deviation?.length) {
       deviation.forEach((pt: LngLat, i: number) => {
         const devId = `deviation-${i}`;
         map.addSource(devId, {
           type: "geojson",
           data: {
             type: "Feature",
-            geometry: { type: "Point", coordinates: [pt.lng, pt.lat] },
+            // pt.lng/pt.lat → toLngLat (defensive)
+            geometry: { type: "Point", coordinates: toLngLat(pt) ?? [0, 0] },
             properties: {},
           } as GeoJSON.Feature,
         });
@@ -262,7 +532,188 @@ export default function MapView({
         routeSources.current.add(devId);
       });
     }
-  }, [isReady, selectedId, visibility, interpolatedVehicles]);
+  }, [isReady, selectedId, effectiveVisibility, interpolatedVehicles]);
+
+  /* ── Basemap switching (Peta / Satelit / Lalu Lintas) ───────────────── */
+  useEffect(() => {
+    if (!isReady || !mapRef.current) return;
+    const map = mapRef.current;
+    const newStyle = BASEMAP_STYLES[mapLayer];
+
+    // If already the same style, skip
+    const currentStyleName = map.getStyle()?.name;
+    const newStyleName = typeof newStyle === "string" ? newStyle : newStyle.name;
+    if (currentStyleName === newStyleName) return;
+
+    // Clear all custom layers before switching
+    vehicleMarkersRef.current.forEach((m) => m.remove());
+    vehicleMarkersRef.current.clear();
+    clusterBubbleRefs.current.forEach((m) => m.remove());
+    clusterBubbleRefs.current.clear();
+    routeLayerIds.current.forEach((id) => { if (map.getLayer(id)) map.removeLayer(id); });
+    routeSources.current.forEach((id) => { if (map.getSource(id)) map.removeSource(id); });
+    routeLayerIds.current.clear();
+    routeSources.current.clear();
+    zoneLayerIds.current.forEach((id) => { if (map.getLayer(id)) map.removeLayer(id); });
+    zoneSources.current.forEach((id) => { if (map.getSource(id)) map.removeSource(id); });
+    zoneLayerIds.current.clear();
+    zoneSources.current.clear();
+
+    // Switch style — setStyle replaces the current style
+    map.setStyle(newStyle);
+
+    // When new style loads, re-apply graphite overrides and trigger marker re-render
+    const onStyleLoad = () => {
+      if (mapLayer === "basemap") {
+        applyGraphiteOverrides(map);
+      }
+      setIsReady(true);
+    };
+    map.once("style.load", onStyleLoad);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isReady, mapLayer]);
+
+  /* ── Cluster toggle — uses effectiveVisibility.cluster (from page state) ────── */
+  useEffect(() => {
+    if (!isReady || !mapRef.current) return;
+    const map = mapRef.current;
+
+    // Remove cluster bubbles
+    clusterBubbleRefs.current.forEach((m) => m.remove());
+    clusterBubbleRefs.current.clear();
+
+    if (!effectiveVisibility.cluster) {
+      // CLUSTER OFF: re-add all vehicle markers (markersRef still holds them all)
+      vehicleMarkersRef.current.forEach((m) => {
+        if (!(m as any)._added) {
+          m.addTo(map);
+          (m as any)._added = true;
+        }
+      });
+    } else {
+      // CLUSTER ON: hide individual vehicle markers
+      vehicleMarkersRef.current.forEach((m) => {
+        if ((m as any)._added) {
+          m.remove();
+          (m as any)._added = false;
+        }
+      });
+
+      const GRID = 0.5; // degrees per cell
+      const clusters = new Map<string, (typeof interpolatedVehicles)[number][]>();
+      interpolatedVehicles.forEach((v) => {
+        const cx = Math.floor((v.lng ?? 0) / GRID) * GRID;
+        const cy = Math.floor((v.lat ?? 0) / GRID) * GRID;
+        const key = `${cx},${cy}`;
+        if (!clusters.has(key)) clusters.set(key, []);
+        clusters.get(key)!.push(v);
+      });
+
+      clusters.forEach((group, key) => {
+        if (group.length <= 1) return;
+        const [cx, cy] = key.split(",").map(Number);
+        const el = document.createElement("div");
+        el.style.cssText = `
+          width: 36px; height: 36px; border-radius: 50%;
+          background: #3B82F6; border: 2px solid white;
+          display: flex; align-items: center; justify-content: center;
+          font-size: 11px; font-weight: 700; color: white; font-family: monospace;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.4); cursor: pointer;
+        `;
+        el.textContent = group.length > 9 ? "9+" : String(group.length);
+        el.title = `${group.length} units in cluster`;
+        el.addEventListener("click", () => {
+          map.easeTo({ center: [cx + GRID / 2, cy + GRID / 2], zoom: map.getZoom() + 2 });
+        });
+        const bubble = new Marker({ element: el, anchor: "center" })
+          .setLngLat([cx + GRID / 2, cy + GRID / 2])
+          .addTo(map);
+        clusterBubbleRefs.current.set(group[0].id, bubble);
+      });
+    }
+  }, [isReady, effectiveVisibility]);
+
+  /* ── Zone / Geofence toggle ──────────────────────────────────────────── */
+  useEffect(() => {
+    if (!isReady || !mapRef.current) return;
+    const map = mapRef.current;
+
+    // Clear old zone layers
+    zoneLayerIds.current.forEach((id) => { if (map.getLayer(id)) map.removeLayer(id); });
+    zoneSources.current.forEach((id) => { if (map.getSource(id)) map.removeSource(id); });
+    zoneLayerIds.current.clear();
+    zoneSources.current.clear();
+
+    if (!effectiveVisibility.geofence) return;
+
+    // Mock geofence polygons — replace with API data in production
+    const mockGeofences: GeoJSON.Feature<GeoJSON.Polygon>[] = [
+      {
+        type: "Feature",
+        properties: { name: "DC BEKASI", color: "#3B82F6" },
+        geometry: {
+          type: "Polygon",
+          coordinates: [[[106.90, -6.22], [106.96, -6.22], [106.96, -6.16], [106.90, -6.16], [106.90, -6.22]]],
+        },
+      },
+      {
+        type: "Feature",
+        properties: { name: "PTT BANDUNG", color: "#10B981" },
+        geometry: {
+          type: "Polygon",
+          coordinates: [[[107.60, -6.90], [107.65, -6.90], [107.65, -6.85], [107.60, -6.85], [107.60, -6.90]]],
+        },
+      },
+      {
+        type: "Feature",
+        properties: { name: "SENTUL CITY", color: "#F97316" },
+        geometry: {
+          type: "Polygon",
+          coordinates: [[[106.80, -6.50], [106.88, -6.50], [106.88, -6.43], [106.80, -6.43], [106.80, -6.50]]],
+        },
+      },
+    ];
+
+    const sourceId = "geofence-source";
+    map.addSource(sourceId, {
+      type: "geojson",
+      data: { type: "FeatureCollection", features: mockGeofences },
+    });
+    zoneSources.current.add(sourceId);
+
+    map.addLayer({
+      id: "geofence-fill",
+      type: "fill",
+      source: sourceId,
+      paint: { "fill-color": ["get", "color"], "fill-opacity": 0.12 },
+    } as maplibregl.FillLayerSpecification);
+    zoneLayerIds.current.add("geofence-fill");
+
+    map.addLayer({
+      id: "geofence-line",
+      type: "line",
+      source: sourceId,
+      paint: { "line-color": ["get", "color"], "line-width": 1.5, "line-opacity": 0.8 },
+    } as maplibregl.LineLayerSpecification);
+    zoneLayerIds.current.add("geofence-line");
+
+    map.addLayer({
+      id: "geofence-label",
+      type: "symbol",
+      source: sourceId,
+      layout: {
+        "text-field": ["get", "name"],
+        "text-size": 11,
+        "text-anchor": "center",
+      },
+      paint: {
+        "text-color": ["get", "color"],
+        "text-halo-color": "#0B0E11",
+        "text-halo-width": 1,
+      },
+    } as maplibregl.SymbolLayerSpecification);
+    zoneLayerIds.current.add("geofence-label");
+  }, [isReady, effectiveVisibility]);
 
   return (
     <div className={`relative w-full h-full ${className}`}>
@@ -289,14 +740,36 @@ export default function MapView({
       {isReady && children}
     </div>
   );
-}
+});
+
+export default MapView;
+
 
 /* ─── Truck marker DOM element ──────────────────────────────────────────── */
+/**
+ * Marker element structure:
+ *   outer (marker-wrapper) ← MapLibre applies transform: translate(...)
+ *     inner (marker-inner) ← CSS rotation applied here (NOT on outer)
+ *       halo (driving pulse)
+ *       trail (driving motion trail)
+ *       ring (selected ring)
+ *       svg (truck icon)
+ *       dot (center dot)
+ *       label (plate number chip)
+ *       task  (task label chip)
+ *
+ * Rotation is intentionally NOT baked into outer/inner here — it is applied
+ * separately in the updateHeading effect so that heading changes do NOT cause
+ * DOM element recreation (prevents marker "vibration" on zoom/pan).
+ */
 function createTruckMarkerElement(
   vehicle: InterpolatedVehicle & { lng: number; lat: number; routePlanned?: LngLat[]; routeActual?: LngLat[]; deviationPoints?: LngLat[]; taskLabel?: string },
   isSelected: boolean
 ): HTMLDivElement {
   const color = STATUS_COLORS[vehicle.status] ?? "#64748B";
+
+  // Outer wrapper — MapLibre sets transform: translate(x,y)
+  // DO NOT add rotation here (it conflicts with MapLibre's positioning transform)
   const wrap = document.createElement("div");
   wrap.style.cssText = `
     position: relative;
@@ -306,9 +779,26 @@ function createTruckMarkerElement(
     justify-content: center;
     width: 32px;
     height: 32px;
-    transform: rotate(${vehicle.heading}deg);
-    transition: transform 0.3s ease-out;
+    pointer-events: auto;
+    /* rotation applied via .marker-inner, not here */
   `;
+
+  // Inner rotating element — rotation transform lives here, independent of MapLibre positioning.
+  // NO transition here — MapLibre manages the outer transform (translate) and we must not
+  // interfere with it. Any CSS transition on this inner element causes jitter during zoom
+  // because MapLibre's position updates and the transition fight each other.
+  const inner = document.createElement("div");
+  inner.className = "marker-inner";
+  inner.style.cssText = `
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    transform: rotate(${vehicle.heading}deg);
+  `;
+  wrap.appendChild(inner);
 
   // Halo pulse (driving)
   if (vehicle.status === "driving") {
@@ -318,7 +808,7 @@ function createTruckMarkerElement(
       border: 2px solid #22D3EE; opacity: 0.6;
       animation: vanguard-pulse 2s ease-in-out infinite;
     `;
-    wrap.appendChild(halo);
+    inner.appendChild(halo);
   }
 
   // Offline dim
@@ -334,7 +824,7 @@ function createTruckMarkerElement(
       width: 2px; height: 10px; border-radius: 1px;
       background: linear-gradient(to bottom, ${color}, transparent); opacity: 0.5;
     `;
-    wrap.appendChild(trail);
+    inner.appendChild(trail);
   }
 
   // Selected ring
@@ -347,10 +837,10 @@ function createTruckMarkerElement(
       box-shadow: 0 0 0 4px rgba(59,130,246,0.2);
       pointer-events: none;
     `;
-    wrap.appendChild(ring);
+    inner.appendChild(ring);
   }
 
-  // Glow filter for driving
+  // Glow filter for driving (deterministic ID — no Math.random)
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   svg.setAttribute("viewBox", "0 0 32 32");
   svg.setAttribute("width", "28");
@@ -360,11 +850,12 @@ function createTruckMarkerElement(
   if (vehicle.status === "driving") {
     const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
     const filter = document.createElementNS("http://www.w3.org/2000/svg", "filter");
-    filter.setAttribute("id", `glow-${vehicle.id}-${Math.random().toString(36).slice(2)}`);
+    // Deterministic filter ID — stable across re-renders (marker not recreated for heading changes)
+    filter.setAttribute("id", `glow-${vehicle.id}`);
     filter.innerHTML = `<feDropShadow dx="0" dy="0" stdDeviation="3" flood-color="#22D3EE" flood-opacity="0.6"/>`;
     defs.appendChild(filter);
     svg.appendChild(defs);
-    svg.setAttribute("filter", filter.getAttribute("id")!);
+    svg.setAttribute("filter", "glow-" + vehicle.id);
   }
 
   const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
@@ -380,7 +871,7 @@ function createTruckMarkerElement(
   dot.setAttribute("r", "3");
   dot.setAttribute("fill", "rgba(255,255,255,0.9)");
   svg.appendChild(dot);
-  wrap.appendChild(svg);
+  inner.appendChild(svg);
 
   // Label chip
   const label = document.createElement("div");
@@ -393,7 +884,7 @@ function createTruckMarkerElement(
     box-shadow: 0 2px 8px rgba(0,0,0,0.4); z-index: 20;
   `;
   label.textContent = vehicle.plate;
-  wrap.appendChild(label);
+  inner.appendChild(label);
 
   // Task sub-label
   if (vehicle.taskLabel) {
@@ -405,7 +896,7 @@ function createTruckMarkerElement(
       font-family: monospace; font-size: 8px; color: #9AA4B2; pointer-events: none; z-index: 20;
     `;
     task.textContent = vehicle.taskLabel;
-    wrap.appendChild(task);
+    inner.appendChild(task);
   }
 
   return wrap;

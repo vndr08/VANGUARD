@@ -1,192 +1,591 @@
 "use client";
 
 import { useState } from "react";
-import { Moon, Monitor, Save, Settings as SettingsIcon, Sun } from "lucide-react";
+import { motion } from "motion/react";
+import {
+  Settings, User, Truck, Bell, Eye, Plug, Shield,
+  ChevronRight, Moon, Sun, Monitor, Globe, Smartphone,
+  CheckCircle2, AlertCircle, XCircle, Clock, LogOut, Key,
+} from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
+import { Button } from "@/components/ui/Button";
+import { Card, CardHeader } from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Badge";
+import { useTheme } from "@/components/ThemeProvider";
+import { useReducedMotion } from "@/hooks/useReducedMotion";
+import { useAppContext } from "@/components/context/AppContext";
 
-type ThemePreference = "light" | "dark" | "system";
-type TableDensity = "compact" | "comfortable";
-type TileProvider = "carto" | "osm" | "satellite";
+/* ─── Local Components ──────────────────────────────── */
+
+// Toggle/Switch — animated, accessible
+function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+  const reducedMotion = useReducedMotion();
+  const trackBg = checked ? "bg-brand" : "bg-surface-3";
+  const knobX = checked ? "translate-x-[22px]" : "translate-x-0";
+  return (
+    <button
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+      style={!reducedMotion ? { transition: "background-color 200ms" } : {}}
+    >
+      <span className={`inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${trackBg} ${knobX}`}
+        style={!reducedMotion ? { transition: `transform ${checked ? "200ms" : "100ms"}` } : {}}
+      />
+    </button>
+  );
+}
+
+// SettingRow — label+description left, control right
+function SettingRow({ label, description, children }: { label: string; description?: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-4 py-3 border-b border-border last:border-0">
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium text-foreground">{label}</p>
+        {description && <p className="mt-0.5 text-xs text-muted">{description}</p>}
+      </div>
+      <div className="shrink-0">{children}</div>
+    </div>
+  );
+}
+
+// SettingSection wrapper
+function SettingSection({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
+  return (
+    <div className="mb-8">
+      <div className="mb-4">
+        <h2 className="text-base font-semibold text-foreground">{title}</h2>
+        {description && <p className="mt-0.5 text-sm text-muted">{description}</p>}
+      </div>
+      <Card padding="none">
+        <div className="divide-y divide-border">{children}</div>
+      </Card>
+    </div>
+  );
+}
+
+/* ─── Nav Items ──────────────────────────────────────── */
+
+const NAV_SECTIONS = [
+  { id: "profil", label: "Profil", icon: User },
+  { id: "armada", label: "Armada", icon: Truck },
+  { id: "notifikasi", label: "Notifikasi", icon: Bell },
+  { id: "tampilan", label: "Tampilan", icon: Eye },
+  { id: "integrasi", label: "Integrasi", icon: Plug },
+  { id: "keamanan", label: "Keamanan", icon: Shield },
+] as const;
+type Section = typeof NAV_SECTIONS[number]["id"];
+
+/* ─── Page ───────────────────────────────────────────── */
 
 export default function SettingsPage() {
-  const { addToast } = useToast();
+  const [activeSection, setActiveSection] = useState<Section>("profil");
+  const { theme, toggleTheme } = useTheme();
+  const { success, error, info, warning } = useToast();
+  const reducedMotion = useReducedMotion();
+  const { setSpeedingAlertEnabled, setTelemetriInterval } = useAppContext();
 
-  const [theme, setTheme] = useState<ThemePreference>("system");
-  const [tableDensity, setTableDensity] = useState<TableDensity>("compact");
-  const [tileProvider, setTileProvider] = useState<TileProvider>("carto");
-  const [defaultZoom, setDefaultZoom] = useState(12);
-  const [notifications, setNotifications] = useState({ speeding: true, geofence: true, offline: true, idle: false, fuel: true });
-  const [soundEnabled, setSoundEnabled] = useState(true);
-  const [autoRefresh, setAutoRefresh] = useState(30);
+  // ── Profil state
+  const [profile, setProfile] = useState({ nama: "Ahmad Wijaya", email: "ahmad.wijaya@vanguard.id", nohp: "0812-3456-7890", role: "Fleet Manager" });
 
-  function handleSave() {
-    addToast("success", "Settings saved successfully");
-  }
+  // ── Armada state
+  const [fleet, setFleet] = useState({ company: "PT Logistics Nusantara", timezone: "Asia/Jakarta", distanceUnit: "km", speedLimit: 80, refreshInterval: "10" });
 
-  const themeOptions = [
-    { value: "light", label: "Light", icon: Sun },
-    { value: "dark", label: "Dark", icon: Moon },
-    { value: "system", label: "System", icon: Monitor },
-  ] as const;
+  // ── Notifikasi toggles
+  const [notif, setNotif] = useState({ speeding: true, geofence: true, engineCut: false, insiden: true, laporanHarian: false });
+
+  // ── Tampilan state
+  const [display, setDisplay] = useState({ density: "compact" as "compact"|"normal", animation: true, bahasa: "id" });
+
+  // ── Integrasi state
+  const [integrations, setIntegrations] = useState([
+    { id: "maps", name: "Maps API", status: "connected" as "connected"|"disconnected" },
+    { id: "sms", name: "SMS Gateway", status: "connected" as "connected"|"disconnected" },
+    { id: "wa", name: "WhatsApp", status: "disconnected" as "connected"|"disconnected" },
+    { id: "webhook", name: "Webhook", status: "connected" as "connected"|"disconnected" },
+  ]);
+
+  // ── Keamanan state
+  const [passwords, setPasswords] = useState({ current: "", baru: "", konfirmasi: "" });
+  const [twoFA, setTwoFA] = useState(false);
+  const [sessions] = useState([
+    { id: "1", device: "Chrome · Windows", location: "Jakarta, ID", waktu: "2 jam lalu", current: true },
+    { id: "2", device: "Safari · macOS", location: "Bandung, ID", waktu: "Kemarin", current: false },
+    { id: "3", device: "App · iOS", location: "Surabaya, ID", waktu: "3 hari lalu", current: false },
+  ]);
+
+  /* ─── Handlers ────────────────────────────────────── */
+  const handleSimpanProfil = () => success("Profil disimpan", "Perubahan profil berhasil disimpan.");
+  const handleSimpanArmada = () => success("Pengaturan armada disimpan");
+  const handleNotifToggle = (key: string, label: string, val: boolean) => {
+    if (key === "speeding") setSpeedingAlertEnabled(val);
+    info(label, val ? "diaktifkan" : "dinonaktifkan");
+  };
+  const handleIntegrasiToggle = (id: string, current: "connected"|"disconnected") => {
+    if (current === "connected") {
+      setIntegrations(prev => prev.map(i => i.id === id ? { ...i, status: "disconnected" as const } : i));
+      warning("Terputus", "Koneksi ke server putus.");
+    } else {
+      setIntegrations(prev => prev.map(i => i.id === id ? { ...i, status: "connected" as const } : i));
+      success("Terhubung", "Berhasil tersambung ke server.");
+    }
+  };
+  const handleSimpanPassword = () => {
+    if (!passwords.current) { error("Password kosong", "Masukkan password saat ini."); return; }
+    if (passwords.baru.length < 6) { error("Password lemah", "Minimal 6 karakter."); return; }
+    if (passwords.baru !== passwords.konfirmasi) { error("Password tidak cocok", "Pastikan password baru dan konfirmasi sama."); return; }
+    success("Password diubah", "Password berhasil diperbarui.");
+    setPasswords({ current: "", baru: "", konfirmasi: "" });
+  };
+  const handleAkhiriSesi = (id: string) => {
+    success("Sesi diakhiri", "Sesi tersebut berhasil di-logout.");
+  };
+
+  /* ─── Nav icon map ────────────────────────────────── */
+  const navIconMap: Record<Section, React.ElementType> = {
+    profil: User,
+    armada: Truck,
+    notifikasi: Bell,
+    tampilan: Eye,
+    integrasi: Plug,
+    keamanan: Shield,
+  };
 
   return (
-    <div className="min-h-full bg-zinc-50 px-7 py-6 dark:bg-zinc-950">
-      <div className="mb-6">
-        <p className="metric-label">User preferences</p>
-        <h1 className="mt-2 text-3xl font-bold text-zinc-900 dark:text-white">Settings</h1>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-600 dark:text-zinc-400">Configure your VANGUARD experience: theme, map, notifications, and display preferences.</p>
-      </div>
+    <div className="min-h-screen bg-background text-foreground">
+      {/* ── Header ─────────────────────────────────────── */}
+      <header className="border-b border-border bg-surface-1 px-6 py-4">
+        <h1 className="text-xl font-semibold text-foreground flex items-center gap-2">
+          <Settings className="w-5 h-5 text-brand" />
+          Pengaturan
+        </h1>
+        <p className="mt-0.5 text-sm text-muted">Kelola akun, armada, dan preferensi sistem</p>
+      </header>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_400px]">
-        <div className="space-y-6">
-          <section className="card rounded-md p-6">
-            <div className="flex items-center gap-3 mb-5">
-              <div className="flex h-10 w-10 items-center justify-center rounded-md bg-zinc-900 dark:bg-white">
-                <SettingsIcon className="h-5 w-5 text-white dark:text-zinc-900" />
+      <div className="flex max-w-6xl mx-auto">
+        {/* ── Sidebar Nav (sticky) ────────────────────── */}
+        <aside className="w-[220px] shrink-0 py-6 pr-4 sticky top-0 h-fit">
+          <nav className="space-y-1">
+            {NAV_SECTIONS.map((section) => {
+              const Icon = navIconMap[section.id];
+              const isActive = activeSection === section.id;
+              return (
+                <button
+                  key={section.id}
+                  onClick={() => setActiveSection(section.id)}
+                  aria-current={isActive ? "page" : undefined}
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand ${
+                    isActive
+                      ? "bg-brand text-white"
+                      : "text-muted hover:text-foreground hover:bg-surface-2"
+                  }`}
+                >
+                  <Icon className="w-4 h-4 shrink-0" />
+                  {section.label}
+                </button>
+              );
+            })}
+          </nav>
+        </aside>
+
+        {/* ── Content ──────────────────────────────────── */}
+        <main className="flex-1 py-6 pl-4 min-w-0 border-l border-border">
+
+          {/* ── Profil ──────────────────────────────────── */}
+          {activeSection === "profil" && (
+            <div>
+              <div className="mb-6">
+                <h2 className="text-lg font-semibold text-foreground">Profil</h2>
+                <p className="mt-0.5 text-sm text-muted">Informasi akun Anda</p>
               </div>
-              <div>
-                <h2 className="text-lg font-bold text-zinc-900 dark:text-white">Appearance</h2>
-                <p className="text-xs font-semibold text-zinc-500">Theme and display settings</p>
+              <Card>
+                <div className="flex items-start gap-5 mb-6">
+                  {/* Avatar */}
+                  <div className="w-16 h-16 rounded-full bg-brand text-white flex items-center justify-center text-xl font-semibold shrink-0">
+                    {profile.nama.split(" ").map(n => n[0]).join("").slice(0,2).toUpperCase()}
+                  </div>
+                  <div>
+                    <p className="font-semibold text-foreground">{profile.nama}</p>
+                    <Badge variant="default" className="mt-1">{profile.role}</Badge>
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-1.5">Nama Lengkap</label>
+                    <input
+                      type="text"
+                      value={profile.nama}
+                      onChange={e => setProfile(p => ({ ...p, nama: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-lg bg-surface-2 border border-border text-sm text-foreground placeholder:text-muted focus-visible:outline-2 focus-visible:outline-brand"
+                      aria-label="Nama lengkap"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-1.5">Email</label>
+                    <input
+                      type="email"
+                      value={profile.email}
+                      onChange={e => setProfile(p => ({ ...p, email: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-lg bg-surface-2 border border-border text-sm text-foreground placeholder:text-muted focus-visible:outline-2 focus-visible:outline-brand"
+                      aria-label="Email"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-1.5">No. HP</label>
+                    <input
+                      type="tel"
+                      value={profile.nohp}
+                      onChange={e => setProfile(p => ({ ...p, nohp: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-lg bg-surface-2 border border-border text-sm text-foreground placeholder:text-muted focus-visible:outline-2 focus-visible:outline-brand font-mono"
+                      aria-label="Nomor HP"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-1.5">Role</label>
+                    <input
+                      type="text"
+                      value={profile.role}
+                      disabled
+                      className="w-full px-3 py-2 rounded-lg bg-surface-3 border border-border text-sm text-muted cursor-not-allowed"
+                      aria-label="Role"
+                    />
+                  </div>
+                </div>
+                <div className="mt-6 flex justify-end">
+                  <Button onClick={handleSimpanProfil}>Simpan Perubahan</Button>
+                </div>
+              </Card>
+            </div>
+          )}
+
+          {/* ── Armada ──────────────────────────────────── */}
+          {activeSection === "armada" && (
+            <div>
+              <div className="mb-6">
+                <h2 className="text-lg font-semibold text-foreground">Armada</h2>
+                <p className="mt-0.5 text-sm text-muted">Pengaturan default armada</p>
+              </div>
+              <Card>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-1.5">Nama Perusahaan</label>
+                    <input
+                      type="text"
+                      value={fleet.company}
+                      onChange={e => setFleet(f => ({ ...f, company: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-lg bg-surface-2 border border-border text-sm text-foreground focus-visible:outline-2 focus-visible:outline-brand"
+                      aria-label="Nama perusahaan"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-1.5">Zona Waktu</label>
+                    <select
+                      value={fleet.timezone}
+                      onChange={e => setFleet(f => ({ ...f, timezone: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-lg bg-surface-2 border border-border text-sm text-foreground focus-visible:outline-2 focus-visible:outline-brand"
+                      aria-label="Zona waktu"
+                    >
+                      <option>Asia/Jakarta</option>
+                      <option>Asia/Makassar</option>
+                      <option>Asia/Jayapura</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-1.5">Satuan Jarak</label>
+                    <select
+                      value={fleet.distanceUnit}
+                      onChange={e => setFleet(f => ({ ...f, distanceUnit: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-lg bg-surface-2 border border-border text-sm text-foreground focus-visible:outline-2 focus-visible:outline-brand"
+                      aria-label="Satuan jarak"
+                    >
+                      <option value="km">Kilometer (km)</option>
+                      <option value="mil">Mil (mi)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-1.5">Batas Kecepatan Default</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min={40}
+                        max={200}
+                        value={fleet.speedLimit}
+                        onChange={e => setFleet(f => ({ ...f, speedLimit: Number(e.target.value) }))}
+                        className="w-24 px-3 py-2 rounded-lg bg-surface-2 border border-border text-sm text-foreground font-mono tabular-nums focus-visible:outline-2 focus-visible:outline-brand"
+                        aria-label="Batas kecepatan default"
+                      />
+                      <span className="text-sm text-muted">{fleet.distanceUnit}/jam</span>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-1.5">Interval Refresh Telemetri</label>
+                    <select
+                      value={fleet.refreshInterval}
+                      onChange={e => { setFleet(f => ({ ...f, refreshInterval: e.target.value })); setTelemetriInterval(e.target.value as "5" | "10" | "30" | "60"); }}
+                      className="w-full px-3 py-2 rounded-lg bg-surface-2 border border-border text-sm text-foreground focus-visible:outline-2 focus-visible:outline-brand"
+                      aria-label="Interval refresh"
+                    >
+                      <option value="5">5 detik</option>
+                      <option value="10">10 detik</option>
+                      <option value="30">30 detik</option>
+                      <option value="60">1 menit</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="mt-6 flex justify-end">
+                  <Button onClick={handleSimpanArmada}>Simpan</Button>
+                </div>
+              </Card>
+            </div>
+          )}
+
+          {/* ── Notifikasi ───────────────────────────────── */}
+          {activeSection === "notifikasi" && (
+            <div>
+              <div className="mb-6">
+                <h2 className="text-lg font-semibold text-foreground">Notifikasi</h2>
+                <p className="mt-0.5 text-sm text-muted">Pilih notifikasi yang ingin Anda terima</p>
+              </div>
+              <SettingSection
+                title="Notifikasi Sistem"
+                description="Notifikasi real-time dari aktivitas armada"
+              >
+                <div className="px-4">
+                  <SettingRow label="Speeding Alert" description="Peringatan ketika kendaraan melebihi batas kecepatan">
+                    <Toggle checked={notif.speeding} onChange={v => { setNotif(n => ({ ...n, speeding: v })); handleNotifToggle("speeding", "Speeding Alert", v); }} />
+                  </SettingRow>
+                  <SettingRow label="Geofence In/Out" description="Notifikasi saat kendaraan masuk atau keluar zona">
+                    <Toggle checked={notif.geofence} onChange={v => { setNotif(n => ({ ...n, geofence: v })); handleNotifToggle("Geofence", "Geofence In/Out", v); }} />
+                  </SettingRow>
+                  <SettingRow label="Engine Cut-off" description="Peringatan pemotongan mesin">
+                    <Toggle checked={notif.engineCut} onChange={v => { setNotif(n => ({ ...n, engineCut: v })); handleNotifToggle("Engine Cut-off", "Engine Cut-off", v); }} />
+                  </SettingRow>
+                  <SettingRow label="Insiden" description="Notifikasi kejadian atau kecelakaan">
+                    <Toggle checked={notif.insiden} onChange={v => { setNotif(n => ({ ...n, insiden: v })); handleNotifToggle("Insiden", "Insiden", v); }} />
+                  </SettingRow>
+                  <SettingRow label="Laporan Harian (Email)" description="Kirim ringkasan harian ke email">
+                    <Toggle checked={notif.laporanHarian} onChange={v => { setNotif(n => ({ ...n, laporanHarian: v })); handleNotifToggle("Laporan Harian", "Laporan Harian", v); }} />
+                  </SettingRow>
+                </div>
+              </SettingSection>
+            </div>
+          )}
+
+          {/* ── Tampilan ──────────────────────────────────── */}
+          {activeSection === "tampilan" && (
+            <div>
+              <div className="mb-6">
+                <h2 className="text-lg font-semibold text-foreground">Tampilan</h2>
+                <p className="mt-0.5 text-sm text-muted">Pengaturan tampilan dan preferensi antarmuka</p>
+              </div>
+              <SettingSection title="Tema">
+                <div className="px-4">
+                  <SettingRow
+                    label="Mode Tema"
+                    description={`Tema saat ini: ${theme === "dark" ? "Gelap" : "Terang"}`}
+                  >
+                    <button
+                      onClick={toggleTheme}
+                      aria-label={`Ganti ke tema ${theme === "dark" ? "Terang" : "Gelap"}`}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface-2 border border-border text-sm text-foreground hover:bg-surface-3 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                    >
+                      {theme === "dark" ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+                      {theme === "dark" ? "Gelap" : "Terang"}
+                    </button>
+                  </SettingRow>
+                </div>
+              </SettingSection>
+              <SettingSection title="Density">
+                <div className="px-4">
+                  <SettingRow label="Density Antarmuka" description="Atur kepadatan informasi di layar">
+                    <div className="flex rounded-lg border border-border overflow-hidden">
+                      {(["compact", "normal"] as const).map(d => (
+                        <button
+                          key={d}
+                          onClick={() => setDisplay(dis => ({ ...dis, density: d }))}
+                          aria-pressed={display.density === d}
+                          className={`px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand ${
+                            display.density === d
+                              ? "bg-brand text-white"
+                              : "bg-surface-2 text-muted hover:bg-surface-3"
+                          }`}
+                        >
+                          {d === "compact" ? "Compact" : "Normal"}
+                        </button>
+                      ))}
+                    </div>
+                  </SettingRow>
+                </div>
+              </SettingSection>
+              <SettingSection title="Animasi">
+                <div className="px-4">
+                  <SettingRow label="Aktifkan Animasi" description="Animasi transisi dan efek visual">
+                    <Toggle checked={display.animation} onChange={v => setDisplay(dis => ({ ...dis, animation: v }))} />
+                  </SettingRow>
+                </div>
+              </SettingSection>
+              <SettingSection title="Bahasa">
+                <div className="px-4">
+                  <SettingRow label="Bahasa Antarmuka" description="Pilih bahasa yang digunakan">
+                    <select
+                      value={display.bahasa}
+                      onChange={e => setDisplay(dis => ({ ...dis, bahasa: e.target.value }))}
+                      className="px-3 py-1.5 rounded-lg bg-surface-2 border border-border text-sm text-foreground focus-visible:outline-2 focus-visible:outline-brand"
+                      aria-label="Bahasa"
+                    >
+                      <option value="id">Indonesia</option>
+                      <option value="en">English</option>
+                    </select>
+                  </SettingRow>
+                </div>
+              </SettingSection>
+            </div>
+          )}
+
+          {/* ── Integrasi ────────────────────────────────── */}
+          {activeSection === "integrasi" && (
+            <div>
+              <div className="mb-6">
+                <h2 className="text-lg font-semibold text-foreground">Integrasi</h2>
+                <p className="mt-0.5 text-sm text-muted">Kelola koneksi ke layanan eksternal</p>
+              </div>
+              <div className="space-y-3">
+                {integrations.map(item => (
+                  <Card key={item.id} padding="md">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-9 h-9 rounded-lg bg-surface-2 flex items-center justify-center shrink-0">
+                          <Plug className="w-4 h-4 text-muted" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-foreground">{item.name}</p>
+                          <Badge
+                            variant={item.status === "connected" ? "success" : "default"}
+                            className="mt-0.5"
+                          >
+                            {item.status === "connected" ? "Terhubung" : "Belum"}
+                          </Badge>
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant={item.status === "connected" ? "ghost" : "primary"}
+                        onClick={() => handleIntegrasiToggle(item.id, item.status)}
+                        aria-label={item.status === "connected" ? `Putuskan ${item.name}` : `Hubungkan ${item.name}`}
+                      >
+                        {item.status === "connected" ? "Putus" : "Hubungkan"}
+                      </Button>
+                    </div>
+                  </Card>
+                ))}
               </div>
             </div>
+          )}
 
-            <div className="space-y-5">
-              <div>
-                <label className="mb-3 block text-sm font-bold text-zinc-700 dark:text-zinc-300">Theme preference</label>
-                <div className="flex gap-3">
-                  {themeOptions.map((option) => (
-                    <button key={option.value} onClick={() => setTheme(option.value)} className={`flex flex-1 items-center justify-center gap-2 rounded-md border px-4 py-3 text-sm font-bold transition-colors ${theme === option.value ? "border-zinc-900 bg-zinc-900 text-white dark:border-white dark:bg-white dark:text-zinc-900" : "border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300"}`}>
-                      <option.icon className="h-4 w-4" />{option.label}
-                    </button>
+          {/* ── Keamanan ────────────────────────────────── */}
+          {activeSection === "keamanan" && (
+            <div>
+              <div className="mb-6">
+                <h2 className="text-lg font-semibold text-foreground">Keamanan</h2>
+                <p className="mt-0.5 text-sm text-muted">Pengaturan keamanan akun</p>
+              </div>
+
+              {/* Ganti Password */}
+              <SettingSection title="Ubah Password" description="Minimal 6 karakter">
+                <div className="p-4 space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-1.5">Password Saat Ini</label>
+                    <input
+                      type="password"
+                      value={passwords.current}
+                      onChange={e => setPasswords(p => ({ ...p, current: e.target.value }))}
+                      placeholder="••••••••"
+                      className="w-full px-3 py-2 rounded-lg bg-surface-2 border border-border text-sm text-foreground placeholder:text-muted focus-visible:outline-2 focus-visible:outline-brand"
+                      aria-label="Password saat ini"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-1.5">Password Baru</label>
+                    <input
+                      type="password"
+                      value={passwords.baru}
+                      onChange={e => setPasswords(p => ({ ...p, baru: e.target.value }))}
+                      placeholder="••••••••"
+                      className="w-full px-3 py-2 rounded-lg bg-surface-2 border border-border text-sm text-foreground placeholder:text-muted focus-visible:outline-2 focus-visible:outline-brand"
+                      aria-label="Password baru"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-1.5">Konfirmasi Password Baru</label>
+                    <input
+                      type="password"
+                      value={passwords.konfirmasi}
+                      onChange={e => setPasswords(p => ({ ...p, konfirmasi: e.target.value }))}
+                      placeholder="••••••••"
+                      className="w-full px-3 py-2 rounded-lg bg-surface-2 border border-border text-sm text-foreground placeholder:text-muted focus-visible:outline-2 focus-visible:outline-brand"
+                      aria-label="Konfirmasi password baru"
+                    />
+                  </div>
+                  <div className="flex justify-end pt-2">
+                    <Button size="sm" onClick={handleSimpanPassword}>
+                      <Key className="w-3.5 h-3.5" />
+                      Ubah Password
+                    </Button>
+                  </div>
+                </div>
+              </SettingSection>
+
+              {/* 2FA */}
+              <SettingSection title="Autentikasi Dua Faktor">
+                <div className="px-4">
+                  <SettingRow
+                    label="Aktifkan 2FA"
+                    description="Menambah lapisan keamanan dengan kode verifikasi"
+                  >
+                    <Toggle checked={twoFA} onChange={v => { setTwoFA(v); info("2FA", v ? "diaktifkan" : "dinonaktifkan"); }} />
+                  </SettingRow>
+                </div>
+              </SettingSection>
+
+              {/* Sesi Aktif */}
+              <SettingSection title="Sesi Aktif" description="Perangkat yang sedang login ke akun Anda">
+                <div className="divide-y divide-border">
+                  {sessions.map(session => (
+                    <div key={session.id} className="px-4 py-3 flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-9 h-9 rounded-lg bg-surface-2 flex items-center justify-center shrink-0">
+                          <Smartphone className="w-4 h-4 text-muted" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-foreground flex items-center gap-1.5">
+                            {session.device}
+                            {session.current && <Badge variant="success" className="text-xs py-0">Aktif</Badge>}
+                          </p>
+                          <p className="text-xs text-muted mt-0.5">{session.location}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3 shrink-0">
+                        <span className="text-xs text-muted tabular-nums">{session.waktu}</span>
+                        {!session.current && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleAkhiriSesi(session.id)}
+                            aria-label={`Akhiri sesi ${session.device}`}
+                          >
+                            <LogOut className="w-3.5 h-3.5" />
+                            Akhiri
+                          </Button>
+                        )}
+                      </div>
+                    </div>
                   ))}
                 </div>
-              </div>
-
-              <div>
-                <label className="mb-3 block text-sm font-bold text-zinc-700 dark:text-zinc-300">Table density</label>
-                <div className="flex gap-3">
-                  <button onClick={() => setTableDensity("compact")} className={`flex flex-1 items-center justify-center rounded-md border px-4 py-3 text-sm font-bold transition-colors ${tableDensity === "compact" ? "border-zinc-900 bg-zinc-900 text-white dark:border-white dark:bg-white dark:text-zinc-900" : "border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300"}`}>Compact</button>
-                  <button onClick={() => setTableDensity("comfortable")} className={`flex flex-1 items-center justify-center rounded-md border px-4 py-3 text-sm font-bold transition-colors ${tableDensity === "comfortable" ? "border-zinc-900 bg-zinc-900 text-white dark:border-white dark:bg-white dark:text-zinc-900" : "border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300"}`}>Comfortable</button>
-                </div>
-              </div>
+              </SettingSection>
             </div>
-          </section>
-
-          <section className="card rounded-md p-6">
-            <h2 className="text-lg font-bold text-zinc-900 dark:text-white">Map preferences</h2>
-            <p className="text-xs font-semibold text-zinc-500 mb-5">Default map display settings</p>
-
-            <div className="space-y-5">
-              <div>
-                <label className="mb-3 block text-sm font-bold text-zinc-700 dark:text-zinc-300">Tile provider</label>
-                <select value={tileProvider} onChange={(e) => setTileProvider(e.target.value as TileProvider)} className="w-full rounded-lg border border-zinc-200 bg-white px-4 py-3 text-sm font-semibold text-zinc-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-white">
-                  <option value="carto">CartoDB (Light/Dark)</option>
-                  <option value="osm">OpenStreetMap</option>
-                  <option value="satellite">Satellite (ESRI)</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="mb-3 block text-sm font-bold text-zinc-700 dark:text-zinc-300">Default zoom level: {defaultZoom}x</label>
-                <input type="range" min="8" max="18" value={defaultZoom} onChange={(e) => setDefaultZoom(Number(e.target.value))} className="w-full" />
-                <div className="flex justify-between text-xs font-semibold text-zinc-500 mt-1"><span>8x (Wide)</span><span>18x (Detail)</span></div>
-              </div>
-
-              <div>
-                <label className="mb-3 block text-sm font-bold text-zinc-700 dark:text-zinc-300">Auto-refresh interval: {autoRefresh}s</label>
-                <input type="range" min="10" max="120" step="10" value={autoRefresh} onChange={(e) => setAutoRefresh(Number(e.target.value))} className="w-full" />
-                <div className="flex justify-between text-xs font-semibold text-zinc-500 mt-1"><span>10s (Fast)</span><span>120s (Slow)</span></div>
-              </div>
-            </div>
-          </section>
-
-          <section className="card rounded-md p-6">
-            <h2 className="text-lg font-bold text-zinc-900 dark:text-white">Notification preferences</h2>
-            <p className="text-xs font-semibold text-zinc-500 mb-5">Which alerts should trigger notifications</p>
-
-            <div className="space-y-4">
-              {[{ key: "speeding", label: "Speeding alerts", desc: "When vehicle exceeds speed threshold" }, { key: "geofence", label: "Geofence events", desc: "Enter/exit virtual zones" }, { key: "offline", label: "GPS offline", desc: "When vehicle loses GPS connection" }, { key: "idle", label: "Idle engine", desc: "Engine on without movement > 15 min" }, { key: "fuel", label: "Low fuel warning", desc: "Fuel level below 25%" }].map((item) => (
-                <div key={item.key} className="flex items-center justify-between rounded-md border border-zinc-200 p-4 dark:border-zinc-800">
-                  <div>
-                    <p className="font-bold text-zinc-900 dark:text-white">{item.label}</p>
-                    <p className="text-xs font-semibold text-zinc-500">{item.desc}</p>
-                  </div>
-                  <button onClick={() => setNotifications((prev) => ({ ...prev, [item.key]: !prev[item.key as keyof typeof prev] }))} className={`relative h-6 w-11 rounded-full p-0.5 transition-colors ${notifications[item.key as keyof typeof notifications] ? "bg-emerald-500" : "bg-zinc-300 dark:bg-zinc-700"}`}>
-                    <span className={`block h-5 w-5 rounded-full bg-white transition-transform ${notifications[item.key as keyof typeof notifications] ? "translate-x-5" : ""}`} />
-                  </button>
-                </div>
-              ))}
-
-              <div className="flex items-center justify-between rounded-md border border-zinc-200 p-4 dark:border-zinc-800">
-                <div>
-                  <p className="font-bold text-zinc-900 dark:text-white">Sound alerts</p>
-                  <p className="text-xs font-semibold text-zinc-500">Play sound for critical notifications</p>
-                </div>
-                <button onClick={() => setSoundEnabled(!soundEnabled)} className={`relative h-6 w-11 rounded-full p-0.5 transition-colors ${soundEnabled ? "bg-emerald-500" : "bg-zinc-300 dark:bg-zinc-700"}`}>
-                  <span className={`block h-5 w-5 rounded-full bg-white transition-transform ${soundEnabled ? "translate-x-5" : ""}`} />
-                </button>
-              </div>
-            </div>
-          </section>
-        </div>
-
-        <aside className="space-y-6">
-          <section className="card rounded-md p-6">
-            <h2 className="text-lg font-bold text-zinc-900 dark:text-white">Account</h2>
-            <p className="text-xs font-semibold text-zinc-500 mb-5">Your profile information</p>
-
-            <div className="space-y-4">
-              <div className="flex items-center gap-4">
-                <div className="h-16 w-16 bg-zinc-900 dark:bg-zinc-700 rounded-xl flex items-center justify-center">
-                  <span className="text-xl font-bold text-white">JE</span>
-                </div>
-                <div>
-                  <p className="font-bold text-zinc-900 dark:text-white">Jhon Erizal</p>
-                  <p className="text-sm font-semibold text-zinc-500">Dispatcher</p>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <div>
-                  <label className="text-xs font-semibold text-zinc-500">Email</label>
-                  <p className="font-semibold text-zinc-900 dark:text-white">jhon.erizal@tempo-group.com</p>
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-zinc-500">Role</label>
-                  <p className="font-semibold text-zinc-900 dark:text-white">Dispatcher / Supervisor</p>
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-zinc-500">Last login</label>
-                  <p className="font-semibold text-zinc-900 dark:text-white">12 June 2026, 08:45</p>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <section className="card rounded-md p-6">
-            <h2 className="text-lg font-bold text-zinc-900 dark:text-white">Session</h2>
-            <p className="text-xs font-semibold text-zinc-500 mb-5">API and connection status</p>
-
-            <div className="space-y-3">
-              <div className="flex items-center justify-between rounded-md bg-zinc-50 p-3 dark:bg-zinc-900">
-                <span className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">API Server</span>
-                <span className="flex items-center gap-2 text-sm font-bold text-emerald-700 dark:text-emerald-300"><span className="h-2 w-2 rounded-full bg-emerald-500" />Connected</span>
-              </div>
-              <div className="flex items-center justify-between rounded-md bg-zinc-50 p-3 dark:bg-zinc-900">
-                <span className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">WebSocket</span>
-                <span className="flex items-center gap-2 text-sm font-bold text-emerald-700 dark:text-emerald-300"><span className="h-2 w-2 rounded-full bg-emerald-500" />Live</span>
-              </div>
-              <div className="flex items-center justify-between rounded-md bg-zinc-50 p-3 dark:bg-zinc-900">
-                <span className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">GPS Devices</span>
-                <span className="text-sm font-bold text-zinc-900 dark:text-white">103 units synced</span>
-              </div>
-            </div>
-          </section>
-
-          <button onClick={handleSave} className="btn btn-primary w-full">
-            <Save className="h-4 w-4" /> Save Settings
-          </button>
-        </aside>
+          )}
+        </main>
       </div>
     </div>
   );
