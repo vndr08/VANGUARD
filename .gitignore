@@ -6,3 +6,10 @@ __pycache__/
 .next/
 .DS_Store
 docs/_backup/
+.env
+.env.local
+.env.*.local
+frontend/.env.local
+explore-*.js
+tramos-login.js
+docs/_backup/
