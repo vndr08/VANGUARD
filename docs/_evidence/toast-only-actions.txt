@@ -1,0 +1,16 @@
+frontend/src/app/(app)/tasks/page.tsx:177:    setTimeout(() => { setLastRefresh(new Date()); setRefreshing(false); success("Data diperbarui", `${tasks.length} tugas dimuat`); }, 800);
+frontend/src/app/(app)/snapshots/page.tsx:443:    setTimeout(() => {
+frontend/src/app/(app)/accidents/page.tsx:339:      toast.error("Unit kendaraan harus dipilih");
+frontend/src/app/(app)/accidents/page.tsx:343:      toast.error("Tanggal dan waktu harus diisi");
+frontend/src/app/(app)/accidents/page.tsx:347:      toast.error("Jenis insiden harus dipilih");
+frontend/src/app/(app)/accidents/page.tsx:351:      toast.error("Tingkat keparahan harus dipilih");
+frontend/src/app/(app)/accidents/page.tsx:649:      toast.success("Insiden berhasil diperbarui");
+frontend/src/app/(app)/accidents/page.tsx:655:      toast.success("Insiden berhasil ditambahkan");
+frontend/src/app/(app)/accidents/page.tsx:663:      toast.success("Insiden berhasil dihapus");
+frontend/src/app/(app)/accidents/page.tsx:674:      toast.info(`Status diubah menjadi ${newStatus}`);
+frontend/src/app/(app)/dashboard/page.tsx:42:  await new Promise((r) => setTimeout(r, 400)); // simulate network
+frontend/src/app/(app)/history/page.tsx:618:  function handleRefresh() { setRefreshing(true); setTimeout(() => { setRefreshing(false); success("Data dimuat", `${selectedVehicle.plate_number} — ${dateRange}`); }, 800); }
+frontend/src/app/(app)/tracking/page.tsx:204:      const t = setTimeout(() => setSpeeding(null), 6000);
+frontend/src/app/(app)/tracking/page.tsx:290:    setTimeout(() => {
+frontend/src/app/(app)/control/page.tsx:313:    setTimeout(() => {
+frontend/src/app/(app)/reports/page.tsx:421:    setTimeout(() => {

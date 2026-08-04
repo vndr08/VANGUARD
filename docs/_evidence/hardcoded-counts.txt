@@ -1,0 +1,5 @@
+frontend/src/app/(app)/dashboard/page.tsx:175:          <KPIStatCard label="Total Units" value={total} icon={<Truck className="h-5 w-5" />} />
+frontend/src/components/layout/AppShell.tsx:42:  "/dashboard": { title: "Dashboard", summary: "Overview · 103 units" },
+frontend/src/components/layout/Sidebar.tsx:235:                    103 units online
+frontend/src/components/layout/Sidebar.tsx:248:                title="103 units online"
+frontend/src/components/layout/Sidebar.tsx:260:                <span className="font-mono text-[10px] tabular-nums text-muted">103</span>
