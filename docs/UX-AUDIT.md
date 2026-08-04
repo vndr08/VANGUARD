@@ -447,7 +447,7 @@
 - Fetch API (baris 189-193) fallback ke mock jika gagal — tidak ada loading state yang berbeda
 - Speeding detection loop recalculate setiap render
 
-**Masalah density:** Map + sidebar list (280px) + panel (400px) = 3 areas
+**Masalah density:** Peta, daftar kendaraan 280px dari grid-cols-[280px_1fr] pada tracking/page.tsx baris 534, dan panel detail 380px dari DetailPanel.tsx baris 88 menghasilkan tiga surface utama. Aturan terkunci membatasi dua surface utama.
 
 **Masalah interaksi:**
 - Map controls di toolbar (baris 393-500) banyak yang simulated
@@ -627,7 +627,7 @@
 ### Lebar Sidebar
 
 **Nilai sekarang:** 248px expanded, 64px rail
-- Sidebar di tracking page — 280px + map = context panel penuh
+- Daftar kendaraan di Tracking memakai kolom tetap 280px melalui grid-cols-[280px_1fr] pada tracking/page.tsx baris 534. Kolom task di Task Monitor memakai 380px melalui grid-cols-[380px_1fr] pada tasks/page.tsx baris 273.
 - Content area 1366 - 280 - sidebar = 786px untuk map
 
 ### Page Padding Tidak Konsisten
@@ -642,7 +642,7 @@
 
 ### Panel Map Lebar
 
-**Nilai terverifikasi.** Lebar panel dan sidebar yang benar-benar ada di kode berada di `docs/_evidence/width-inventory.txt` dan `docs/_evidence/layout-widths-core.txt`. Yang terkonfirmasi: panel detail `w-[380px]` di `components/map/DetailPanel.tsx`, sidebar `w-[320px]` di `dashcam/page.tsx` dan `control/page.tsx`, serta overlay `w-[320px]` di `geofences/page.tsx`. Nilai 280px dan 400px yang disebut pada versi audit sebelumnya TIDAK ADA di dalam kode dan tidak boleh dipakai sebagai dasar perhitungan anggaran ruang.
+**Nilai terverifikasi.** Lebar panel dan sidebar yang benar-benar ada di kode berada di `docs/_evidence/width-inventory.txt` dan `docs/_evidence/layout-widths-core.txt`. Yang terkonfirmasi: panel detail `w-[380px]` di `components/map/DetailPanel.tsx`, sidebar `w-[320px]` di `dashcam/page.tsx` dan `control/page.tsx`, serta overlay `w-[320px]` di `geofences/page.tsx`. Nilai 280px memang ada, tetapi ditulis sebagai grid template grid-cols-[280px_1fr] pada tracking/page.tsx baris 534, bukan sebagai utilitas lebar. Nilai 400px tidak ada. Panel detail sebenarnya 380px dan kolom task sebenarnya 380px. Setiap angka ruang harus diambil dari docs/_evidence/width-inventory.txt yang kini juga mencakup pola grid template.
 
 ### Row Height Tidak Terkendali
 
@@ -1115,7 +1115,21 @@ Nilai apa pun yang tidak tercantum di sini harus diukur ulang sebelum dipakai.
 
 ### Koreksi terhadap versi audit sebelumnya
 
-1. Nilai 280px dan 400px tidak ditemukan di dalam kode dan dibatalkan.
+1. Nilai 280px ada sebagai grid template pada Tracking. Nilai 400px tidak ada; panel detail dan kolom task keduanya 380px. Pencarian lebar wajib mencakup pola grid-cols agar tidak melewatkan kolom tetap.
 2. Deteksi kecepatan bukan loop inline di halaman, melainkan hook tersendiri.
 3. Angka fleet palsu berada di app shell, bukan di halaman, sehingga perbaikannya
    masuk pekerjaan app shell.
+
+### Tambahan angka terverifikasi
+
+| Temuan | Nilai | Bukti |
+|--------|-------|-------|
+| Kolom daftar kendaraan di Tracking | 280px sebagai grid template | tracking/page.tsx baris 534, grid-cols-[280px_1fr] |
+| Kolom task di Task Monitor | 380px sebagai grid template | tasks/page.tsx baris 273, grid-cols-[380px_1fr] |
+| Panel detail peta | 380px | components/map/DetailPanel.tsx baris 88 |
+| Nilai 400px | tidak ada di dalam kode | docs/_evidence/width-inventory.txt |
+| Lebar konten maksimum | satu kemunculan max-w-[1600px] | docs/_evidence/width-inventory.txt |
+
+Catatan metode: pencarian lebar wajib mencakup pola w-[...], min-w-[...],
+max-w-[...], dan grid-cols-[...]. Inventaris pertama hanya memakai pola w-[...]
+sehingga melewatkan kolom tetap yang ditulis sebagai grid template.

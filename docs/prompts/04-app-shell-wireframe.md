@@ -132,8 +132,13 @@ dan padding.
 Ukur kondisi sekarang HANYA dari nilai nyata di dalam kode. Bacalah
 docs/_evidence/width-inventory.txt dan docs/_evidence/layout-widths-core.txt.
 Nilai yang sudah terverifikasi: panel detail 380px, sidebar 320px pada halaman
-dashcam dan control, overlay 320px pada geofences. Jangan memakai angka 280px
-atau 400px karena tidak ada di dalam kode.
+dashcam dan control, overlay 320px pada geofences, daftar kendaraan 280px melalui
+grid-cols-[280px_1fr] pada tracking/page.tsx baris 534, dan kolom task 380px melalui
+grid-cols-[380px_1fr] pada tasks/page.tsx baris 273. Tidak ada nilai 400px di dalam
+kode, jangan memakainya.
+
+Hitung sisa ruang peta pada Tracking untuk 1366, 1440, dan 1920 dengan panel detail
+terbuka dan tertutup, lalu bandingkan dengan usulan barumu.
 
 Untuk setiap halaman utama, tulis lebar sekarang, lebar yang diusulkan, dan
 selisih ruang kerja yang didapat. Tentukan berapa maksimal panel yang boleh
