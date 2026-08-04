@@ -370,10 +370,10 @@ const MapView = forwardRef<MapViewRef, MapViewProps>(function MapView({
 
     // DIAGNOSTIC: Check DOM state right after forEach
     const containerDiv = map.getContainer();
-    const mapCanvasContainer = (map as any)._canvasContainer;
+    const mapCanvasContainer = (map as unknown as { _canvasContainer?: HTMLElement })._canvasContainer;
     const markerEls = containerDiv.querySelectorAll('.maplibregl-marker');
     const markerPaneEl = containerDiv.querySelector('.maplibregl-marker-pane');
-    const canvasContainerChildren = mapCanvasContainer ? Array.from(mapCanvasContainer.children).map(c => c.tagName + '.' + c.className) : 'N/A';
+    const canvasContainerChildren = mapCanvasContainer ? Array.from(mapCanvasContainer.children).map(c => c.tagName + "." + c.className) : 'N/A';
     const directChildren = Array.from(containerDiv.children).map(c => c.className);
     console.log("[MapView] Post-forEach DOM check:", {
       containerDivTag: containerDiv.tagName + '.' + containerDiv.className,
