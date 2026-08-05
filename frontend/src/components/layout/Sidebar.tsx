@@ -24,36 +24,47 @@ import {
   Wifi,
 } from "lucide-react";
 import { useTheme } from "@/components/ThemeProvider";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
+import { W_EXPANDED, W_RAIL } from "@/lib/layout-constants";
 
 /* ─── Navigation structure (TRAMOS §2 + DESIGN.md §8) ─────────────────────── */
 const NAV_GROUPS = [
   {
-    label: "MONITOR",
+    label: "OVERVIEW",
     items: [
       { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-      { name: "Realtime Monitor", href: "/tracking", icon: Radio },
-      { name: "Locate", href: "/locate", icon: Crosshair },
-      { name: "Geofence", href: "/geofences", icon: MapPinned },
     ],
   },
   {
-    label: "OPERATION",
+    label: "LIVE",
+    items: [
+      { name: "Realtime Monitor", href: "/tracking", icon: Radio },
+      { name: "Locate", href: "/locate", icon: Crosshair },
+    ],
+  },
+  {
+    label: "OPERATIONS",
     items: [
       { name: "Task Monitor", href: "/tasks", icon: ClipboardList },
       { name: "Vehicle", href: "/vehicles", icon: Truck },
       { name: "Driver", href: "/drivers", icon: Users },
-      { name: "History", href: "/history", icon: History },
-      { name: "Accident", href: "/accidents", icon: ShieldAlert },
+      { name: "Trip History", href: "/history", icon: History },
     ],
   },
   {
-    label: "EVIDENCE",
+    label: "SAFETY",
     items: [
-      { name: "Report", href: "/reports", icon: BarChart3 },
+      { name: "Geofence", href: "/geofences", icon: MapPinned },
+      { name: "Accident", href: "/accidents", icon: ShieldAlert },
       { name: "Camera Snapshot", href: "/snapshots", icon: Camera },
       { name: "Dashcam Monitor", href: "/dashcam", icon: Video },
+    ],
+  },
+  {
+    label: "REPORTS",
+    items: [
+      { name: "Reports", href: "/reports", icon: BarChart3 },
     ],
   },
   {
@@ -65,28 +76,38 @@ const NAV_GROUPS = [
   },
 ] as const;
 
-/* ─── Width constants ─────────────────────────────────────────────────────── */
-const W_EXPANDED = 248;
-const W_RAIL = 64;
-
 interface SidebarProps {
   collapsed: boolean;
+  fleetTotal: number;
   onToggle: () => void;
 }
 
-export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
+export default function Sidebar({
+  collapsed,
+  fleetTotal,
+  onToggle,
+}: SidebarProps) {
   const pathname = usePathname();
   const { theme, toggleTheme } = useTheme();
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
-    new Set(NAV_GROUPS.map((g) => g.label))
-  );
+  const activeGroupLabel =
+    NAV_GROUPS.find((group) =>
+      group.items.some(
+        (item) =>
+          pathname === item.href ||
+          (item.href !== "/dashboard" &&
+            pathname.startsWith(`${item.href}/`))
+      )
+    )?.label ?? "OVERVIEW";
+
+  const [expandedGroup, setExpandedGroup] =
+    useState<string>(activeGroupLabel);
+
+  useEffect(() => {
+    setExpandedGroup(activeGroupLabel);
+  }, [activeGroupLabel]);
 
   function toggleGroup(label: string) {
-    setExpandedGroups((prev) => {
-      const next = new Set(prev);
-      next.has(label) ? next.delete(label) : next.add(label);
-      return next;
-    });
+    setExpandedGroup((current) => (current === label ? "" : label));
   }
 
   const width = collapsed ? W_RAIL : W_EXPANDED;
@@ -94,7 +115,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   return (
     <motion.aside
       animate={{ width }}
-      transition={{ type: "spring", stiffness: 320, damping: 30 }}
+      transition={{ duration: 0.18, ease: [0.2, 0, 0, 1] }}
       className="fixed left-0 top-0 z-50 flex h-screen flex-col overflow-hidden border-r border-border bg-surface-1"
       aria-label="Main navigation"
     >
@@ -102,7 +123,11 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
       <div className="flex h-14 shrink-0 items-center border-b border-border overflow-hidden">
         <Link
           href="/dashboard"
-          className="flex h-full flex-1 items-center gap-3 overflow-hidden px-3"
+          className={`flex h-full items-center overflow-hidden ${
+            collapsed
+              ? "w-10 shrink-0 justify-center px-1"
+              : "flex-1 gap-3 px-3"
+          }`}
           aria-label="VANGUARD Home"
         >
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-foreground">
@@ -130,11 +155,13 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
         <button
           onClick={onToggle}
-          className="flex h-14 w-10 shrink-0 items-center justify-center text-muted transition-colors hover:bg-surface-2 hover:text-foreground focus-visible:outline-2 focus-visible:outline-brand"
+          className={`flex h-14 shrink-0 items-center justify-center text-muted transition-colors hover:bg-surface-2 hover:text-foreground focus-visible:outline-2 focus-visible:outline-brand ${
+            collapsed ? "w-6" : "w-10"
+          }`}
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
           <motion.div
-            animate={{ rotate: collapsed ? 180 : 0 }}
+            animate={{ rotate: collapsed ? 0 : 180 }}
             transition={{ duration: 0.2 }}
           >
             <ChevronRight className="h-4 w-4" />
@@ -145,7 +172,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
       {/* ── Navigation groups ────────────────────────────────── */}
       <nav className="flex-1 overflow-y-auto overflow-x-hidden py-3">
         {NAV_GROUPS.map((group, gi) => {
-          const isOpen = expandedGroups.has(group.label);
+          const isOpen = collapsed || expandedGroup === group.label;
           return (
             <div key={group.label}>
               {gi > 0 && (
@@ -179,7 +206,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: "auto" }}
                     exit={{ opacity: 0, height: 0 }}
-                    transition={{ type: "spring", stiffness: 400, damping: 32 }}
+                    transition={{ duration: 0.18, ease: [0.2, 0, 0, 1] }}
                     className="overflow-hidden px-2 pb-1"
                   >
                     {group.items.map((item) => (
@@ -232,7 +259,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                     </span>
                   </div>
                   <p className="font-mono mt-0.5 text-sm font-semibold tabular-nums text-foreground">
-                    103 units online
+                    {fleetTotal} units monitored
                   </p>
                 </div>
                 <Wifi className="h-4 w-4 shrink-0 text-st-driving" />
@@ -245,7 +272,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.12 }}
                 className="flex flex-col items-center gap-1 rounded-lg border border-border bg-surface-2 px-2 py-2.5"
-                title="103 units online"
+                title={`${fleetTotal} units monitored`}
               >
                 <span className="relative flex h-2 w-2" aria-label="Live">
                   <span
@@ -257,7 +284,9 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                     style={{ background: "var(--hud)" }}
                   />
                 </span>
-                <span className="font-mono text-[10px] tabular-nums text-muted">103</span>
+                <span className="font-mono text-metadata-sm tabular-nums text-muted">
+                  {fleetTotal}
+                </span>
               </motion.div>
             )}
           </AnimatePresence>

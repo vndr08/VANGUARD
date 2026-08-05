@@ -4,13 +4,14 @@ import { Bell, Search } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import Sidebar from "./Sidebar";
-import { useLiveClock } from "@/hooks/useLiveClock";
 import { CommandPalette } from "@/components/ui/CommandPalette";
 import { NotificationDropdown } from "@/components/ui/NotificationDropdown";
 import { UserMenuDropdown } from "@/components/ui/UserMenuDropdown";
 import { useNotifications } from "@/hooks/useNotifications";
 import { AppContextProvider, useAppContext } from "@/components/context/AppContext";
 import { useSpeedingMonitor } from "@/hooks/useSpeedingMonitor";
+import { MOCK_VEHICLES } from "@/lib/mock-data";
+import { MAP_AUTO_COLLAPSE_BREAKPOINT, W_EXPANDED, W_RAIL } from "@/lib/layout-constants";
 
 /* ─── Telemetri Refresh Bus ──────────────────────────────────────────────── */
 /** Dispatches "vanguard:telemetri-refresh" CustomEvent on window at each interval. */
@@ -38,11 +39,27 @@ function SpeedingMonitor() {
 }
 
 /* ─── Page title map (TRAMOS §2) ─────────────────────────────────────────── */
+const FLEET_STATS = {
+  total: MOCK_VEHICLES.length,
+  driving: MOCK_VEHICLES.filter((vehicle) => vehicle.status === "driving").length,
+  idle: MOCK_VEHICLES.filter((vehicle) => vehicle.status === "idle").length,
+  stopped: MOCK_VEHICLES.filter((vehicle) => vehicle.status === "stopped").length,
+  offline: MOCK_VEHICLES.filter((vehicle) => vehicle.status === "offline").length,
+};
+
 const PAGE_TITLES: Record<string, { title: string; summary: string }> = {
-  "/dashboard": { title: "Dashboard", summary: "Overview · 103 units" },
+  "/dashboard": {
+    title: "Dashboard",
+    summary: `Overview · ${FLEET_STATS.total} units`,
+  },
   "/tracking": {
     title: "Realtime Monitor",
-    summary: "25 units · 12 driving · 8 idle · 3 stop · 2 offline",
+    summary:
+      `${FLEET_STATS.total} units · ` +
+      `${FLEET_STATS.driving} driving · ` +
+      `${FLEET_STATS.idle} idle · ` +
+      `${FLEET_STATS.stopped} stop · ` +
+      `${FLEET_STATS.offline} offline`,
   },
   "/locate": { title: "Locate Unit", summary: "Search and track" },
   "/geofences": { title: "Geofence", summary: "Virtual zones" },
@@ -58,8 +75,14 @@ const PAGE_TITLES: Record<string, { title: string; summary: string }> = {
   "/settings": { title: "Settings", summary: "Preferences" },
 };
 
-const W_EXPANDED = 248;
-const W_RAIL = 64;
+const MAP_PRIMARY_ROUTES = [
+  "/tracking",
+  "/tasks",
+  "/history",
+  "/geofences",
+] as const;
+
+const SIDEBAR_PREFERENCE_KEY = "vanguard:sidebar-preference";
 
 /* ─── Mock user context (single source of truth) ─────────────────────────── */
 interface MockUser {
@@ -76,9 +99,51 @@ const MOCK_USER: MockUser = {
 
 function AppShellInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const clock = useLiveClock();
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarPreference, setSidebarPreference] = useState<boolean | null>(null);
+  const [viewportWidth, setViewportWidth] = useState<number | null>(null);
+
+  const isMapPrimary = MAP_PRIMARY_ROUTES.some(
+    (route) => pathname === route || pathname.startsWith(`${route}/`)
+  );
+  const isAutoCollapsed =
+    isMapPrimary &&
+    viewportWidth !== null &&
+    viewportWidth < MAP_AUTO_COLLAPSE_BREAKPOINT;
+  const sidebarCollapsed = sidebarPreference ?? isAutoCollapsed;
   const pageInfo = PAGE_TITLES[pathname] ?? { title: "VANGUARD", summary: "" };
+
+  useEffect(() => {
+    const storedPreference = window.sessionStorage.getItem(
+      SIDEBAR_PREFERENCE_KEY
+    );
+
+    if (storedPreference === "collapsed") {
+      setSidebarPreference(true);
+    } else if (storedPreference === "expanded") {
+      setSidebarPreference(false);
+    }
+
+    const updateViewportWidth = () => {
+      setViewportWidth(window.innerWidth);
+    };
+
+    updateViewportWidth();
+    window.addEventListener("resize", updateViewportWidth);
+
+    return () => {
+      window.removeEventListener("resize", updateViewportWidth);
+    };
+  }, []);
+
+  function handleSidebarToggle() {
+    const nextCollapsed = !sidebarCollapsed;
+
+    setSidebarPreference(nextCollapsed);
+    window.sessionStorage.setItem(
+      SIDEBAR_PREFERENCE_KEY,
+      nextCollapsed ? "collapsed" : "expanded"
+    );
+  }
 
   // ── Command palette
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -113,18 +178,22 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen bg-bg">
       {/* ── Sidebar (state managed here, passed as prop) ─────── */}
-      <Sidebar collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed((c) => !c)} />
+      <Sidebar
+        collapsed={sidebarCollapsed}
+        fleetTotal={FLEET_STATS.total}
+        onToggle={handleSidebarToggle}
+      />
 
       {/* ── Command Palette ─────────────────────────────────── */}
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
 
       {/* ── Main content area ─────────────────────────────────── */}
       <div
-        className="flex flex-1 flex-col transition-all"
+        className="flex flex-1 flex-col transition-[margin-left] duration-panel ease-standard"
         style={{ marginLeft: sidebarWidth }}
       >
-        {/* ── Header: sticky glass bar ────────────────────────── */}
-        <header className="glass sticky top-0 z-40 flex h-14 shrink-0 items-center justify-between gap-4 border-b border-border px-6">
+        {/* ── Header: sticky solid operational surface ────────── */}
+        <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center justify-between gap-4 border-b border-border bg-surface-1 px-6">
           {/* Kiri: judul halaman + ringkasan */}
           <div className="flex min-w-0 flex-col">
             <h1 className="text-h2 font-semibold tracking-tight text-foreground truncate leading-tight">
@@ -153,18 +222,8 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
             </kbd>
           </div>
 
-          {/* Kanan: jam live + notifikasi + avatar */}
+          {/* Kanan: notifikasi + avatar */}
           <div className="flex items-center gap-3 shrink-0">
-            {/* Jam live */}
-            <time
-              dateTime={clock}
-              className="font-mono text-sm tabular-nums text-muted hidden sm:block"
-            >
-              {clock}
-            </time>
-
-            <div className="h-5 w-px bg-border hidden sm:block" />
-
             {/* Bell notifikasi — opens dropdown */}
             <div className="relative">
               <button
