@@ -2,15 +2,16 @@
 
 import { Bell, Search } from "lucide-react";
 import { usePathname } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import Sidebar from "./Sidebar";
+import { FreshnessIndicator } from "./FreshnessIndicator";
 import { CommandPalette } from "@/components/ui/CommandPalette";
 import { NotificationDropdown } from "@/components/ui/NotificationDropdown";
 import { UserMenuDropdown } from "@/components/ui/UserMenuDropdown";
 import { useNotifications } from "@/hooks/useNotifications";
 import { AppContextProvider, useAppContext } from "@/components/context/AppContext";
 import { useSpeedingMonitor } from "@/hooks/useSpeedingMonitor";
-import { MOCK_STATS } from "@/lib/mock-data";
+import { MOCK_STATS, MOCK_VEHICLES } from "@/lib/mock-data";
 import { MAP_AUTO_COLLAPSE_BREAKPOINT, W_EXPANDED, W_RAIL } from "@/lib/layout-constants";
 
 /* ─── Telemetri Refresh Bus ──────────────────────────────────────────────── */
@@ -153,6 +154,8 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
         setPaletteOpen(prev => !prev);
+        setNotifOpen(false);
+        setUserMenuOpen(false);
       }
     };
     document.addEventListener("keydown", handler);
@@ -201,7 +204,11 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-faint pointer-events-none" />
             <button
               type="button"
-              onClick={() => setPaletteOpen(true)}
+              onClick={() => {
+                setPaletteOpen(true);
+                setNotifOpen(false);
+                setUserMenuOpen(false);
+              }}
               className="input w-full pl-9 pr-12 h-8 text-sm text-left cursor-text"
               aria-label="Buka pencarian (⌘K)"
             >
@@ -214,8 +221,12 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
             </kbd>
           </div>
 
-          {/* Kanan: notifikasi + avatar */}
-          <div className="flex items-center gap-3 shrink-0">
+          {/* Kanan: data context + notifikasi + avatar */}
+          <div className="flex shrink-0 items-center gap-3">
+            <FreshnessIndicator vehicles={MOCK_VEHICLES} />
+
+            <div className="hidden h-5 w-px bg-border xl:block" />
+
             {/* Bell notifikasi — opens dropdown */}
             <div className="relative">
               <button

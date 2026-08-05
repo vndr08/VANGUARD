@@ -82,3 +82,85 @@ export function formatFreshnessAge(ageMs: number | null): string {
   const hours = Math.floor(minutes / 60);
   return `${hours}h`;
 }
+
+export interface FleetFreshnessSummary<T>
+  extends TelemetryFreshness {
+  source: T | null;
+  counts: Record<FreshnessState, number>;
+}
+
+const FRESHNESS_PRIORITY: Record<FreshnessState, number> = {
+  fresh: 0,
+  delayed: 1,
+  "not-transmitting": 2,
+  unknown: 3,
+};
+
+export function getFleetFreshness<
+  T extends {
+    last_update: string | null | undefined;
+  }
+>(
+  records: readonly T[],
+  nowMs = Date.now()
+): FleetFreshnessSummary<T> {
+  const counts: Record<FreshnessState, number> = {
+    fresh: 0,
+    delayed: 0,
+    "not-transmitting": 0,
+    unknown: 0,
+  };
+
+  let selected:
+    | {
+        source: T;
+        freshness: TelemetryFreshness;
+      }
+    | null = null;
+
+  for (const source of records) {
+    const freshness = getTelemetryFreshness(
+      source.last_update,
+      nowMs
+    );
+
+    counts[freshness.state] += 1;
+
+    if (!selected) {
+      selected = { source, freshness };
+      continue;
+    }
+
+    const currentPriority =
+      FRESHNESS_PRIORITY[freshness.state];
+    const selectedPriority =
+      FRESHNESS_PRIORITY[selected.freshness.state];
+
+    const isHigherPriority =
+      currentPriority > selectedPriority;
+    const isOlderAtSamePriority =
+      currentPriority === selectedPriority &&
+      (freshness.ageMs ?? -1) >
+        (selected.freshness.ageMs ?? -1);
+
+    if (isHigherPriority || isOlderAtSamePriority) {
+      selected = { source, freshness };
+    }
+  }
+
+  if (!selected) {
+    return {
+      state: "unknown",
+      ageMs: null,
+      lastUpdateMs: null,
+      source: null,
+      counts,
+    };
+  }
+
+  return {
+    ...selected.freshness,
+    source: selected.source,
+    counts,
+  };
+}
