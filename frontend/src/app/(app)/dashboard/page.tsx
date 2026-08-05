@@ -1,321 +1,359 @@
 "use client";
 
-import {
-  AlertTriangle,
-  ChevronRight,
-  CircleHelp,
-  Clock3,
-  Database,
-  RadioTower,
-  UserRoundX,
-  WifiOff,
-} from "lucide-react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { MapPin } from "lucide-react";
+import type { LayerVisibility } from "@/components/map/types";
 import {
+  selectDriverAssignment,
   selectFleetState,
   selectNeedsAttention,
+  selectTelemetryHealth,
   type DashboardAttentionIssue,
   type DashboardAttentionRow,
   type FleetStateSummary,
 } from "@/lib/dashboard-data";
 import { formatFreshnessAge } from "@/lib/freshness";
-import { MOCK_VEHICLES } from "@/lib/mock-data";
+import { MOCK_VEHICLES, toMapVehicle } from "@/lib/mock-data";
 
-const ATTENTION_META: Record<
-  DashboardAttentionIssue,
+const LiveFleetMap = dynamic(
+  () => import("@/components/map/MapView"),
   {
-    label: string;
-    icon: typeof AlertTriangle;
-    className: string;
+    ssr: false,
+    loading: () => (
+      <div className="flex h-full items-center justify-center bg-bg text-sm text-muted">
+        Memuat peta armada
+      </div>
+    ),
   }
-> = {
-  "freshness-unknown": {
-    label: "Data tidak diketahui",
-    icon: CircleHelp,
-    className: "bg-unknown-soft text-unknown",
-  },
-  "not-transmitting": {
-    label: "Tidak mengirim",
-    icon: RadioTower,
-    className: "bg-critical-soft text-critical",
-  },
-  offline: {
-    label: "Offline",
-    icon: WifiOff,
-    className: "bg-surface-3 text-muted",
-  },
-  delayed: {
-    label: "Tertunda",
-    icon: Clock3,
-    className: "bg-warning-soft text-warning",
-  },
-  "unassigned-driver": {
-    label: "Driver kosong",
-    icon: UserRoundX,
-    className: "bg-information-soft text-information",
-  },
+);
+
+const OVERVIEW_MAP_VISIBILITY: LayerVisibility = {
+  showTrack: false,
+  plannedRoute: false,
+  actualRoute: false,
+  checkpoint: false,
+  geofence: false,
+  cluster: true,
 };
 
-const FLEET_STATE_META: Array<{
-  key: Exclude<keyof FleetStateSummary, "total">;
+const FLEET_STRIP: Array<{
+  key: Exclude<keyof FleetStateSummary, "unknown">;
   label: string;
-  color: string;
+  color?: string;
 }> = [
+  { key: "total", label: "Total" },
   { key: "driving", label: "Berkendara", color: "var(--st-driving)" },
   { key: "idle", label: "Idle", color: "var(--st-idle)" },
   { key: "stopped", label: "Berhenti", color: "var(--st-stop)" },
   { key: "offline", label: "Offline", color: "var(--st-offline)" },
-  { key: "unknown", label: "Tidak diketahui", color: "var(--unknown)" },
 ];
 
-function getAttentionFact(row: DashboardAttentionRow): string {
-  if (row.issue === "freshness-unknown") {
-    return "Waktu telemetri tidak tersedia";
-  }
+const ATTENTION_META: Record<
+  Exclude<DashboardAttentionIssue, "unassigned-driver">,
+  { label: string; color: string }
+> = {
+  "freshness-unknown": {
+    label: "Data tidak diketahui",
+    color: "var(--unknown)",
+  },
+  "not-transmitting": {
+    label: "Tidak mengirim",
+    color: "var(--critical)",
+  },
+  offline: { label: "Offline", color: "var(--offline)" },
+  delayed: { label: "Tertunda", color: "var(--warning)" },
+};
 
+function attentionMetadata(row: DashboardAttentionRow): string {
+  if (row.issue === "freshness-unknown") return "Waktu telemetri tidak tersedia";
   if (row.issue === "not-transmitting") {
-    return `Tidak mengirim data ${formatFreshnessAge(row.ageMs)}`;
+    return `Tidak mengirim ${formatFreshnessAge(row.ageMs)}`;
   }
-
-  if (row.issue === "offline") {
-    return "Status kendaraan offline";
-  }
-
   if (row.issue === "delayed") {
-    return `Data tertunda ${formatFreshnessAge(row.ageMs)}`;
+    return `Tertunda ${formatFreshnessAge(row.ageMs)}`;
   }
-
-  return "Driver belum ditetapkan";
+  return "Status kendaraan offline";
 }
 
-function AttentionRow({ row }: { row: DashboardAttentionRow }) {
-  const meta = ATTENTION_META[row.issue];
-  const Icon = meta.icon;
-
+function FleetSummaryStrip({ fleet }: { fleet: FleetStateSummary }) {
   return (
-    <li>
-      <Link
-        href={row.href}
-        className="grid min-h-14 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 transition-colors hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-brand focus-visible:outline-offset-[-2px] sm:px-5"
-        aria-label={`${row.plateNumber}: ${getAttentionFact(row)}`}
-      >
-        <span
-          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md ${meta.className}`}
-          aria-hidden="true"
+    <section
+      aria-label="Ringkasan kondisi armada"
+      className="grid grid-cols-5 border-y border-border bg-surface-1"
+    >
+      {FLEET_STRIP.map(({ key, label, color }, index) => (
+        <div
+          key={key}
+          className={`flex min-w-0 items-center justify-between gap-2 px-3 py-3 sm:px-4 ${index > 0 ? "border-l border-border" : ""}`}
         >
-          <Icon className="h-4 w-4" />
-        </span>
-
-        <span className="min-w-0">
-          <span className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <span className="font-mono text-sm font-semibold tabular-nums text-[var(--text)]">
-              {row.plateNumber}
-            </span>
-            <span className="text-sm font-medium text-[var(--text)]">
-              {meta.label}
-            </span>
+          <span className="truncate text-sm text-muted">{label}</span>
+          <span className="flex items-center gap-2 font-mono text-sm font-semibold tabular-nums text-[var(--text)]">
+            {color && (
+              <span
+                className="hidden h-2 w-2 rounded-full sm:block"
+                style={{ background: color }}
+                aria-hidden="true"
+              />
+            )}
+            {fleet[key]}
           </span>
-          <span className="mt-0.5 block text-sm text-muted">
-            {getAttentionFact(row)}
-          </span>
-        </span>
-
-        <ChevronRight
-          className="h-4 w-4 shrink-0 text-faint"
-          aria-hidden="true"
-        />
-      </Link>
-    </li>
+        </div>
+      ))}
+    </section>
   );
 }
 
-function NeedsAttention({ nowMs }: { nowMs: number | null }) {
+function AttentionList({ nowMs }: { nowMs: number | null }) {
+  const driver = useMemo(() => selectDriverAssignment(MOCK_VEHICLES), []);
   const rows = useMemo(
     () =>
       nowMs === null
         ? null
-        : selectNeedsAttention(MOCK_VEHICLES, nowMs),
+        : selectNeedsAttention(MOCK_VEHICLES, nowMs, MOCK_VEHICLES.length)
+            .filter((row) => row.issue !== "unassigned-driver")
+            .slice(0, 3),
     [nowMs]
   );
 
   return (
-    <section aria-labelledby="needs-attention-title">
-      <div className="flex min-h-12 items-center justify-between gap-4 border-b border-border px-4 py-3 sm:px-5">
+    <section className="flex min-h-0 flex-col" aria-labelledby="attention-title">
+      <header className="flex h-14 shrink-0 items-center justify-between border-b border-border px-4">
         <div>
-          <h2
-            id="needs-attention-title"
-            className="text-base font-semibold text-[var(--text)]"
-          >
+          <h2 id="attention-title" className="text-base font-semibold text-[var(--text)]">
             Perlu perhatian
           </h2>
-          <p className="mt-0.5 text-sm text-muted">
-            Kondisi kendaraan yang dapat diturunkan dari data saat ini
-          </p>
+          <p className="text-sm text-muted">Prioritas dari data kendaraan saat ini</p>
         </div>
-        {rows && rows.length > 0 && (
-          <span className="font-mono text-sm font-semibold tabular-nums text-[var(--text)]">
-            {rows.length}
+        {rows && (
+          <span className="font-mono text-sm tabular-nums text-muted">
+            {rows.length + (driver.unassigned > 0 ? 1 : 0)} isu
           </span>
+        )}
+      </header>
+
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        {rows === null ? (
+          <p className="px-4 py-5 text-sm text-muted" role="status">
+            Memeriksa kondisi telemetri
+          </p>
+        ) : rows.length === 0 && driver.unassigned === 0 ? (
+          <p className="px-4 py-5 text-sm text-muted">
+            Tidak ada kondisi yang membutuhkan perhatian.
+          </p>
+        ) : (
+          <ul className="divide-y divide-border">
+            {rows.map((row) => {
+              const meta = ATTENTION_META[row.issue as Exclude<DashboardAttentionIssue, "unassigned-driver">];
+              return (
+                <li key={row.id}>
+                  <Link
+                    href={row.href}
+                    className="grid grid-cols-[8px_minmax(0,1fr)] gap-3 px-4 py-3 hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-brand focus-visible:outline-offset-[-2px]"
+                    aria-label={`${row.plateNumber}: ${attentionMetadata(row)}`}
+                  >
+                    <span
+                      className="mt-1.5 h-2 w-2 rounded-full"
+                      style={{ background: meta.color }}
+                      aria-hidden="true"
+                    />
+                    <span className="min-w-0">
+                      <span className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                        <span className="font-mono text-sm font-semibold tabular-nums text-[var(--text)]">
+                          {row.plateNumber}
+                        </span>
+                        <span className="text-sm font-medium text-[var(--text)]">
+                          {meta.label}
+                        </span>
+                      </span>
+                      <span className="mt-0.5 block text-sm text-muted">
+                        {attentionMetadata(row)}
+                      </span>
+                    </span>
+                  </Link>
+                </li>
+              );
+            })}
+            {driver.unassigned > 0 && (
+              <li className="grid grid-cols-[8px_minmax(0,1fr)] gap-3 px-4 py-3">
+                <span className="mt-1.5 h-2 w-2 rounded-full bg-information" aria-hidden="true" />
+                <span className="min-w-0">
+                  <span className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                    <span className="text-sm font-semibold text-[var(--text)]">Penugasan driver</span>
+                    <span className="font-mono text-sm font-semibold tabular-nums text-[var(--text)]">
+                      {driver.unassigned} unit
+                    </span>
+                  </span>
+                  <span className="mt-0.5 block text-sm text-muted">Belum memiliki driver</span>
+                </span>
+              </li>
+            )}
+          </ul>
         )}
       </div>
 
-      {rows === null ? (
-        <div
-          className="flex min-h-40 items-center gap-3 px-4 py-6 text-sm text-muted sm:px-5"
-          role="status"
+      <footer className="shrink-0 border-t border-border px-4 py-3">
+        <Link
+          href="/tracking"
+          className="inline-flex rounded-sm text-sm font-medium text-brand hover:text-brand-hover focus-visible:outline-2 focus-visible:outline-brand focus-visible:outline-offset-2"
         >
-          <Clock3 className="h-4 w-4 shrink-0" />
-          Memeriksa kondisi telemetri
-        </div>
-      ) : rows.length > 0 ? (
-        <ul className="divide-y divide-border">
-          {rows.map((row) => (
-            <AttentionRow key={row.id} row={row} />
-          ))}
-        </ul>
-      ) : (
-        <div className="flex min-h-40 items-center gap-3 px-4 py-6 sm:px-5">
-          <CircleHelp className="h-5 w-5 shrink-0 text-muted" />
-          <p className="max-w-2xl text-sm text-muted">
-            Tidak ada kondisi kendaraan yang membutuhkan perhatian dari data
-            yang tersedia.
-          </p>
-        </div>
-      )}
+          Buka Realtime Monitor →
+        </Link>
+      </footer>
     </section>
   );
 }
 
-function FleetState() {
-  const fleet = useMemo(
-    () => selectFleetState(MOCK_VEHICLES),
-    []
-  );
-  const visibleStates = FLEET_STATE_META.filter(
-    ({ key }) => key !== "unknown" || fleet.unknown > 0
-  );
-  const countedTotal = FLEET_STATE_META.reduce(
-    (sum, { key }) => sum + fleet[key],
-    0
-  );
+function ConditionDistribution({ fleet }: { fleet: FleetStateSummary }) {
+  const states = [
+    ["driving", "Berkendara", "var(--st-driving)"],
+    ["idle", "Idle", "var(--st-idle)"],
+    ["stopped", "Berhenti", "var(--st-stop)"],
+    ["offline", "Offline", "var(--st-offline)"],
+    ["unknown", "Tidak diketahui", "var(--unknown)"],
+  ] as const;
+  const visible = states.filter(([key]) => key !== "unknown" || fleet.unknown > 0);
 
   return (
-    <section
-      className="border-t border-border px-4 py-4 sm:px-5"
-      aria-labelledby="fleet-state-title"
-    >
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <div>
-          <h2
-            id="fleet-state-title"
-            className="text-base font-semibold text-[var(--text)]"
-          >
-            Kondisi armada
-          </h2>
-          <p className="mt-0.5 text-sm text-muted">
-            Distribusi status dari seluruh kendaraan
-          </p>
-        </div>
-        <p className="text-sm text-muted">
-          Total{" "}
-          <span className="font-mono font-semibold tabular-nums text-[var(--text)]">
-            {fleet.total}
-          </span>{" "}
-          unit
-        </p>
-      </div>
-
-      <div className="mt-4 flex h-2 w-full overflow-hidden rounded-sm bg-surface-3">
-        {visibleStates.map(({ key, label, color }) => (
+    <section aria-labelledby="condition-title" className="min-w-0 px-4 py-4">
+      <h2 id="condition-title" className="text-base font-semibold text-[var(--text)]">
+        Distribusi kondisi
+      </h2>
+      <div className="mt-4 flex h-2 overflow-hidden rounded-sm bg-surface-3">
+        {visible.map(([key, label, color]) => (
           <span
             key={key}
+            aria-label={`${label}: ${fleet[key]}`}
             style={{
-              width:
-                fleet.total > 0
-                  ? `${(fleet[key] / fleet.total) * 100}%`
-                  : "0%",
+              width: fleet.total ? `${(fleet[key] / fleet.total) * 100}%` : "0%",
               background: color,
             }}
-            aria-label={`${label}: ${fleet[key]}`}
           />
         ))}
       </div>
-
-      <dl className="mt-4 grid grid-cols-2 gap-x-5 gap-y-3 sm:grid-cols-3 lg:grid-cols-5">
-        {visibleStates.map(({ key, label, color }) => (
-          <div key={key} className="flex items-center justify-between gap-3">
-            <dt className="flex min-w-0 items-center gap-2 text-sm text-muted">
-              <span
-                className="h-2 w-2 shrink-0 rounded-full"
-                style={{ background: color }}
-                aria-hidden="true"
-              />
-              <span>{label}</span>
+      <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2">
+        {visible.map(([key, label, color]) => (
+          <div key={key} className="flex items-center justify-between gap-2 text-sm">
+            <dt className="flex min-w-0 items-center gap-2 text-muted">
+              <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: color }} />
+              <span className="truncate">{label}</span>
             </dt>
-            <dd className="font-mono text-sm font-semibold tabular-nums text-[var(--text)]">
-              {fleet[key]}
-            </dd>
+            <dd className="font-mono font-semibold tabular-nums text-[var(--text)]">{fleet[key]}</dd>
           </div>
         ))}
       </dl>
+    </section>
+  );
+}
 
-      {countedTotal !== fleet.total && (
-        <p className="mt-3 text-sm font-medium text-critical" role="alert">
-          Jumlah status tidak sesuai dengan total armada.
-        </p>
+function TelemetryHealth({ nowMs }: { nowMs: number | null }) {
+  const health = useMemo(
+    () => (nowMs === null ? null : selectTelemetryHealth(MOCK_VEHICLES, nowMs)),
+    [nowMs]
+  );
+  const states = health
+    ? [
+        ["Segar", health.fresh, "var(--healthy)"],
+        ["Tertunda", health.delayed, "var(--warning)"],
+        ["Tidak mengirim", health.notTransmitting, "var(--critical)"],
+        ["Tidak diketahui", health.unknown, "var(--unknown)"],
+      ] as const
+    : [];
+
+  return (
+    <section aria-labelledby="telemetry-title" className="min-w-0 border-t border-border px-4 py-4 md:border-l md:border-t-0">
+      <h2 id="telemetry-title" className="text-base font-semibold text-[var(--text)]">Kesehatan data</h2>
+      {health ? (
+        <dl className="mt-4 space-y-2">
+          {states.map(([label, value, color]) => (
+            <div key={label} className="flex items-center justify-between gap-3 text-sm">
+              <dt className="flex items-center gap-2 text-muted">
+                <span className="h-2 w-2 rounded-full" style={{ background: color }} />
+                {label}
+              </dt>
+              <dd className="font-mono font-semibold tabular-nums text-[var(--text)]">{value}</dd>
+            </div>
+          ))}
+        </dl>
+      ) : (
+        <p className="mt-4 text-sm text-muted" role="status">Memeriksa data telemetri</p>
       )}
     </section>
   );
 }
 
-function OperationsPulse() {
+function DriverCoverage() {
+  const driver = useMemo(() => selectDriverAssignment(MOCK_VEHICLES), []);
+  const coverage = driver.total ? Math.round((driver.assigned / driver.total) * 100) : 0;
+
   return (
-    <section
-      className="border-t border-border px-4 py-4 sm:px-5"
-      aria-labelledby="operations-pulse-title"
-    >
-      <h2
-        id="operations-pulse-title"
-        className="text-base font-semibold text-[var(--text)]"
-      >
-        Ringkasan operasi
-      </h2>
-      <div className="mt-3 flex min-h-16 items-center gap-3 rounded-md bg-surface-2 px-4 py-3">
-        <Database className="h-5 w-5 shrink-0 text-muted" aria-hidden="true" />
-        <div>
-          <p className="text-sm font-medium text-[var(--text)]">
-            Data operasional task belum tersedia
-          </p>
-          <p className="mt-0.5 text-sm text-muted">
-            Ringkasan akan tampil setelah sumber task dan trip tersedia.
-          </p>
-        </div>
+    <section aria-labelledby="driver-title" className="min-w-0 border-t border-border px-4 py-4 md:border-l md:border-t-0">
+      <h2 id="driver-title" className="text-base font-semibold text-[var(--text)]">Cakupan driver</h2>
+      <div className="mt-4 flex items-baseline justify-between gap-4">
+        <p className="text-sm text-muted">Unit dengan driver</p>
+        <p className="font-mono text-sm font-semibold tabular-nums text-[var(--text)]">{coverage}%</p>
       </div>
+      <div className="mt-2 h-2 overflow-hidden rounded-sm bg-surface-3">
+        <span className="block h-full bg-information" style={{ width: `${coverage}%` }} />
+      </div>
+      <dl className="mt-4 grid grid-cols-2 gap-4 text-sm">
+        <div><dt className="text-muted">Ditugaskan</dt><dd className="mt-1 font-mono font-semibold text-[var(--text)]">{driver.assigned}</dd></div>
+        <div><dt className="text-muted">Belum ditugaskan</dt><dd className="mt-1 font-mono font-semibold text-[var(--text)]">{driver.unassigned}</dd></div>
+      </dl>
     </section>
   );
 }
 
 export default function DashboardPage() {
   const [nowMs, setNowMs] = useState<number | null>(null);
+  const [mapVehicles, setMapVehicles] = useState(() =>
+    MOCK_VEHICLES.map(toMapVehicle)
+  );
+  const fleet = useMemo(() => selectFleetState(MOCK_VEHICLES), []);
 
   useEffect(() => {
     const updateNow = () => setNowMs(Date.now());
-
     updateNow();
     window.addEventListener("vanguard:telemetri-refresh", updateNow);
-
-    return () => {
-      window.removeEventListener("vanguard:telemetri-refresh", updateNow);
-    };
+    return () => window.removeEventListener("vanguard:telemetri-refresh", updateNow);
   }, []);
 
   return (
-    <div className="mx-auto w-full max-w-[1600px] p-4 sm:p-6">
-      <div className="overflow-hidden rounded-lg border border-border bg-surface-1">
-        <NeedsAttention nowMs={nowMs} />
-        <FleetState />
-        <OperationsPulse />
+    <div
+      className="mx-auto w-full max-w-[1600px] space-y-4 p-4 sm:p-6"
+      data-dashboard-command-overview
+    >
+      <FleetSummaryStrip fleet={fleet} />
+
+      <div className="grid min-h-[340px] overflow-hidden rounded-lg border border-border bg-surface-1 lg:grid-cols-[minmax(0,2fr)_minmax(300px,1fr)]">
+        <section className="min-w-0 border-b border-border lg:border-b-0 lg:border-r" aria-labelledby="live-map-title">
+          <header className="flex h-14 items-center justify-between border-b border-border px-4">
+            <div>
+              <h2 id="live-map-title" className="text-base font-semibold text-[var(--text)]">Armada langsung</h2>
+              <p className="text-sm text-muted">Posisi terkini dari {fleet.total} unit</p>
+            </div>
+            <span className="flex items-center gap-2 text-sm text-muted"><MapPin className="h-4 w-4" />{fleet.driving} bergerak</span>
+          </header>
+          <div className="h-[300px] lg:h-[306px]">
+            <LiveFleetMap
+              vehicles={mapVehicles}
+              center={[107.0, -6.5]}
+              zoom={8}
+              pitch={0}
+              visibility={OVERVIEW_MAP_VISIBILITY}
+              overviewMode
+              onMapReady={() => setMapVehicles(MOCK_VEHICLES.map(toMapVehicle))}
+            />
+          </div>
+        </section>
+        <AttentionList nowMs={nowMs} />
+      </div>
+
+      <div className="grid overflow-hidden rounded-lg border border-border bg-surface-1 md:grid-cols-3">
+        <ConditionDistribution fleet={fleet} />
+        <TelemetryHealth nowMs={nowMs} />
+        <DriverCoverage />
       </div>
     </div>
   );

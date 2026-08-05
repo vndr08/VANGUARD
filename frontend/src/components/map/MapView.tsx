@@ -39,6 +39,8 @@ export interface MapViewProps {
   onToggleLayer?: (key: keyof LayerVisibility) => void;
   /** Active basemap: "basemap" | "satellite" | "traffic" */
   mapLayer?: "basemap" | "satellite" | "traffic";
+  /** Compact marker treatment for overview surfaces. Existing map behavior is the default. */
+  overviewMode?: boolean;
 }
 
 /* ─── Graphite color overrides (applied after style loads) ───────────────── */
@@ -150,6 +152,7 @@ const MapView = forwardRef<MapViewRef, MapViewProps>(function MapView({
   visibility,
   onToggleLayer,
   mapLayer = "basemap",
+  overviewMode = false,
 }: MapViewProps, _forwardedRef) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MLMap | null>(null);
@@ -322,6 +325,11 @@ const MapView = forwardRef<MapViewRef, MapViewProps>(function MapView({
         const el = marker.getElement();
         const hasRing = el.querySelector(".marker-selected-ring");
         const shouldHaveRing = v.id === selectedId;
+        el.dataset.selected = String(shouldHaveRing);
+        if (overviewMode) {
+          const plateLabel = el.querySelector<HTMLElement>(".marker-plate-label");
+          if (plateLabel) plateLabel.style.opacity = shouldHaveRing ? "1" : "0";
+        }
         if (shouldHaveRing && !hasRing) {
           const ring = document.createElement("div");
           ring.className = "marker-selected-ring";
@@ -337,7 +345,7 @@ const MapView = forwardRef<MapViewRef, MapViewProps>(function MapView({
         }
       } else {
         // Create new marker — rotation handled separately via updateHeading effect
-        const el = createTruckMarkerElement(v, v.id === selectedId);
+        const el = createTruckMarkerElement(v, v.id === selectedId, overviewMode);
         // Restore pointer-events so the click handler fires
         el.style.pointerEvents = "auto";
         console.log("[MapView] Creating new marker:", v.id, "plate:", v.plate, "at", v.lng, v.lat);
@@ -401,7 +409,7 @@ const MapView = forwardRef<MapViewRef, MapViewProps>(function MapView({
         isReady,
       });
     }
-  }, [isReady, interpolatedVehicles, selectedId, onSelectVehicle]); // heading intentionally excluded — rotation handled in updateHeading effect
+  }, [isReady, interpolatedVehicles, selectedId, onSelectVehicle, overviewMode]); // heading intentionally excluded — rotation handled in updateHeading effect
 
   /* ── Update heading/rotation separately (no marker recreation) ── */
   useEffect(() => {
@@ -610,7 +618,16 @@ const MapView = forwardRef<MapViewRef, MapViewProps>(function MapView({
       });
 
       clusters.forEach((group, key) => {
-        if (group.length <= 1) return;
+        if (group.length <= 1) {
+          if (overviewMode) {
+            const marker = vehicleMarkersRef.current.get(group[0].id);
+            if (marker && !(marker as any)._added) {
+              marker.addTo(map);
+              (marker as any)._added = true;
+            }
+          }
+          return;
+        }
         const [cx, cy] = key.split(",").map(Number);
         const el = document.createElement("div");
         el.style.cssText = `
@@ -621,7 +638,9 @@ const MapView = forwardRef<MapViewRef, MapViewProps>(function MapView({
           box-shadow: 0 2px 8px rgba(0,0,0,0.4); cursor: pointer;
         `;
         el.textContent = group.length > 9 ? "9+" : String(group.length);
-        el.title = `${group.length} units in cluster`;
+        el.title = overviewMode
+          ? `${group.length} unit dalam area`
+          : `${group.length} units in cluster`;
         el.addEventListener("click", () => {
           map.easeTo({ center: [cx + GRID / 2, cy + GRID / 2], zoom: map.getZoom() + 2 });
         });
@@ -631,7 +650,7 @@ const MapView = forwardRef<MapViewRef, MapViewProps>(function MapView({
         clusterBubbleRefs.current.set(group[0].id, bubble);
       });
     }
-  }, [isReady, effectiveVisibility]);
+  }, [isReady, effectiveVisibility, overviewMode]);
 
   /* ── Zone / Geofence toggle ──────────────────────────────────────────── */
   useEffect(() => {
@@ -764,7 +783,8 @@ export default MapView;
  */
 function createTruckMarkerElement(
   vehicle: InterpolatedVehicle & { lng: number; lat: number; routePlanned?: LngLat[]; routeActual?: LngLat[]; deviationPoints?: LngLat[]; taskLabel?: string },
-  isSelected: boolean
+  isSelected: boolean,
+  overviewMode: boolean
 ): HTMLDivElement {
   const color = STATUS_COLORS[vehicle.status] ?? "#64748B";
 
@@ -782,6 +802,7 @@ function createTruckMarkerElement(
     pointer-events: auto;
     /* rotation applied via .marker-inner, not here */
   `;
+  wrap.dataset.selected = String(isSelected);
 
   // Inner rotating element — rotation transform lives here, independent of MapLibre positioning.
   // NO transition here — MapLibre manages the outer transform (translate) and we must not
@@ -875,6 +896,7 @@ function createTruckMarkerElement(
 
   // Label chip
   const label = document.createElement("div");
+  label.className = "marker-plate-label";
   label.style.cssText = `
     position: absolute; top: calc(100% + 4px); left: 50%; transform: translateX(-50%);
     background: #14181D; border: 1px solid #262C34; border-radius: 4px;
@@ -882,12 +904,22 @@ function createTruckMarkerElement(
     font-family: monospace; font-size: 9px; font-weight: 600;
     color: #E6EAEF; letter-spacing: 0.02em; pointer-events: none;
     box-shadow: 0 2px 8px rgba(0,0,0,0.4); z-index: 20;
+    opacity: ${overviewMode && !isSelected ? "0" : "1"};
   `;
   label.textContent = vehicle.plate;
-  inner.appendChild(label);
+  (overviewMode ? wrap : inner).appendChild(label);
+
+  if (overviewMode) {
+    wrap.addEventListener("mouseenter", () => {
+      label.style.opacity = "1";
+    });
+    wrap.addEventListener("mouseleave", () => {
+      label.style.opacity = wrap.dataset.selected === "true" ? "1" : "0";
+    });
+  }
 
   // Task sub-label
-  if (vehicle.taskLabel) {
+  if (vehicle.taskLabel && !overviewMode) {
     const task = document.createElement("div");
     task.style.cssText = `
       position: absolute; top: calc(100% + 22px); left: 50%; transform: translateX(-50%);

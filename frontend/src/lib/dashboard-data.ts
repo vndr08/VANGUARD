@@ -30,6 +30,20 @@ export interface FleetStateSummary {
   unknown: number;
 }
 
+export interface TelemetryHealthSummary {
+  total: number;
+  fresh: number;
+  delayed: number;
+  notTransmitting: number;
+  unknown: number;
+}
+
+export interface DriverAssignmentSummary {
+  total: number;
+  assigned: number;
+  unassigned: number;
+}
+
 const ISSUE_PRIORITY: Record<DashboardAttentionIssue, number> = {
   "freshness-unknown": 5,
   "not-transmitting": 4,
@@ -147,4 +161,48 @@ export function selectFleetState(
   }
 
   return summary;
+}
+
+export function selectTelemetryHealth(
+  vehicles: readonly Vehicle[],
+  nowMs: number
+): TelemetryHealthSummary {
+  const summary: TelemetryHealthSummary = {
+    total: vehicles.length,
+    fresh: 0,
+    delayed: 0,
+    notTransmitting: 0,
+    unknown: 0,
+  };
+
+  if (!Number.isFinite(nowMs)) {
+    summary.unknown = vehicles.length;
+    return summary;
+  }
+
+  for (const vehicle of vehicles) {
+    const freshness = getTelemetryFreshness(vehicle.last_update, nowMs);
+
+    if (freshness.state === "fresh") summary.fresh += 1;
+    else if (freshness.state === "delayed") summary.delayed += 1;
+    else if (freshness.state === "not-transmitting") {
+      summary.notTransmitting += 1;
+    } else summary.unknown += 1;
+  }
+
+  return summary;
+}
+
+export function selectDriverAssignment(
+  vehicles: readonly Vehicle[]
+): DriverAssignmentSummary {
+  const assigned = vehicles.filter(
+    (vehicle) => Boolean(vehicle.driver_name?.trim())
+  ).length;
+
+  return {
+    total: vehicles.length,
+    assigned,
+    unassigned: vehicles.length - assigned,
+  };
 }
