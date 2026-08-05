@@ -1,8 +1,8 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { motion } from "motion/react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   AlertTriangle,
   Clock,
@@ -23,6 +23,12 @@ import { useToast } from "@/components/ui/Toast";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
 import { lerp, lerpAngle } from "@/lib/motion";
 import { GRAPHITE_DARK_RASTER } from "@/components/map/types";
+import { MOCK_VEHICLES } from "@/lib/mock-data";
+import {
+  OPERATIONS_DATASET,
+  type OperationalEvent,
+  type OperationalTrip,
+} from "@/lib/operations-data";
 
 /* ─── Types ─────────────────────────────────────────────────────────────────── */
 
@@ -38,7 +44,9 @@ interface TelemetryPoint {
 }
 
 interface ReplayVehicle {
-  id: number;
+  id: OperationalTrip["id"];
+  vehicleId: number;
+  taskId: OperationalTrip["taskId"];
   plate_number: string;
   brand: string;
   model: string;
@@ -52,6 +60,7 @@ interface HistoryEvent {
   label: string;
   location: string;
   time: string;
+  occurredAt: string;
   value?: string;
 }
 
@@ -85,153 +94,58 @@ const TABS: TabKey[] = [
 const SPEEDS: Record<1 | 2 | 4, number> = { 1: 1000, 2: 500, 4: 250 };
 
 const EVENT_COLORS: Record<string, string> = {
-  start: "var(--st-driving)",
-  stop: "var(--st-stop)",
-  engine_on: "var(--brand)",
-  engine_off: "var(--st-offline)",
-  speeding: "var(--st-delayed)",
-  geofence_enter: "var(--st-driving)",
-  geofence_exit: "var(--st-idle)",
-  reverse: "var(--signal)",
+  assigned: "var(--brand)",
+  departed: "var(--st-driving)",
+  delayed: "var(--st-delayed)",
+  arrived: "var(--st-stop)",
+  "unloading-started": "var(--st-idle)",
+  completed: "var(--task-completed)",
+  "geofence-entered": "var(--st-driving)",
+  "geofence-exited": "var(--st-idle)",
 };
 
 const EVENT_ICONS: Record<string, React.ReactNode> = {
-  start: <Play className="w-3.5 h-3.5" />,
-  stop: <Square className="w-3.5 h-3.5" />,
-  engine_on: <Play className="w-3.5 h-3.5" />,
-  engine_off: <Square className="w-3.5 h-3.5" />,
-  speeding: <AlertTriangle className="w-3.5 h-3.5" />,
-  geofence_enter: <MapPin className="w-3.5 h-3.5" />,
-  geofence_exit: <MapPin className="w-3.5 h-3.5" />,
-  reverse: <RotateCcw className="w-3.5 h-3.5" />,
+  assigned: <Route className="w-3.5 h-3.5" />,
+  departed: <Play className="w-3.5 h-3.5" />,
+  delayed: <AlertTriangle className="w-3.5 h-3.5" />,
+  arrived: <MapPin className="w-3.5 h-3.5" />,
+  "unloading-started": <Square className="w-3.5 h-3.5" />,
+  completed: <Square className="w-3.5 h-3.5" />,
+  "geofence-entered": <MapPin className="w-3.5 h-3.5" />,
+  "geofence-exited": <MapPin className="w-3.5 h-3.5" />,
 };
 
 /* ─── Route Data ─────────────────────────────────────────────────────────────── */
 
 type LngLat = { lng: number; lat: number };
 
-const ROUTE_COORDS: Record<number, LngLat[]> = {
-  1: [
-    { lng: 106.8825, lat: -6.4021 },
-    { lng: 106.8440, lat: -6.3038 },
-    { lng: 106.8456, lat: -6.2088 },
-    { lng: 106.9911, lat: -6.1432 },
-    { lng: 106.9178, lat: -6.2356 },
-    { lng: 106.8305, lat: -6.4021 },
-  ],
-  2: [
-    { lng: 107.1514, lat: -6.3020 },
-    { lng: 107.0200, lat: -6.2400 },
-    { lng: 106.8800, lat: -6.2000 },
-    { lng: 106.7600, lat: -6.1800 },
-    { lng: 106.6500, lat: -6.1500 },
-  ],
-  4: [
-    { lng: 110.4196, lat: -6.9666 },
-    { lng: 110.3000, lat: -7.0100 },
-    { lng: 110.1500, lat: -7.0800 },
-    { lng: 110.0500, lat: -7.1500 },
-    { lng: 110.4196, lat: -7.5756 },
-  ],
-  6: [
-    { lng: 108.5523, lat: -6.7320 },
-    { lng: 108.4000, lat: -6.6000 },
-    { lng: 108.2000, lat: -6.4500 },
-    { lng: 108.0000, lat: -6.3500 },
-    { lng: 106.8500, lat: -6.2088 },
-  ],
-  8: [
-    { lng: 106.9020, lat: -6.1850 },
-    { lng: 106.8700, lat: -6.2000 },
-    { lng: 106.8000, lat: -6.2100 },
-    { lng: 106.7200, lat: -6.1800 },
-    { lng: 106.6500, lat: -6.1500 },
-  ],
-};
-
-/* ─── Telemetry Builder ──────────────────────────────────────────────────────── */
-
-function buildTelemetry(
-  coords: LngLat[],
-  totalSecs: number,
-  maxSpeed: number
-): TelemetryPoint[] {
-  if (coords.length < 2) return [];
-  const points: TelemetryPoint[] = [];
-  for (let i = 0; i < coords.length - 1; i++) {
-    const [lng1, lat1] = [coords[i].lng, coords[i].lat];
-    const [lng2, lat2] = [coords[i + 1].lng, coords[i + 1].lat];
-    const segSecs = Math.floor(totalSecs / (coords.length - 1));
-    const heading = Math.atan2(lng2 - lng1, lat2 - lat1) * (180 / Math.PI);
-    const speedSegs = 12;
-    for (let j = 0; j < speedSegs; j++) {
-      const t = j / speedSegs;
-      points.push({
-        time: i * segSecs + Math.floor((j * segSecs) / speedSegs),
-        lat: lerp(lat1, lat2, t),
-        lng: lerp(lng1, lng2, t),
-        heading: (heading + 360) % 360,
-        speed: Math.round(maxSpeed * (0.6 + 0.4 * Math.sin(t * Math.PI))),
-        status: "driving",
-      });
-    }
-  }
-  const last = coords[coords.length - 1];
-  points.push({
-    time: totalSecs,
-    lat: last.lat,
-    lng: last.lng,
-    heading: points[points.length - 1]?.heading ?? 0,
-    speed: 0,
-    status: "stop",
-  });
-  return points;
-}
-
 /* ─── Replay Vehicles ────────────────────────────────────────────────────────── */
 
-const REPLAY_VEHICLES: ReplayVehicle[] = [
-  {
-    id: 1,
-    plate_number: "B 1234 KJT",
-    brand: "Hino",
-    model: "Ranger FL 235 JW",
-    driver_name: "Ahmad Sudirman",
-    telemetry: buildTelemetry(ROUTE_COORDS[1], 3600, 67),
-  },
-  {
-    id: 2,
-    plate_number: "B 5678 TGP",
-    brand: "Mitsubishi",
-    model: "Colt Diesel FE 74 HD",
-    driver_name: "Budi Santoso",
-    telemetry: buildTelemetry(ROUTE_COORDS[2], 3000, 82),
-  },
-  {
-    id: 4,
-    plate_number: "L 3456 ABC",
-    brand: "UD Trucks",
-    model: "Quester CDE 280",
-    driver_name: "Dedi Kurniawan",
-    telemetry: buildTelemetry(ROUTE_COORDS[4], 4800, 55),
-  },
-  {
-    id: 6,
-    plate_number: "H 2345 GHI",
-    brand: "Mercedes-Benz",
-    model: "Actros 2645 LS",
-    driver_name: "Fajar Ramadhan",
-    telemetry: buildTelemetry(ROUTE_COORDS[6], 5200, 71),
-  },
-  {
-    id: 8,
-    plate_number: "B 1357 MNO",
-    brand: "Hino",
-    model: "Ranger FL 235 JW",
-    driver_name: "Hendra Wijaya",
-    telemetry: buildTelemetry(ROUTE_COORDS[8], 6000, 48),
-  },
-];
+const vehicleById = new Map(MOCK_VEHICLES.map((vehicle) => [vehicle.id, vehicle]));
+const REPLAY_VEHICLES: ReplayVehicle[] = OPERATIONS_DATASET.trips
+  .filter((trip) => trip.track.length > 0)
+  .map((trip) => {
+    const vehicle = vehicleById.get(trip.vehicleId);
+    if (!vehicle) throw new Error(`${trip.id} vehicle is missing`);
+    const departureMs = Date.parse(trip.actualDepartureAt ?? trip.plannedDepartureAt);
+    return {
+      id: trip.id,
+      vehicleId: trip.vehicleId,
+      taskId: trip.taskId,
+      plate_number: vehicle.plate_number,
+      brand: vehicle.brand,
+      model: vehicle.model,
+      driver_name: vehicle.driver_name?.trim() ? `${vehicle.driver_name} (driver saat ini)` : "Driver saat ini belum ditetapkan",
+      telemetry: trip.track.map((point) => ({
+        time: Math.max(0, Math.round((Date.parse(point.recordedAt) - departureMs) / 1000)),
+        lat: point.latitude,
+        lng: point.longitude,
+        heading: point.heading,
+        speed: point.speedKph,
+        status: point.state === "stopped" ? "stop" : point.state,
+      })),
+    };
+  });
 
 /* ─── Helpers ────────────────────────────────────────────────────────────────── */
 
@@ -250,16 +164,46 @@ function formatDuration(secs: number): string {
   return `${m}m`;
 }
 
-function buildEvents(_vehicle: ReplayVehicle, _date: Date): HistoryEvent[] {
+function jakartaDateKey(timestamp: string): string {
+  const shifted = new Date(Date.parse(timestamp) + 7 * 60 * 60 * 1000);
   return [
-    { id: "1", type: "start", label: "Waktu, engine nyala", location: "PTT PLI", time: "07:05" },
-    { id: "2", type: "engine_on", label: "Engine ON", location: "PTT PLI", time: "07:15" },
-    { id: "3", type: "geofence_enter", label: "Masuk Geofence", location: "GB PLI", time: "07:20" },
-    { id: "4", type: "speeding", label: "Tersenggol Jakart", location: "Kota Tinggi", time: "07:35", value: "71 km/j" },
-    { id: "5", type: "geofence_exit", label: "Keluar Geofence", location: "GB PLI", time: "07:40" },
-    { id: "6", type: "stop", label: "Sempat", location: "DC DEPO K", time: "09:00" },
-    { id: "7", type: "engine_off", label: "Engine OFF", location: "DC DEPO K", time: "09:15" },
-  ];
+    shifted.getUTCFullYear(),
+    String(shifted.getUTCMonth() + 1).padStart(2, "0"),
+    String(shifted.getUTCDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+const eventTime = new Intl.DateTimeFormat("id-ID", {
+  timeZone: "Asia/Jakarta", hour: "2-digit", minute: "2-digit",
+});
+
+function eventLabel(event: OperationalEvent): string {
+  const labels: Record<OperationalEvent["type"], string> = {
+    assigned: "Tugas ditugaskan",
+    departed: "Perjalanan dimulai",
+    "geofence-entered": "Masuk area operasi",
+    "geofence-exited": "Keluar area operasi",
+    delayed: "Perjalanan terlambat",
+    arrived: "Tiba di tujuan",
+    "unloading-started": "Bongkar dimulai",
+    completed: "Tugas selesai",
+  };
+  return labels[event.type];
+}
+
+function buildEvents(vehicle: ReplayVehicle): HistoryEvent[] {
+  return OPERATIONS_DATASET.events
+    .filter((event) => event.tripId === vehicle.id)
+    .sort((a, b) => Date.parse(a.occurredAt) - Date.parse(b.occurredAt))
+    .map((event) => ({
+      id: event.id,
+      type: event.type,
+      label: eventLabel(event),
+      location: event.location?.name ?? "Tanpa lokasi fisik",
+      time: eventTime.format(Date.parse(event.occurredAt)),
+      occurredAt: event.occurredAt,
+      value: event.type === "delayed" ? `${event.payload.delayMinutes} menit` : undefined,
+    }));
 }
 
 /* ─── Trip Replay Map ────────────────────────────────────────────────────────── */
@@ -416,11 +360,24 @@ function calcStats(telemetry: TelemetryPoint[]) {
 }
 
 /* ─── Tab Content Components ───────────────────────────────────────────────── */
-function TimelineTab({ vehicle, events }: { vehicle: ReplayVehicle; events: HistoryEvent[] }) {
+function TimelineTab({
+  vehicle,
+  events,
+  selectedEventId,
+}: {
+  vehicle: ReplayVehicle;
+  events: HistoryEvent[];
+  selectedEventId: string | null;
+}) {
   return (
     <div className="flex-1 overflow-y-auto p-3 space-y-0">
       {events.map((ev, i) => (
-        <div key={ev.id} className="flex gap-3 relative">
+        <div
+          key={ev.id}
+          className={`flex gap-3 relative rounded-sm ${selectedEventId === ev.id ? "bg-brand-soft" : ""}`}
+          aria-current={selectedEventId === ev.id ? "true" : undefined}
+          data-operational-event-id={ev.id}
+        >
           {/* Line connector */}
           {i < events.length - 1 && <div className="absolute left-3.5 top-7 bottom-0 w-px bg-border" style={{ background: "var(--border)" }} />}
           {/* Dot */}
@@ -471,13 +428,6 @@ function DetailTab({ vehicle, stats }: { vehicle: ReplayVehicle; stats: ReturnTy
       <div className="rounded-lg bg-surface-2 border border-border px-3 py-2.5">
         <p className="text-[9px] font-semibold uppercase tracking-widest text-muted mb-2">Driver</p>
         <p className="text-sm font-semibold text-foreground">{vehicle.driver_name}</p>
-      </div>
-      <div className="rounded-lg bg-surface-2 border border-border px-3 py-2.5">
-        <p className="text-[9px] font-semibold uppercase tracking-widest text-muted mb-2">BBM Terpakai</p>
-        <p className="font-mono text-sm font-bold text-foreground">{Math.round(stats.distKm * 0.28)} L</p>
-        <div className="mt-1.5 h-1.5 rounded-full bg-surface-3 overflow-hidden">
-          <div className="h-full rounded-full bg-st-driving" style={{ width: "68%" }} />
-        </div>
       </div>
     </div>
   );
@@ -534,7 +484,7 @@ function SpeedingTab({ vehicle }: { vehicle: ReplayVehicle }) {
 }
 
 function GeofenceTab({ events }: { events: HistoryEvent[] }) {
-  const gfEvents = events.filter(e => e.type === "geofence_enter" || e.type === "geofence_exit");
+  const gfEvents = events.filter(e => e.type === "geofence-entered" || e.type === "geofence-exited");
   if (!gfEvents.length) return <div className="flex flex-1 items-center justify-center"><EmptyState title="Tidak ada event geofence" description="Kendaraan tidak keluar-masuk zona." /></div>;
   return (
     <div className="flex-1 overflow-y-auto p-3 space-y-2">
@@ -555,7 +505,7 @@ function GeofenceTab({ events }: { events: HistoryEvent[] }) {
 }
 
 function EventsTab({ events }: { events: HistoryEvent[] }) {
-  const alertEvents = events.filter(e => e.type !== "start" && e.type !== "stop" && e.type !== "engine_on" && e.type !== "engine_off");
+  const alertEvents = events.filter(e => e.type !== "assigned" && e.type !== "departed" && e.type !== "completed");
   if (!alertEvents.length) return <div className="flex flex-1 items-center justify-center"><EmptyState title="Tidak ada event" description="Tidak ada event penting untuk kendaraan ini." /></div>;
   return (
     <div className="flex-1 overflow-y-auto p-3 space-y-2">
@@ -578,20 +528,68 @@ function EventsTab({ events }: { events: HistoryEvent[] }) {
 /* ─── Main Page ────────────────────────────────────────────────────────────── */
 export default function HistoryPage() {
   const { success, info } = useToast();
+  const searchParams = useSearchParams();
   const reducedMotion = useReducedMotion();
 
-  const [selectedVehicleId, setSelectedVehicleId] = useState<number>(1);
-  const [dateRange, setDateRange] = useState("20 Jun 2026");
+  const [selectedTripId, setSelectedTripId] = useState<OperationalTrip["id"]>(REPLAY_VEHICLES[0].id);
+  const [selectedDate, setSelectedDate] = useState("2026-06-20");
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const [tripNotFound, setTripNotFound] = useState(false);
   const [activeTab, setActiveTab] = useState<TabKey>("Timeline");
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState<1 | 2 | 4>(1);
   const [progress, setProgress] = useState(0);
-  const [refreshing, setRefreshing] = useState(false);
-
-  const selectedVehicle = REPLAY_VEHICLES.find(v => v.id === selectedVehicleId) ?? REPLAY_VEHICLES[0];
-  const routeCoords = ROUTE_COORDS[selectedVehicleId] ?? ROUTE_COORDS[1] ?? [];
-  const events = useMemo(() => buildEvents(selectedVehicle, new Date()), [selectedVehicle]);
+  const visibleTrips = useMemo(() => REPLAY_VEHICLES.filter((vehicle) => {
+    const trip = OPERATIONS_DATASET.trips.find((candidate) => candidate.id === vehicle.id);
+    if (!trip) return false;
+    return jakartaDateKey(trip.plannedDepartureAt) === selectedDate;
+  }), [selectedDate]);
+  const selectedVehicle = visibleTrips.find((vehicle) => vehicle.id === selectedTripId) ?? visibleTrips[0] ?? REPLAY_VEHICLES[0];
+  const events = useMemo(() => buildEvents(selectedVehicle), [selectedVehicle]);
   const stats = useMemo(() => calcStats(selectedVehicle.telemetry), [selectedVehicle]);
+
+  useEffect(() => {
+    const requestedTripId = searchParams.get("trip");
+    if (requestedTripId === null) {
+      setTripNotFound(false);
+      setSelectedTripId(REPLAY_VEHICLES[0].id);
+      const defaultTrip = OPERATIONS_DATASET.trips.find((trip) => trip.id === REPLAY_VEHICLES[0].id);
+      if (defaultTrip) setSelectedDate(jakartaDateKey(defaultTrip.plannedDepartureAt));
+      setSelectedEventId(null);
+      setPlaying(false);
+      setProgress(0);
+      return;
+    }
+    const requestedTrip = REPLAY_VEHICLES.find((trip) => trip.id === requestedTripId);
+    if (!requestedTrip) {
+      setTripNotFound(true);
+      setSelectedEventId(null);
+      setPlaying(false);
+      return;
+    }
+    const canonicalTrip = OPERATIONS_DATASET.trips.find((trip) => trip.id === requestedTrip.id);
+    if (!canonicalTrip) return;
+    setTripNotFound(false);
+    const queryDate = jakartaDateKey(canonicalTrip.plannedDepartureAt);
+    setSelectedDate(queryDate);
+    setSelectedTripId(requestedTrip.id);
+    setPlaying(false);
+    const requestedEventId = searchParams.get("event");
+    const requestedEvent = OPERATIONS_DATASET.events.find(
+      (event) => event.id === requestedEventId && event.tripId === requestedTrip.id
+    );
+    if (requestedEvent) {
+      const startMs = Date.parse(canonicalTrip.actualDepartureAt ?? canonicalTrip.plannedDepartureAt);
+      const durationSec = requestedTrip.telemetry.at(-1)?.time ?? 1;
+      const eventSec = Math.max(0, (Date.parse(requestedEvent.occurredAt) - startMs) / 1000);
+      setProgress(Math.min(1, eventSec / durationSec));
+      setActiveTab("Timeline");
+      setSelectedEventId(requestedEvent.id);
+    } else {
+      setProgress(0);
+      setSelectedEventId(null);
+    }
+  }, [searchParams]);
 
   const totalDurationSec = selectedVehicle.telemetry[selectedVehicle.telemetry.length - 1]?.time ?? 3600;
   const simTimeSec = Math.round(progress * totalDurationSec);
@@ -615,10 +613,30 @@ export default function HistoryPage() {
   function handleStepForward() { setPlaying(false); setProgress(p => Math.min(1, p + 10 / totalDurationSec)); info("Step", "Maju 10%"); }
   function handleSpeed(s: 1 | 2 | 4) { setSpeed(s); info("Kecepatan", `${s}x playback aktif`); }
   function handleScrub(e: React.ChangeEvent<HTMLInputElement>) { setPlaying(false); setProgress(Number(e.target.value)); }
-  function handleRefresh() { setRefreshing(true); setTimeout(() => { setRefreshing(false); success("Data dimuat", `${selectedVehicle.plate_number} — ${dateRange}`); }, 800); }
-  function handleExport() { success("Export CSV", "File sedang diproses..."); }
-  function handleVehicleChange(id: number) { setSelectedVehicleId(id); setPlaying(false); setProgress(0); info("Unit dipilih", REPLAY_VEHICLES.find(v => v.id === id)?.plate_number ?? ""); }
-  function handleEventClick(timeSec: number) { setPlaying(false); setProgress(timeSec / totalDurationSec); }
+  function handleExport() {
+    if (visibleTrips.length === 0 || tripNotFound) return;
+    const header = ["trip_id", "task_id", "vehicle_id", "plate_number", "recorded_at", "latitude", "longitude", "heading", "speed_kph", "state"];
+    const trip = OPERATIONS_DATASET.trips.find((candidate) => candidate.id === selectedVehicle.id);
+    const rows = (trip?.track ?? []).map((point) => [
+      selectedVehicle.id, selectedVehicle.taskId, selectedVehicle.vehicleId, selectedVehicle.plate_number,
+      point.recordedAt, point.latitude, point.longitude, point.heading, point.speedKph, point.state,
+    ]);
+    const csv = [header, ...rows].map((row) => row.map((value) => `"${String(value).replaceAll('"', '""')}"`).join(",")).join("\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `${selectedVehicle.id}-${selectedDate}.csv`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
+  function handleTripChange(id: OperationalTrip["id"]) {
+    setTripNotFound(false);
+    setSelectedTripId(id);
+    setSelectedEventId(null);
+    setPlaying(false);
+    setProgress(0);
+    info("Perjalanan dipilih", REPLAY_VEHICLES.find((trip) => trip.id === id)?.plate_number ?? "");
+  }
 
   const curTelemetry = selectedVehicle.telemetry[Math.floor(progress * (selectedVehicle.telemetry.length - 1))];
 
@@ -639,42 +657,40 @@ export default function HistoryPage() {
           </div>
           <div>
             <h1 className="text-sm font-semibold text-foreground leading-none">Trip History</h1>
-            <p className="text-xs text-muted mt-0.5 tabular-nums">{dateRange} · {REPLAY_VEHICLES.length} unit</p>
+            <p className="text-xs text-muted mt-0.5 tabular-nums">{selectedDate} · {visibleTrips.length} perjalanan</p>
           </div>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
           {/* Vehicle selector */}
           <select
-            value={selectedVehicleId}
-            onChange={e => handleVehicleChange(Number(e.target.value))}
+            value={tripNotFound ? "" : selectedVehicle.id}
+            onChange={e => handleTripChange(e.target.value as OperationalTrip["id"])}
+            disabled={visibleTrips.length === 0 || tripNotFound}
             className="h-8 rounded-lg border border-border bg-surface-1 px-2.5 pr-7 text-xs font-semibold text-foreground focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand-soft cursor-pointer appearance-none"
             style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 6px center" }}
           >
-            {REPLAY_VEHICLES.map(v => <option key={v.id} value={v.id}>{v.plate_number} — {v.driver_name}</option>)}
+            {tripNotFound && <option value="">Perjalanan tidak ditemukan</option>}
+            {visibleTrips.map(v => <option key={v.id} value={v.id}>{v.plate_number} — {v.id}</option>)}
           </select>
 
           {/* Date range */}
           <input
-            type="text"
-            value={dateRange}
-            onChange={e => setDateRange(e.target.value)}
+            type="date"
+            value={selectedDate}
+            onChange={e => {
+              setSelectedDate(e.target.value);
+              setPlaying(false);
+              setProgress(0);
+            }}
             className="h-8 rounded-lg border border-border bg-surface-1 px-2.5 text-xs text-foreground focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand-soft"
           />
-
-          {/* Refresh */}
-          <button
-            onClick={handleRefresh}
-            disabled={refreshing}
-            className="inline-flex items-center gap-1.5 h-8 rounded-lg border border-border bg-surface-2 px-2.5 text-xs font-medium text-foreground hover:bg-surface-3 hover:border-border-strong transition-colors disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-brand"
-          >
-            <RotateCcw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
-          </button>
 
           {/* Export */}
           <button
             onClick={handleExport}
-            className="inline-flex items-center gap-1.5 h-8 rounded-lg bg-foreground text-background px-3 text-xs font-semibold hover:opacity-90 transition-opacity focus-visible:outline-2 focus-visible:outline-brand"
+            disabled={visibleTrips.length === 0 || tripNotFound}
+            className="inline-flex items-center gap-1.5 h-8 rounded-lg bg-foreground text-background px-3 text-xs font-semibold hover:opacity-90 transition-opacity disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-brand"
           >
             <Download className="h-3.5 w-3.5" /> Export CSV
           </button>
@@ -682,6 +698,21 @@ export default function HistoryPage() {
       </header>
 
       {/* ── CONTENT: 2-column ──────────────────────────────────────────────── */}
+      {tripNotFound ? (
+        <div className="flex flex-1 items-center justify-center bg-surface-2">
+          <EmptyState
+            title="Perjalanan tidak ditemukan"
+            description="Periksa kembali ID perjalanan pada URL."
+          />
+        </div>
+      ) : visibleTrips.length === 0 ? (
+        <div className="flex flex-1 items-center justify-center bg-surface-2">
+          <EmptyState
+            title="Tidak ada perjalanan"
+            description={`Tidak ada perjalanan pada ${selectedDate}.`}
+          />
+        </div>
+      ) : (
       <div className="grid flex-1 grid-cols-[1fr_420px] overflow-hidden">
 
         {/* ── LEFT: Replay Map ─────────────────────────────────────────────── */}
@@ -696,10 +727,6 @@ export default function HistoryPage() {
               <div className="flex items-center gap-2">
                 <span className="h-0.5 flex-1 rounded-full bg-st-driving" />
                 <span className="text-[10px] text-muted w-20">Actual</span>
-              </div>
-              <div className="flex items-center gap-2 mt-1">
-                <span className="h-0.5 flex-1 rounded-full" style={{ background: "repeating-linear-gradient(to right, var(--text-faint) 0, var(--text-faint) 4px, transparent 4px, transparent 8px)" }} />
-                <span className="text-[10px] text-muted w-20">Planned</span>
               </div>
             </div>
           </div>
@@ -815,7 +842,9 @@ export default function HistoryPage() {
 
           {/* Tab content */}
           <div className="flex-1 overflow-hidden" role="tabpanel">
-            {activeTab === "Timeline" && <TimelineTab vehicle={selectedVehicle} events={events} />}
+            {activeTab === "Timeline" && (
+              <TimelineTab vehicle={selectedVehicle} events={events} selectedEventId={selectedEventId} />
+            )}
             {activeTab === "Detail" && <DetailTab vehicle={selectedVehicle} stats={stats} />}
             {activeTab === "Engine" && <SegmentsTab vehicle={selectedVehicle} type="stop" label="Engine" />}
             {activeTab === "Driving" && <SegmentsTab vehicle={selectedVehicle} type="driving" label="Berkendara" />}
@@ -828,6 +857,7 @@ export default function HistoryPage() {
           </div>
         </aside>
       </div>
+      )}
     </div>
   );
 }

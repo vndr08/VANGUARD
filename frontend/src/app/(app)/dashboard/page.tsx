@@ -16,6 +16,8 @@ import {
 } from "@/lib/dashboard-data";
 import { formatFreshnessAge } from "@/lib/freshness";
 import { MOCK_VEHICLES, toMapVehicle } from "@/lib/mock-data";
+import { OPERATIONS_DATASET } from "@/lib/operations-data";
+import { selectOperationsPulse } from "@/lib/operations-selectors";
 
 const LiveFleetMap = dynamic(
   () => import("@/components/map/MapView"),
@@ -305,6 +307,88 @@ function DriverCoverage() {
   );
 }
 
+const OPERATIONS_PULSE = selectOperationsPulse(
+  OPERATIONS_DATASET,
+  OPERATIONS_DATASET.referenceTimeMs,
+  3
+);
+
+const OPERATION_METRICS = [
+  { label: "Tugas aktif", value: OPERATIONS_PULSE.activeTaskCount },
+  { label: "Tugas terlambat", value: OPERATIONS_PULSE.lateTaskCount },
+  { label: "Selesai", value: OPERATIONS_PULSE.completedTodayCount },
+  { label: "Perjalanan berjalan", value: OPERATIONS_PULSE.runningTripCount },
+  { label: "Tepat waktu", value: OPERATIONS_PULSE.onTimeRate === null ? "-" : `${OPERATIONS_PULSE.onTimeRate}%` },
+] as const;
+
+const operationTime = new Intl.DateTimeFormat("id-ID", {
+  timeZone: "Asia/Jakarta",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+const operationDate = new Intl.DateTimeFormat("id-ID", {
+  timeZone: "Asia/Jakarta",
+  day: "2-digit",
+  month: "short",
+  year: "numeric",
+}).format(OPERATIONS_DATASET.referenceTimeMs);
+
+function OperationsOverview() {
+  const vehicleById = useMemo(
+    () => new Map(MOCK_VEHICLES.map((vehicle) => [vehicle.id, vehicle])),
+    []
+  );
+
+  return (
+    <section className="border-y border-border bg-surface-1" aria-labelledby="operations-title">
+      <div className="grid lg:grid-cols-[minmax(0,3fr)_minmax(320px,2fr)]">
+        <div className="min-w-0 px-4 py-4 lg:border-r lg:border-border">
+          <h2 id="operations-title" className="text-base font-semibold text-[var(--text)]">
+            Operasi · {operationDate}
+          </h2>
+          <dl className="mt-4 grid grid-cols-2 sm:grid-cols-5">
+            {OPERATION_METRICS.map((metric, index) => (
+              <div
+                key={metric.label}
+                className={`min-w-0 px-3 py-2 first:pl-0 ${index > 0 ? "border-l border-border" : ""}`}
+              >
+                <dt className="text-sm text-muted">{metric.label}</dt>
+                <dd className="mt-1 font-mono text-lg font-semibold tabular-nums text-[var(--text)]">
+                  {metric.value}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+
+        <div className="min-w-0 border-t border-border px-4 py-4 lg:border-t-0">
+          <h3 className="text-sm font-semibold text-[var(--text)]">Peristiwa terbaru</h3>
+          <ul className="mt-2 divide-y divide-border">
+            {OPERATIONS_PULSE.recentEvents.map((event) => (
+              <li key={event.id}>
+                <Link
+                  href={event.href}
+                  className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 py-2 text-sm hover:text-brand focus-visible:outline-2 focus-visible:outline-brand focus-visible:outline-offset-2"
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate font-medium text-[var(--text)]">{event.title}</span>
+                    <span className="block truncate text-muted">
+                      {vehicleById.get(event.vehicleId)?.plate_number ?? event.tripId} · {event.metadata}
+                    </span>
+                  </span>
+                  <time className="font-mono tabular-nums text-muted" dateTime={event.occurredAt}>
+                    {operationTime.format(Date.parse(event.occurredAt))}
+                  </time>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function DashboardPage() {
   const [nowMs, setNowMs] = useState<number | null>(null);
   const [mapVehicles, setMapVehicles] = useState(() =>
@@ -313,7 +397,7 @@ export default function DashboardPage() {
   const fleet = useMemo(() => selectFleetState(MOCK_VEHICLES), []);
 
   useEffect(() => {
-    const updateNow = () => setNowMs(Date.now());
+    const updateNow = () => setNowMs(new Date().valueOf());
     updateNow();
     window.addEventListener("vanguard:telemetri-refresh", updateNow);
     return () => window.removeEventListener("vanguard:telemetri-refresh", updateNow);
@@ -355,6 +439,8 @@ export default function DashboardPage() {
         <TelemetryHealth nowMs={nowMs} />
         <DriverCoverage />
       </div>
+
+      <OperationsOverview />
     </div>
   );
 }

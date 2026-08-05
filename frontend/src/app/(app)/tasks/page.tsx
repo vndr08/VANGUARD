@@ -1,20 +1,23 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { motion } from "motion/react";
 import {
-  Map, Table, RefreshCw, Search, Filter, Navigation,
-  MapPin, Truck, User, Clock, Route, Play, Square, X,
-  ChevronDown, ChevronRight, SortAsc, SortDesc,
+  Search, Filter, Navigation, MapPin, Truck, Clock, Route, X,
 } from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
 import { TaskStatusBadge } from "@/components/ui/Badge";
 import { Skeleton, EmptyState } from "@/components/ui/Card";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
 import { useAnimatedNumber } from "@/lib/motion";
-import { Panel } from "@/components/ui/Panel";
 import type { TaskRouteData } from "@/components/map/TaskRouteMap";
+import { MOCK_VEHICLES } from "@/lib/mock-data";
+import {
+  OPERATIONS_DATASET,
+  type OperationalTaskStatus,
+} from "@/lib/operations-data";
 
 const TaskRouteMap = dynamic(() => import("@/components/map/TaskRouteMap"), {
   ssr: false,
@@ -28,7 +31,7 @@ const TaskRouteMap = dynamic(() => import("@/components/map/TaskRouteMap"), {
   ),
 });
 
-type TaskStatus = "waiting" | "assigned" | "progress" | "unloading" | "completed";
+type TaskStatus = Exclude<OperationalTaskStatus, "cancelled">;
 
 interface Task {
   id: string; vehicle: string; driver: string; group: string; time: string;
@@ -40,18 +43,50 @@ interface Task {
   eta: string; schedule: string; startAt: string;
 }
 
-const TASKS: Task[] = [
-  { id: "1", vehicle: "B 9068 NU", driver: "Nana Sutrisna", group: "CDDL BEKASI", time: "Jun 01, 18:10", tripType: "Main Task", status: "unloading", task: "PLI - DEPOK", taskRef: "5410295521", trip: "PLI - DEPOK", origin: "PLI DMG", destination: "PTT DPK", originCoords: [-6.1751, 106.8650], destCoords: [-6.4023, 106.7947], currentCoords: [-6.4010, 106.7950], distance: 28.5, traveled: 27.2, avgSpeed: 42, eta: "18:45", schedule: "08:00 - 20:00", startAt: "08:15" },
-  { id: "2", vehicle: "B 9218 GV", driver: "Ahmad Dahlan", group: "CDE BEKASI", time: "Jun 01, 17:55", tripType: "Main Task", status: "progress", task: "TNF - BEKASI", taskRef: "5410295522", trip: "TNF - BEKASI", origin: "TNF Warehouse", destination: "Bekasi DC", originCoords: [-6.2388, 106.9200], destCoords: [-6.2339, 106.9920], currentCoords: [-6.2350, 106.9500], distance: 15.2, traveled: 9.8, avgSpeed: 55, eta: "18:30", schedule: "07:00 - 19:00", startAt: "07:20" },
-  { id: "3", vehicle: "B 9544 SYO", driver: "Budi Santoso", group: "FULL BOX BEKASI", time: "Jun 01, 16:40", tripType: "Main Task", status: "progress", task: "PLI - JKT1", taskRef: "5410295523", trip: "PLI - JKT1", origin: "PLI Central", destination: "JKT1 Hub", originCoords: [-6.1751, 106.8650], destCoords: [-6.1500, 106.8200], currentCoords: [-6.1650, 106.8400], distance: 8.5, traveled: 5.2, avgSpeed: 38, eta: "17:30", schedule: "06:00 - 18:00", startAt: "06:30" },
-  { id: "4", vehicle: "BA 8329 QY", driver: "Cahyo Wibowo", group: "CDDL BEKASI", time: "Jun 01, 15:20", tripType: "Return", status: "waiting", task: "BKS - LAMPUNG", taskRef: "5410295524", trip: "BKS - LAMPUNG", origin: "BKS Pool", destination: "Lampung Port", originCoords: [-6.2500, 106.9900], destCoords: [-5.4500, 105.2700], currentCoords: [-6.2500, 106.9900], distance: 285.0, traveled: 0, avgSpeed: 0, eta: "20:00", schedule: "05:00 - 22:00", startAt: "Pending" },
-  { id: "5", vehicle: "B 9001 SXS", driver: "Dedi Kurniawan", group: "CDE BEKASI", time: "Jun 01, 14:10", tripType: "Pre-Task", status: "progress", task: "CIK - KEDIRI", taskRef: "5410295525", trip: "CIK - KEDIRI", origin: "Cikarang", destination: "Kediri", originCoords: [-6.4500, 107.1500], destCoords: [-7.8480, 112.0170], currentCoords: [-6.8000, 108.5000], distance: 450.0, traveled: 180.5, avgSpeed: 62, eta: "23:00", schedule: "00:00 - 24:00", startAt: "00:30" },
-  { id: "6", vehicle: "B 9002 SXS", driver: "Eko Prasetyo", group: "FULL BOX PALEMBANG", time: "Jun 01, 13:00", tripType: "Main Task", status: "unloading", task: "KLN - SURABAYA", taskRef: "5410295526", trip: "KLN - SURABAYA", origin: "KALINDAK", destination: "Surabaya DC", originCoords: [-3.0500, 114.9200], destCoords: [-7.2500, 112.7500], currentCoords: [-7.2480, 112.7520], distance: 520.0, traveled: 518.5, avgSpeed: 58, eta: "Completed", schedule: "12:00 - 18:00", startAt: "12:30" },
-  { id: "7", vehicle: "B 9997 SXR", driver: "Fajar Ramadhan", group: "CDDL BEKASI", time: "Jun 01, 12:30", tripType: "Main Task", status: "progress", task: "BKS - PURBALINGGA", taskRef: "5410295527", trip: "BKS - PURBALINGGA", origin: "Bekasi", destination: "Purbalingga", originCoords: [-6.2339, 106.9920], destCoords: [-7.4300, 109.3600], currentCoords: [-6.9000, 108.2000], distance: 185.0, traveled: 95.0, avgSpeed: 48, eta: "19:30", schedule: "08:00 - 20:00", startAt: "08:45" },
-  { id: "8", vehicle: "BG 8221 NK", driver: "Gunawan Hadi", group: "CDE BEKASI", time: "Jun 01, 11:15", tripType: "Main Task", status: "assigned", task: "CIK - JOGJA", taskRef: "5410295528", trip: "CIK - JOGJA", origin: "Cikarang", destination: "Yogyakarta", originCoords: [-6.4500, 107.1500], destCoords: [-7.7970, 110.3610], currentCoords: [-6.4500, 107.1500], distance: 420.0, traveled: 0, avgSpeed: 0, eta: "22:00", schedule: "10:00 - 23:00", startAt: "Pending" },
-  { id: "9", vehicle: "BG 8292 NK", driver: "Hendra Wijaya", group: "FULL BOX BEKASI", time: "Jun 01, 10:00", tripType: "Main Task", status: "progress", task: "TNG - SEMARANG", taskRef: "5410295529", trip: "TNG - SEMARANG", origin: "Tangerang", destination: "Semarang", originCoords: [-6.1780, 106.6300], destCoords: [-6.9670, 110.4200], currentCoords: [-6.5000, 108.3000], distance: 380.0, traveled: 175.0, avgSpeed: 65, eta: "20:00", schedule: "06:00 - 21:00", startAt: "06:30" },
-  { id: "10", vehicle: "B 9068 NU", driver: "Irfan Hakim", group: "CDDL BEKASI", time: "Jun 01, 09:00", tripType: "Main Task", status: "completed", task: "JKT - BANDUNG", taskRef: "5410295530", trip: "JKT - BANDUNG", origin: "Jakarta", destination: "Bandung", originCoords: [-6.1751, 106.8650], destCoords: [-6.9175, 107.6190], currentCoords: [-6.9180, 107.6200], distance: 125.0, traveled: 123.5, avgSpeed: 52, eta: "Completed", schedule: "07:00 - 12:00", startAt: "07:15" },
-];
+const vehicleById = new Map(MOCK_VEHICLES.map((vehicle) => [vehicle.id, vehicle]));
+const tripById = new Map(OPERATIONS_DATASET.trips.map((trip) => [trip.id, trip]));
+const dateTime = new Intl.DateTimeFormat("id-ID", {
+  timeZone: "Asia/Jakarta", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit",
+});
+const clockTime = new Intl.DateTimeFormat("id-ID", {
+  timeZone: "Asia/Jakarta", hour: "2-digit", minute: "2-digit",
+});
+
+const TASK_ROWS: Task[] = OPERATIONS_DATASET.tasks
+  .filter((task): task is typeof task & { status: TaskStatus } => task.status !== "cancelled")
+  .map((task) => {
+    const trip = tripById.get(task.primaryTripId);
+    const vehicle = vehicleById.get(task.vehicleId);
+    if (!trip || !vehicle) throw new Error(`${task.id} projection is incomplete`);
+    const lastPoint = trip.track.at(-1);
+    const currentCoords: [number, number] = lastPoint
+      ? [lastPoint.latitude, lastPoint.longitude]
+      : [trip.origin.latitude, trip.origin.longitude];
+    const tripType = trip.type === "pre-trip" ? "Pre-Task" : trip.type === "return" ? "Return" : "Main Task";
+    return {
+      id: task.id,
+      vehicle: vehicle.plate_number,
+      driver: vehicle.driver_name?.trim() ? `${vehicle.driver_name} (saat ini)` : "Driver saat ini belum ditetapkan",
+      group: task.group,
+      time: dateTime.format(Date.parse(task.createdAt)),
+      tripType,
+      status: task.status,
+      task: task.name,
+      taskRef: task.reference,
+      trip: trip.id,
+      origin: trip.origin.name,
+      destination: trip.destination.name,
+      originCoords: [trip.origin.latitude, trip.origin.longitude],
+      destCoords: [trip.destination.latitude, trip.destination.longitude],
+      currentCoords,
+      distance: trip.distanceKm,
+      traveled: trip.traveledKm,
+      avgSpeed: trip.averageSpeedKph ?? 0,
+      eta: clockTime.format(Date.parse(trip.plannedArrivalAt)),
+      schedule: `${clockTime.format(Date.parse(task.plannedStartAt))} - ${clockTime.format(Date.parse(task.plannedEndAt))}`,
+      startAt: task.actualStartAt ? clockTime.format(Date.parse(task.actualStartAt)) : "Belum dimulai",
+    };
+  });
 
 function toRouteData(task: Task): TaskRouteData {
   // Task data uses [lat, lng] format — convert to {lng, lat} for TaskRouteData
@@ -91,34 +126,24 @@ const STATUS_META: Record<TaskStatus, { label: string; colorVar: string; dotColo
 type SortKey = "time" | "vehicle" | "status" | "distance";
 
 export default function TasksPage() {
-  const { success, info } = useToast();
+  const { info } = useToast();
+  const searchParams = useSearchParams();
   const reducedMotion = useReducedMotion();
-  const [tasks] = useState<Task[]>(TASKS);
-  const [showAddPanel, setShowAddPanel] = useState(false);
+  const tasks = TASK_ROWS;
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [newTask, setNewTask] = useState<{
-    vehicle: string; driver: string; group: string; task: string; taskRef: string;
-    origin: string; destination: string; schedule: string;
-    tripType: "Pre-Task" | "Main Task" | "Return";
-  }>({
-    vehicle: "", driver: "", group: "", task: "", taskRef: "",
-    origin: "", destination: "", schedule: "", tripType: "Main Task",
-  });
-
-  const handleAddTask = () => {
-    if (!newTask.vehicle || !newTask.task || !newTask.origin || !newTask.destination) {
-      return;
-    }
-    success("Tugas ditambahkan", `Tugas ${newTask.task} untuk ${newTask.vehicle} berhasil dibuat.`);
-    setShowAddPanel(false);
-    setNewTask({ vehicle: "", driver: "", group: "", task: "", taskRef: "", origin: "", destination: "", schedule: "", tripType: "Main Task" });
-  };
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<TaskStatus | "all">("all");
-  const [lastRefresh, setLastRefresh] = useState(new Date());
   const [sortKey, setSortKey] = useState<SortKey>("time");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
-  const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+    const requestedTaskId = searchParams.get("task");
+    if (requestedTaskId && tasks.some((task) => task.id === requestedTaskId)) {
+      setSelectedId(requestedTaskId);
+      setFilter("all");
+      setSearch("");
+    }
+  }, [searchParams, tasks]);
 
   /* ── KPI count-up (Geist Mono tabular-nums) ─────────────────────────────── */
   const total = useAnimatedNumber(tasks.length, 900);
@@ -172,11 +197,6 @@ export default function TasksPage() {
     else { setSortKey(key); setSortDir("asc"); }
   }
 
-  function handleRefresh() {
-    setRefreshing(true);
-    setTimeout(() => { setLastRefresh(new Date()); setRefreshing(false); success("Data diperbarui", `${tasks.length} tugas dimuat`); }, 800);
-  }
-
   function handleSelect(id: string) {
     setSelectedId(id);
     const t = tasks.find(t => t.id === id);
@@ -185,14 +205,6 @@ export default function TasksPage() {
 
   function handleDoubleClick(id: string) {
     setSelectedId(id);
-  }
-
-  function handleStartTrip(taskId: string, etape: string) {
-    success("Trip dimulai", `${etape} — ${tasks.find(t => t.id === taskId)?.vehicle ?? ""}`);
-  }
-
-  function handleEndTrip(taskId: string, etape: string) {
-    success("Trip selesai", `${etape} — ${tasks.find(t => t.id === taskId)?.vehicle ?? ""}`);
   }
 
   const progress = selectedTask ? Math.round((selectedTask.traveled / selectedTask.distance) * 100) : 0;
@@ -210,7 +222,7 @@ export default function TasksPage() {
             </div>
             <div>
               <h1 className="text-sm font-semibold text-foreground leading-none">Task Monitor</h1>
-              <p className="text-xs text-muted mt-0.5 tabular-nums">{counts.all} tugas aktif</p>
+              <p className="text-xs text-muted mt-0.5 tabular-nums">{counts.all} tugas</p>
             </div>
           </div>
           {/* KPI pills */}
@@ -218,29 +230,10 @@ export default function TasksPage() {
             <KpiPill label="Total" value={total} mono />
             <KpiPill label="Berlangsung" value={sedang} color="var(--st-driving)" />
             <KpiPill label="Selesai" value={selesai} color="var(--task-completed)" />
-            <KpiPill label="Menunggu" value={menunggu} color="var(--st-stop)" />
+            <KpiPill label="Belum mulai" value={menunggu} color="var(--st-stop)" />
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* Refresh */}
-          <button
-            onClick={handleRefresh}
-            disabled={refreshing}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-surface-2 text-xs font-medium text-foreground hover:bg-surface-3 hover:border-border-strong transition-colors disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-brand"
-          >
-            <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
-            <span className="tabular-nums">{lastRefresh.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}</span>
-          </button>
-          {/* Add task */}
-          <button
-            onClick={() => setShowAddPanel(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-foreground text-background text-xs font-semibold hover:opacity-90 transition-opacity focus-visible:outline-2 focus-visible:outline-brand"
-            aria-label="Tambah tugas baru"
-          >
-            <Play className="h-3.5 w-3.5" /> Tugas Baru
-          </button>
-        </div>
       </header>
 
       {/* ── FILTER BAR ──────────────────────────────────────────────────────── */}
@@ -398,17 +391,13 @@ export default function TasksPage() {
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
                   <MetricCell icon={<Navigation className="h-3.5 w-3.5" />} label="Jarak" value={`${selectedTask?.distance} km`} mono />
                   <MetricCell icon={<Route className="h-3.5 w-3.5" />} label="Tempuh" value={`${selectedTask?.traveled} km`} mono />
-                  <MetricCell icon={<Clock className="h-3.5 w-3.5" />} label="ETA" value={selectedTask?.eta ?? "—"} mono />
+                  <MetricCell icon={<Clock className="h-3.5 w-3.5" />} label="Target tiba" value={selectedTask?.eta ?? "—"} mono />
                   <MetricCell icon={<Truck className="h-3.5 w-3.5" />} label="Kecep. Rata" value={`${selectedTask?.avgSpeed} km/j`} mono />
                 </div>
 
-                {/* Trip timeline (Pre-Trip / Main-Trip / Return) */}
-                <div className="flex items-center gap-2">
-                  <TimelineButton label="Pre-Trip" active={selectedTask?.tripType === "Pre-Task"} onStart={() => handleStartTrip(selectedTask!.id, "Pre-Trip")} onEnd={() => handleEndTrip(selectedTask!.id, "Pre-Trip")} />
-                  <div className="flex-1 h-px bg-border" />
-                  <TimelineButton label="Main-Trip" active={selectedTask?.tripType === "Main Task"} onStart={() => handleStartTrip(selectedTask!.id, "Main-Trip")} onEnd={() => handleEndTrip(selectedTask!.id, "Main-Trip")} />
-                  <div className="flex-1 h-px bg-border" />
-                  <TimelineButton label="Return" active={selectedTask?.tripType === "Return"} onStart={() => handleStartTrip(selectedTask!.id, "Return")} onEnd={() => handleEndTrip(selectedTask!.id, "Return")} />
+                <div className="flex items-center justify-between border-t border-border pt-2 text-xs">
+                  <span className="text-muted">Jenis perjalanan</span>
+                  <span className="font-medium text-foreground">{selectedTask?.tripType}</span>
                 </div>
               </motion.div>
             </>
@@ -424,130 +413,6 @@ export default function TasksPage() {
         </main>
       </div>
 
-      {/* ── Add Task Panel ─────────────────────────────────────────────── */}
-      <Panel
-        open={showAddPanel}
-        onClose={() => setShowAddPanel(false)}
-        title="Tugas Baru"
-        subtitle="Tambah misi pengiriman"
-        width={420}
-        footer={
-          <div className="flex justify-end gap-2">
-            <button
-              onClick={() => setShowAddPanel(false)}
-              className="px-4 py-2 rounded-lg border border-border text-sm text-foreground hover:bg-surface-2 transition-colors focus-visible:outline-2 focus-visible:outline-brand"
-            >
-              Batal
-            </button>
-            <button
-              onClick={handleAddTask}
-              disabled={!newTask.vehicle || !newTask.task}
-              className="px-4 py-2 rounded-lg bg-foreground text-background text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-brand"
-            >
-              Simpan
-            </button>
-          </div>
-        }
-      >
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">Plat Nomor *</label>
-            <input
-              type="text"
-              value={newTask.vehicle}
-              onChange={e => setNewTask(t => ({ ...t, vehicle: e.target.value }))}
-              placeholder="B 1234 KJT"
-              className="w-full px-3 py-2 rounded-lg bg-surface-2 border border-border text-sm text-foreground font-mono placeholder:text-faint focus-visible:outline-2 focus-visible:outline-brand"
-              aria-label="Plat nomor kendaraan"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">Driver</label>
-            <input
-              type="text"
-              value={newTask.driver}
-              onChange={e => setNewTask(t => ({ ...t, driver: e.target.value }))}
-              placeholder="Nama driver"
-              className="w-full px-3 py-2 rounded-lg bg-surface-2 border border-border text-sm text-foreground placeholder:text-faint focus-visible:outline-2 focus-visible:outline-brand"
-              aria-label="Nama driver"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">Group / Pool</label>
-            <input
-              type="text"
-              value={newTask.group}
-              onChange={e => setNewTask(t => ({ ...t, group: e.target.value }))}
-              placeholder="CDDL BEKASI"
-              className="w-full px-3 py-2 rounded-lg bg-surface-2 border border-border text-sm text-foreground placeholder:text-faint focus-visible:outline-2 focus-visible:outline-brand"
-              aria-label="Group atau pool"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">Nama Tugas *</label>
-            <input
-              type="text"
-              value={newTask.task}
-              onChange={e => setNewTask(t => ({ ...t, task: e.target.value }))}
-              placeholder="PLI - DEPOK"
-              className="w-full px-3 py-2 rounded-lg bg-surface-2 border border-border text-sm text-foreground placeholder:text-faint focus-visible:outline-2 focus-visible:outline-brand"
-              aria-label="Nama tugas"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">Trip Type</label>
-            <div className="flex gap-2">
-              {(["Pre-Task", "Main Task", "Return"] as const).map(t => (
-                <button
-                  key={t}
-                  onClick={() => setNewTask(prev => ({ ...prev, tripType: t as "Pre-Task" | "Main Task" | "Return" }))}
-                  aria-pressed={newTask.tripType === t}
-                  className={`flex-1 px-3 py-2 rounded-lg border text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-brand ${
-                    newTask.tripType === t
-                      ? "bg-foreground text-background border-foreground"
-                      : "bg-surface-2 border-border text-muted hover:bg-surface-3"
-                  }`}
-                >
-                  {t}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">Origin *</label>
-            <input
-              type="text"
-              value={newTask.origin}
-              onChange={e => setNewTask(t => ({ ...t, origin: e.target.value }))}
-              placeholder="PLI DMG"
-              className="w-full px-3 py-2 rounded-lg bg-surface-2 border border-border text-sm text-foreground placeholder:text-faint focus-visible:outline-2 focus-visible:outline-brand"
-              aria-label="Lokasi asal"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">Destination *</label>
-            <input
-              type="text"
-              value={newTask.destination}
-              onChange={e => setNewTask(t => ({ ...t, destination: e.target.value }))}
-              placeholder="PTT DPK"
-              className="w-full px-3 py-2 rounded-lg bg-surface-2 border border-border text-sm text-foreground placeholder:text-faint focus-visible:outline-2 focus-visible:outline-brand"
-              aria-label="Lokasi tujuan"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">Jadwal</label>
-            <input
-              type="text"
-              value={newTask.schedule}
-              onChange={e => setNewTask(t => ({ ...t, schedule: e.target.value }))}
-              placeholder="08:00 - 20:00"
-              className="w-full px-3 py-2 rounded-lg bg-surface-2 border border-border text-sm text-foreground font-mono placeholder:text-faint focus-visible:outline-2 focus-visible:outline-brand"
-              aria-label="Jadwal pengiriman"
-            />
-          </div>
-        </div>
-      </Panel>
     </div>
   );
 }
@@ -579,36 +444,6 @@ function MetricCell({ icon, label, value, mono = false }: {
       <div className="min-w-0">
         <p className="text-[9px] font-semibold uppercase tracking-widest text-muted leading-none">{label}</p>
         <p className={`font-mono text-xs font-semibold tabular-nums text-foreground mt-0.5 ${mono ? "" : ""}`}>{value}</p>
-      </div>
-    </div>
-  );
-}
-
-/* ─── Timeline Button ──────────────────────────────────────────────────────── */
-function TimelineButton({ label, active, onStart, onEnd }: {
-  label: string; active: boolean;
-  onStart: () => void; onEnd: () => void;
-}) {
-  return (
-    <div className="flex flex-col items-center gap-1">
-      <span className={`text-[9px] font-semibold uppercase tracking-widest ${active ? "text-brand" : "text-muted"}`}>
-        {label}
-      </span>
-      <div className="flex items-center gap-1">
-        <button
-          onClick={onStart}
-          className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-semibold bg-st-driving-bg text-st-driving hover:opacity-80 transition-opacity focus-visible:outline-2 focus-visible:outline-brand"
-          title={`Mulai ${label}`}
-        >
-          <Play className="h-2.5 w-2.5" /> START
-        </button>
-        <button
-          onClick={onEnd}
-          className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-semibold bg-surface-3 text-muted hover:bg-surface-2 transition-colors focus-visible:outline-2 focus-visible:outline-brand"
-          title={`Akhiri ${label}`}
-        >
-          <Square className="h-2.5 w-2.5" /> END
-        </button>
       </div>
     </div>
   );
