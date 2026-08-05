@@ -10,7 +10,7 @@ import { UserMenuDropdown } from "@/components/ui/UserMenuDropdown";
 import { useNotifications } from "@/hooks/useNotifications";
 import { AppContextProvider, useAppContext } from "@/components/context/AppContext";
 import { useSpeedingMonitor } from "@/hooks/useSpeedingMonitor";
-import { MOCK_VEHICLES } from "@/lib/mock-data";
+import { MOCK_STATS } from "@/lib/mock-data";
 import { MAP_AUTO_COLLAPSE_BREAKPOINT, W_EXPANDED, W_RAIL } from "@/lib/layout-constants";
 
 /* ─── Telemetri Refresh Bus ──────────────────────────────────────────────── */
@@ -39,27 +39,19 @@ function SpeedingMonitor() {
 }
 
 /* ─── Page title map (TRAMOS §2) ─────────────────────────────────────────── */
-const FLEET_STATS = {
-  total: MOCK_VEHICLES.length,
-  driving: MOCK_VEHICLES.filter((vehicle) => vehicle.status === "driving").length,
-  idle: MOCK_VEHICLES.filter((vehicle) => vehicle.status === "idle").length,
-  stopped: MOCK_VEHICLES.filter((vehicle) => vehicle.status === "stopped").length,
-  offline: MOCK_VEHICLES.filter((vehicle) => vehicle.status === "offline").length,
-};
-
 const PAGE_TITLES: Record<string, { title: string; summary: string }> = {
   "/dashboard": {
     title: "Dashboard",
-    summary: `Overview · ${FLEET_STATS.total} units`,
+    summary: `Overview · ${MOCK_STATS.total_vehicles} units`,
   },
   "/tracking": {
     title: "Realtime Monitor",
     summary:
-      `${FLEET_STATS.total} units · ` +
-      `${FLEET_STATS.driving} driving · ` +
-      `${FLEET_STATS.idle} idle · ` +
-      `${FLEET_STATS.stopped} stop · ` +
-      `${FLEET_STATS.offline} offline`,
+      `${MOCK_STATS.total_vehicles} units · ` +
+      `${MOCK_STATS.driving} driving · ` +
+      `${MOCK_STATS.idle} idle · ` +
+      `${MOCK_STATS.stopped} stop · ` +
+      `${MOCK_STATS.offline} offline`,
   },
   "/locate": { title: "Locate Unit", summary: "Search and track" },
   "/geofences": { title: "Geofence", summary: "Virtual zones" },
@@ -180,7 +172,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
       {/* ── Sidebar (state managed here, passed as prop) ─────── */}
       <Sidebar
         collapsed={sidebarCollapsed}
-        fleetTotal={FLEET_STATS.total}
+        fleetTotal={MOCK_STATS.total_vehicles}
         onToggle={handleSidebarToggle}
       />
 
