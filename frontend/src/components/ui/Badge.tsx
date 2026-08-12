@@ -53,11 +53,11 @@ const STATUS_CONFIG: Record<
   VehicleStatus,
   { label: string; icon: ReactNode }
 > = {
-  driving: { label: "Driving", icon: <PlayIcon /> },
-  idle: { label: "Idle", icon: <PauseIcon /> },
-  stop: { label: "Stop", icon: <StopIcon /> },
+  driving: { label: "Berkendara", icon: <PlayIcon /> },
+  idle: { label: "Diam", icon: <PauseIcon /> },
+  stop: { label: "Berhenti", icon: <StopIcon /> },
   offline: { label: "Offline", icon: <OfflineIcon /> },
-  delayed: { label: "Delayed", icon: <DelayedIcon /> },
+  delayed: { label: "Terlambat", icon: <DelayedIcon /> },
 };
 
 const TASK_STATUS_CONFIG: Record<

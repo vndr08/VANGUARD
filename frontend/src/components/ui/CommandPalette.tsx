@@ -23,7 +23,7 @@ type SearchResult = {
 const PAGES: SearchResult[] = [
   { id: "p-dashboard", type: "page", label: "Dashboard", sublabel: "Ringkasan armada", href: "/dashboard" },
   { id: "p-tracking", type: "page", label: "Realtime Monitor", sublabel: "Pantau unit langsung", href: "/tracking" },
-  { id: "p-locate", type: "page", label: "Locate Unit", sublabel: "Cari & lacak unit", href: "/locate" },
+  { id: "p-locate", type: "page", label: "Lacak Unit", sublabel: "Cari dan pantau kendaraan", href: "/locate" },
   { id: "p-geofences", type: "page", label: "Geofence", sublabel: "Zona virtual", href: "/geofences" },
   { id: "p-tasks", type: "page", label: "Task Monitor", sublabel: "Pemantauan shipment", href: "/tasks" },
   { id: "p-vehicles", type: "page", label: "Vehicle", sublabel: "Kelola kendaraan", href: "/vehicles" },
@@ -78,6 +78,15 @@ const TYPE_ICONS: Record<SearchResult["type"], React.ElementType> = {
 interface CommandPaletteProps {
   open: boolean;
   onClose: () => void;
+}
+
+const COMMAND_PALETTE_LISTBOX_ID =
+  "command-palette-results";
+
+function getCommandOptionId(
+  result: SearchResult
+): string {
+  return `command-palette-option-${result.id}`;
 }
 
 export function CommandPalette({ open, onClose }: CommandPaletteProps) {
@@ -164,10 +173,21 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
               onKeyDown={handleKeyDown}
               placeholder="Cari unit, driver, halaman..."
               className="flex-1 bg-transparent text-sm text-foreground placeholder:text-faint outline-none"
-              aria-label="Search"
+              aria-label="Pencarian global"
               role="combobox"
-              aria-expanded="true"
+              aria-expanded={open}
               aria-autocomplete="list"
+              aria-haspopup="listbox"
+              aria-controls={
+                COMMAND_PALETTE_LISTBOX_ID
+              }
+              aria-activedescendant={
+                results[selectedIndex]
+                  ? getCommandOptionId(
+                      results[selectedIndex]
+                    )
+                  : undefined
+              }
             />
             <button
               onClick={onClose}
@@ -179,7 +199,12 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
           </div>
 
           {/* Results */}
-          <div className="max-h-[360px] overflow-y-auto py-2" role="listbox">
+          <div
+            id={COMMAND_PALETTE_LISTBOX_ID}
+            className="max-h-[360px] overflow-y-auto py-2"
+            role="listbox"
+            aria-label="Hasil pencarian"
+          >
             {results.length === 0 && (
               <div className="px-4 py-8 text-center text-sm text-muted">
                 Tidak ada hasil untuk &quot;{query}&quot;
@@ -203,6 +228,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
                       className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-brand ${
                         isSelected ? "bg-brand-soft" : "hover:bg-surface-2"
                       }`}
+                      id={getCommandOptionId(result)}
                       role="option"
                       aria-selected={isSelected}
                     >
@@ -242,6 +268,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
                       className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-brand ${
                         isSelected ? "bg-brand-soft" : "hover:bg-surface-2"
                       }`}
+                      id={getCommandOptionId(result)}
                       role="option"
                       aria-selected={isSelected}
                     >

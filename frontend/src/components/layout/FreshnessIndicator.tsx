@@ -27,6 +27,7 @@ type FreshnessVehicle = Pick<
 interface FreshnessIndicatorProps {
   vehicles: readonly FreshnessVehicle[];
   refreshIntervalMs?: number;
+  suppressSourcePlate?: string | null;
 }
 
 const STATE_STYLES: Record<FreshnessState, string> = {
@@ -103,6 +104,7 @@ function getFreshnessCopy(
 export function FreshnessIndicator({
   vehicles,
   refreshIntervalMs = 10_000,
+  suppressSourcePlate = null,
 }: FreshnessIndicatorProps) {
   const [nowMs, setNowMs] = useState<number | null>(null);
 
@@ -123,15 +125,70 @@ export function FreshnessIndicator({
     };
   }, [refreshIntervalMs]);
 
-  const summary = useMemo(
-    () =>
-      nowMs === null
-        ? null
-        : getFleetFreshness(vehicles, nowMs),
-    [nowMs, vehicles]
-  );
+  const summary = useMemo(() => {
+    if (nowMs === null) {
+      return null;
+    }
 
-  if (!summary) {
+    const fleetSummary =
+      getFleetFreshness(
+        vehicles,
+        nowMs
+      );
+
+    const normalizedSuppressedPlate =
+      suppressSourcePlate
+        ?.toLowerCase()
+        .replace(/\s+/g, "") ??
+      null;
+
+    const normalizedSourcePlate =
+      fleetSummary.source
+        ?.plate_number
+        .toLowerCase()
+        .replace(/\s+/g, "") ??
+      null;
+
+    if (
+      !normalizedSuppressedPlate ||
+      normalizedSourcePlate !==
+        normalizedSuppressedPlate
+    ) {
+      return fleetSummary;
+    }
+
+    const fallbackVehicles =
+      vehicles.filter(
+        (vehicle) =>
+          vehicle.plate_number
+            .toLowerCase()
+            .replace(/\s+/g, "") !==
+          normalizedSuppressedPlate
+      );
+
+    if (
+      fallbackVehicles.length === 0
+    ) {
+      return null;
+    }
+
+    const fallbackSummary =
+      getFleetFreshness(
+        fallbackVehicles,
+        nowMs
+      );
+
+    return fallbackSummary.state ===
+      "fresh"
+      ? null
+      : fallbackSummary;
+  }, [
+    nowMs,
+    suppressSourcePlate,
+    vehicles,
+  ]);
+
+  if (nowMs === null) {
     return (
       <div
         className="inline-flex h-8 items-center gap-2 rounded-md border border-border bg-surface-2 px-2.5 text-sm text-muted"
@@ -147,6 +204,10 @@ export function FreshnessIndicator({
         </span>
       </div>
     );
+  }
+
+  if (!summary) {
+    return null;
   }
 
   const copy = getFreshnessCopy(summary);

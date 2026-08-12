@@ -6,10 +6,8 @@ import {
   Eye,
   EyeOff,
   Route,
-  MapPin,
   CircleDot,
   Hexagon,
-  Maximize2,
 } from "lucide-react";
 import type { LayerVisibility } from "./types";
 
@@ -22,12 +20,10 @@ interface LayerControlPanelProps {
 
 /* ─── Layer metadata ────────────────────────────────────────────────────── */
 const LAYERS: { key: keyof LayerVisibility; label: string; icon: React.ReactNode }[] = [
-  { key: "cluster",       label: "Cluster",         icon: <CircleDot className="h-3.5 w-3.5" /> },
-  { key: "showTrack",     label: "Show Track",      icon: <Maximize2 className="h-3.5 w-3.5" /> },
-  { key: "plannedRoute",  label: "Planned Route",   icon: <Route className="h-3.5 w-3.5" /> },
-  { key: "actualRoute",   label: "Actual Route",    icon: <Route className="h-3.5 w-3.5" style={{ strokeDasharray: "3 2" }} /> },
-  { key: "checkpoint",    label: "Checkpoint",       icon: <MapPin className="h-3.5 w-3.5" /> },
-  { key: "geofence",      label: "Geofence",         icon: <Hexagon className="h-3.5 w-3.5" /> },
+  { key: "cluster", label: "Cluster", icon: <CircleDot className="h-3.5 w-3.5" /> },
+  { key: "plannedRoute", label: "Planned Route", icon: <Route className="h-3.5 w-3.5" /> },
+  { key: "actualRoute", label: "Actual Route", icon: <Route className="h-3.5 w-3.5" style={{ strokeDasharray: "3 2" }} /> },
+  { key: "geofence", label: "Geofence", icon: <Hexagon className="h-3.5 w-3.5" /> },
 ];
 
 /* ─── LayerControlPanel ───────────────────────────────────────────────── */

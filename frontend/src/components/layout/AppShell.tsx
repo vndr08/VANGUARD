@@ -1,7 +1,10 @@
 "use client";
 
 import { Bell, Search } from "lucide-react";
-import { usePathname } from "next/navigation";
+import {
+  usePathname,
+  useSearchParams,
+} from "next/navigation";
 import { useEffect, useState } from "react";
 import Sidebar from "./Sidebar";
 import { FreshnessIndicator } from "./FreshnessIndicator";
@@ -43,18 +46,18 @@ function SpeedingMonitor() {
 const PAGE_TITLES: Record<string, { title: string; summary: string }> = {
   "/dashboard": {
     title: "Dashboard",
-    summary: `Overview · ${MOCK_STATS.total_vehicles} units`,
+    summary: `Overview · ${MOCK_STATS.total_vehicles} unit`,
   },
   "/tracking": {
     title: "Realtime Monitor",
     summary:
-      `${MOCK_STATS.total_vehicles} units · ` +
-      `${MOCK_STATS.driving} driving · ` +
-      `${MOCK_STATS.idle} idle · ` +
-      `${MOCK_STATS.stopped} stop · ` +
+      `${MOCK_STATS.total_vehicles} unit · ` +
+      `${MOCK_STATS.driving} berkendara · ` +
+      `${MOCK_STATS.idle} diam · ` +
+      `${MOCK_STATS.stopped} berhenti · ` +
       `${MOCK_STATS.offline} offline`,
   },
-  "/locate": { title: "Locate Unit", summary: "Search and track" },
+  "/locate": { title: "Lacak Unit", summary: "Cari dan pantau kendaraan" },
   "/geofences": { title: "Geofence", summary: "Virtual zones" },
   "/tasks": { title: "Task Monitor", summary: "Shipment tracking" },
   "/vehicles": { title: "Vehicle", summary: "Fleet management" },
@@ -86,12 +89,13 @@ interface MockUser {
 
 const MOCK_USER: MockUser = {
   name: "Ahmad Wijaya",
-  role: "Fleet Manager",
+  role: "Manajer Armada",
   initials: "AW",
 };
 
 function AppShellInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [sidebarPreference, setSidebarPreference] = useState<boolean | null>(null);
   const [viewportWidth, setViewportWidth] = useState<number | null>(null);
 
@@ -103,7 +107,20 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
     viewportWidth !== null &&
     viewportWidth < MAP_AUTO_COLLAPSE_BREAKPOINT;
   const sidebarCollapsed = sidebarPreference ?? isAutoCollapsed;
-  const pageInfo = PAGE_TITLES[pathname] ?? { title: "VANGUARD", summary: "" };
+  const pageInfo =
+    PAGE_TITLES[pathname] ?? {
+      title: "VANGUARD",
+      summary: "",
+    };
+
+  const selectedTrackingSlug =
+    pathname === "/tracking"
+      ? searchParams
+          .get("vehicle")
+          ?.toLowerCase()
+          .replace(/\s+/g, "") ??
+        null
+      : null;
 
   useEffect(() => {
     const storedPreference = window.sessionStorage.getItem(
@@ -212,7 +229,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
               className="input w-full pl-9 pr-12 h-8 text-sm text-left cursor-text"
               aria-label="Buka pencarian (⌘K)"
             >
-              <span className="text-muted">Search units, drivers, tasks...</span>
+              <span className="text-muted">Cari unit, pengemudi, atau tugas...</span>
             </button>
             <kbd className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none hidden lg:inline-flex">
               <span className="inline-flex items-center gap-0.5 rounded border border-border bg-surface-2 px-1.5 py-0.5 font-mono text-[10px] text-muted tabular-nums">
@@ -223,7 +240,12 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
 
           {/* Kanan: data context + notifikasi + avatar */}
           <div className="flex shrink-0 items-center gap-3">
-            <FreshnessIndicator vehicles={MOCK_VEHICLES} />
+            <FreshnessIndicator
+              vehicles={MOCK_VEHICLES}
+              suppressSourcePlate={
+                selectedTrackingSlug
+              }
+            />
 
             <div className="hidden h-5 w-px bg-border xl:block" />
 

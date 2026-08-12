@@ -224,8 +224,8 @@ export function generateTelemetryUpdate(vehicle: Vehicle): TelemetryUpdate {
   return {
     vehicle_id: vehicle.id,
     plate_number: vehicle.plate_number,
-    latitude: (vehicle.latitude ?? 0) + drift(),
-    longitude: (vehicle.longitude ?? 0) + drift(),
+    latitude: vehicle.latitude ?? 0,
+    longitude: vehicle.longitude ?? 0,
     speed: vehicle.status === "driving" ? Math.max(30, vehicle.speed + (Math.random() - 0.5) * 10) : vehicle.speed,
     heading: (vehicle.heading + (Math.random() - 0.5) * 5 + 360) % 360,
     status: vehicle.status,

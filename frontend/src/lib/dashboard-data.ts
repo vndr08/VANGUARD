@@ -4,6 +4,10 @@ import {
 } from "@/lib/freshness";
 import type { Vehicle } from "@/types";
 
+function toVehicleSlug(plateNumber: string): string {
+  return plateNumber.toLowerCase().replace(/\s+/g, "");
+}
+
 export type DashboardAttentionIssue =
   | "freshness-unknown"
   | "not-transmitting"
@@ -108,7 +112,7 @@ export function selectNeedsAttention(
       return {
         ...row,
         id: `vehicle:${vehicle.id}`,
-        href: `/tracking?focus=${vehicle.id}`,
+        href: `/tracking?vehicle=${toVehicleSlug(vehicle.plate_number)}`,
       };
     })
     .filter((row): row is DashboardAttentionRow => row !== null)

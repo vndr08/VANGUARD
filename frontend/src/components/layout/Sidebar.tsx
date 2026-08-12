@@ -31,20 +31,20 @@ import { W_EXPANDED, W_RAIL } from "@/lib/layout-constants";
 /* ─── Navigation structure (TRAMOS §2 + DESIGN.md §8) ─────────────────────── */
 const NAV_GROUPS = [
   {
-    label: "OVERVIEW",
+    label: "RINGKASAN",
     items: [
       { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
     ],
   },
   {
-    label: "LIVE",
+    label: "REALTIME",
     items: [
       { name: "Realtime Monitor", href: "/tracking", icon: Radio },
-      { name: "Locate", href: "/locate", icon: Crosshair },
+      { name: "Lacak Unit", href: "/locate", icon: Crosshair },
     ],
   },
   {
-    label: "OPERATIONS",
+    label: "OPERASIONAL",
     items: [
       { name: "Task Monitor", href: "/tasks", icon: ClipboardList },
       { name: "Vehicle", href: "/vehicles", icon: Truck },
@@ -53,7 +53,7 @@ const NAV_GROUPS = [
     ],
   },
   {
-    label: "SAFETY",
+    label: "KESELAMATAN",
     items: [
       { name: "Geofence", href: "/geofences", icon: MapPinned },
       { name: "Accident", href: "/accidents", icon: ShieldAlert },
@@ -62,13 +62,13 @@ const NAV_GROUPS = [
     ],
   },
   {
-    label: "REPORTS",
+    label: "LAPORAN",
     items: [
-      { name: "Reports", href: "/reports", icon: BarChart3 },
+      { name: "LAPORAN", href: "/reports", icon: BarChart3 },
     ],
   },
   {
-    label: "ADMINISTRATION",
+    label: "ADMINISTRASI",
     items: [
       { name: "Control Panel", href: "/control", icon: SlidersHorizontal },
       { name: "Settings", href: "/settings", icon: Settings },
@@ -97,7 +97,7 @@ export default function Sidebar({
           (item.href !== "/dashboard" &&
             pathname.startsWith(`${item.href}/`))
       )
-    )?.label ?? "OVERVIEW";
+    )?.label ?? "RINGKASAN";
 
   const [expandedGroup, setExpandedGroup] =
     useState<string>(activeGroupLabel);
@@ -245,9 +245,9 @@ export default function Sidebar({
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="text-[10px] font-semibold uppercase tracking-widest text-muted">
-                      System Status
+                      STATUS SISTEM
                     </span>
-                    <span className="relative flex h-2 w-2 shrink-0" aria-label="Live">
+                    <span className="relative flex h-2 w-2 shrink-0" aria-label="REALTIME">
                       <span
                         className="absolute inline-flex h-full w-full rounded-full animate-live-pulse"
                         style={{ background: "var(--hud)", opacity: 0.75 }}
@@ -259,7 +259,7 @@ export default function Sidebar({
                     </span>
                   </div>
                   <p className="font-mono mt-0.5 text-sm font-semibold tabular-nums text-foreground">
-                    {fleetTotal} units monitored
+                    {fleetTotal} unit dipantau
                   </p>
                 </div>
                 <Wifi className="h-4 w-4 shrink-0 text-st-driving" />
@@ -272,9 +272,9 @@ export default function Sidebar({
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.12 }}
                 className="flex flex-col items-center gap-1 rounded-lg border border-border bg-surface-2 px-2 py-2.5"
-                title={`${fleetTotal} units monitored`}
+                title={`${fleetTotal} unit dipantau`}
               >
-                <span className="relative flex h-2 w-2" aria-label="Live">
+                <span className="relative flex h-2 w-2" aria-label="REALTIME">
                   <span
                     className="absolute inline-flex h-full w-full rounded-full animate-live-pulse"
                     style={{ background: "var(--hud)", opacity: 0.75 }}
@@ -295,14 +295,14 @@ export default function Sidebar({
         <button
           onClick={toggleTheme}
           className="flex w-full items-center gap-3 border-t border-border px-4 py-2.5 text-muted transition-colors hover:bg-surface-2 hover:text-foreground focus-visible:outline-2 focus-visible:outline-brand"
-          aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+          aria-label={theme === "dark" ? "Switch to light mode" : "Switch to Mode Gelap"}
         >
           <div className="flex h-6 w-6 shrink-0 items-center justify-center">
             {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </div>
           {!collapsed && (
             <span className="text-sm font-medium">
-              {theme === "dark" ? "Light Mode" : "Dark Mode"}
+              {theme === "dark" ? "Light Mode" : "Mode Gelap"}
             </span>
           )}
         </button>

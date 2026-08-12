@@ -1,13 +1,12 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useMemo, useState, useCallback } from "react";
-import { useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Map,
   Table as TableIcon,
-  RefreshCw,
   Search,
   Filter,
   Maximize2,
@@ -65,6 +64,10 @@ function timeAgo(iso?: string): string {
   if (diff < 60) return `${diff}m lalu`;
   if (diff < 1440) return `${Math.floor(diff / 60)}j lalu`;
   return `${Math.floor(diff / 1440)}d lalu`;
+}
+
+function toVehicleSlug(plateNumber: string): string {
+  return plateNumber.toLowerCase().replace(/\s+/g, "");
 }
 
 /* ─── Inline status icons (match Badge.tsx) ─────────────────────────────── */
@@ -133,9 +136,18 @@ interface SpeedingInfo {
 
 /* ─── Main Page ──────────────────────────────────────────────────────────── */
 export default function TrackingPage() {
-  const { success, warning, info } = useToast();
+  const { warning } = useToast();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const reducedMotion = useReducedMotion();
+  const fitAllRef = useRef<(() => void) | null>(null);
+
+  const handleFitAllReady = useCallback(
+    (fitAll: (() => void) | null) => {
+      fitAllRef.current = fitAll;
+    },
+    []
+  );
 
   /* ── State ──────────────────────────────────────────────────────────────── */
   const [vehicles, setVehicles] = useState<Vehicle[]>(MOCK_VEHICLES);
@@ -144,14 +156,22 @@ export default function TrackingPage() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<FilterStatus>("all");
   const [viewMode, setViewMode] = useState<"map" | "table">("map");
-  const [lastRefresh, setLastRefresh] = useState(new Date());
 
-  /* Map toolbar state */
-  const [mapLayer, setMapLayer] = useState<"basemap" | "satellite" | "traffic">("basemap");
-  const [refreshing, setRefreshing] = useState(false);
+  /* Map style selected by the operator. */
+  const [mapLayer, setMapLayer] = useState<
+    "basemap" | "satellite" | "traffic"
+  >("basemap");
 
   /** Layer visibility — single source of truth shared between toolbar, panel, and MapView */
-  const { visibility, toggle } = useLayerVisibility(DEFAULT_LAYER_VISIBILITY);
+  const { visibility, toggle } = useLayerVisibility({
+    ...DEFAULT_LAYER_VISIBILITY,
+    cluster: true,
+    showTrack: false,
+    plannedRoute: false,
+    actualRoute: false,
+    checkpoint: false,
+    geofence: false,
+  });
 
   /* Table sort */
   const [sortKey, setSortKey] = useState<SortKey>("plate_number");
@@ -172,17 +192,57 @@ export default function TrackingPage() {
   /* Speeding popup */
   const [speeding, setSpeeding] = useState<SpeedingInfo | null>(null);
 
-  /* ── Focus from query param ─────────────────────────────────────────────── */
+  /* ── Vehicle selection from canonical/legacy URL ───────────────────────── */
   useEffect(() => {
+    const vehicleSlug = searchParams.get("vehicle");
     const focus = searchParams.get("focus");
-    if (focus) {
-      const id = parseInt(focus, 10);
-      if (!isNaN(id)) {
-        setSelectedId(id);
-        setViewMode("map");
+
+    let selectedVehicle: Vehicle | undefined;
+
+    if (vehicleSlug) {
+      const normalizedSlug = vehicleSlug.toLowerCase().replace(/\s+/g, "");
+
+      selectedVehicle = vehicles.find(
+        (vehicle) =>
+          toVehicleSlug(vehicle.plate_number) === normalizedSlug
+      );
+    } else if (focus) {
+      const id = Number.parseInt(focus, 10);
+
+      if (!Number.isNaN(id)) {
+        selectedVehicle = vehicles.find((vehicle) => vehicle.id === id);
       }
     }
-  }, [searchParams]);
+
+    setSelectedId(selectedVehicle?.id ?? null);
+
+    if (selectedVehicle) {
+      setViewMode("map");
+    }
+
+    const canonicalSlug = selectedVehicle
+      ? toVehicleSlug(selectedVehicle.plate_number)
+      : null;
+
+    // Normalisasi legacy focus, kapitalisasi, dan spasi ke satu URL canonical.
+    if (
+      selectedVehicle &&
+      canonicalSlug &&
+      (focus !== null || vehicleSlug !== canonicalSlug)
+    ) {
+      const params = new URLSearchParams(searchParams.toString());
+
+      params.set("vehicle", canonicalSlug);
+      params.delete("focus");
+
+      const query = params.toString();
+
+      router.replace(
+        query ? `/tracking?${query}` : "/tracking",
+        { scroll: false }
+      );
+    }
+  }, [router, searchParams, vehicles]);
 
   /* ── Refresh data ──────────────────────────────────────────────────────── */
   useEffect(() => {
@@ -192,21 +252,89 @@ export default function TrackingPage() {
       .catch(() => {});
   }, []);
 
-  /* ── Speeding detection (mock: first driving unit > 80) ────────────────── */
+  /* ── Speeding detection ────────────────────────────────────────────────── */
+  const speedingInitializedRef =
+    useRef(false);
+
+  const speedingVehicleIdsRef =
+    useRef<Set<number>>(new Set());
+
   useEffect(() => {
-    const fast = vehicles.find((v) => toCanonicalStatus(v.status) === "driving" && v.speed > 80);
-    if (fast) {
-      setSpeeding({
-        plate_number: fast.plate_number,
-        speed: fast.speed,
-        address: "Jl. tol dalam kota, Jakarta",
-      });
-      const t = setTimeout(() => setSpeeding(null), 6000);
-      return () => clearTimeout(t);
-    } else {
-      setSpeeding(null);
+    const currentSpeedingIds =
+      new Set(
+        vehicles
+          .filter(
+            (vehicle) =>
+              toCanonicalStatus(
+                vehicle.status
+              ) === "driving" &&
+              vehicle.speed > 80
+          )
+          .map(
+            (vehicle) =>
+              vehicle.id
+          )
+      );
+
+    // Jangan menampilkan alert mock hanya karena halaman baru dibuka.
+    if (
+      !speedingInitializedRef.current
+    ) {
+      speedingInitializedRef.current =
+        true;
+
+      speedingVehicleIdsRef.current =
+        currentSpeedingIds;
+
+      return;
     }
+
+    const newlySpeeding =
+      vehicles.find(
+        (vehicle) =>
+          currentSpeedingIds.has(
+            vehicle.id
+          ) &&
+          !speedingVehicleIdsRef.current.has(
+            vehicle.id
+          )
+      );
+
+    speedingVehicleIdsRef.current =
+      currentSpeedingIds;
+
+    if (!newlySpeeding) {
+      return;
+    }
+
+    setSpeeding({
+      plate_number:
+        newlySpeeding.plate_number,
+      speed:
+        newlySpeeding.speed,
+      address:
+        "Lokasi kendaraan sedang diperbarui",
+    });
+
   }, [vehicles]);
+
+  useEffect(() => {
+    if (!speeding) {
+      return;
+    }
+
+    const timer =
+      window.setTimeout(
+        () => {
+          setSpeeding(null);
+        },
+        6000
+      );
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [speeding]);
 
   /* ── Filtered + sorted vehicles ────────────────────────────────────────── */
   const filteredVehicles = useMemo(() => {
@@ -265,53 +393,111 @@ export default function TrackingPage() {
   const GROUP_ORDER: FilterStatus[] = ["driving", "idle", "stop", "offline", "delayed"];
 
   /* ── Select handlers ────────────────────────────────────────────────────── */
-  const handleSelect = useCallback((id: number) => {
-    setSelectedId(id);
-    if (viewMode === "table") setViewMode("map");
-  }, [viewMode]);
+  const handleSelect = useCallback((id: number | null) => {
+    const params = new URLSearchParams(searchParams.toString());
 
-  const handleDoubleClick = useCallback((id: number) => {
+    params.delete("focus");
+
+    if (id === null) {
+      params.delete("vehicle");
+    } else {
+      const selectedVehicle = vehicles.find(
+        (vehicle) => vehicle.id === id
+      );
+
+      if (!selectedVehicle) return;
+
+      params.set(
+        "vehicle",
+        toVehicleSlug(selectedVehicle.plate_number)
+      );
+    }
+
     setSelectedId(id);
-  }, []);
+
+    if (id !== null && viewMode === "table") {
+      setViewMode("map");
+    }
+
+    const query = params.toString();
+
+    router.push(
+      query ? `/tracking?${query}` : "/tracking",
+      { scroll: false }
+    );
+  }, [router, searchParams, vehicles, viewMode]);
+
+  useEffect(() => {
+    if (selectedId === null) {
+      return;
+    }
+
+    const selectionStillVisible =
+      filteredVehicles.some(
+        (vehicle) =>
+          vehicle.id === selectedId
+      );
+
+    if (selectionStillVisible) {
+      return;
+    }
+
+    const params =
+      new URLSearchParams(
+        searchParams.toString()
+      );
+
+    params.delete("vehicle");
+    params.delete("focus");
+
+    setSelectedId(null);
+
+    const query =
+      params.toString();
+
+    router.replace(
+      query
+        ? `/tracking?${query}`
+        : "/tracking",
+      {
+        scroll: false,
+      }
+    );
+  }, [
+    filteredVehicles,
+    router,
+    searchParams,
+    selectedId,
+  ]);
 
   /* ── Toolbar handlers ───────────────────────────────────────────────────── */
-  function handleModeToggle(mode: "map" | "table") {
+  function handleModeToggle(
+    mode: "map" | "table"
+  ) {
     setViewMode(mode);
-    info("Mode tampilan", mode === "map" ? "Beralih ke tampilan Peta" : "Beralih ke tampilan Tabel");
   }
 
-  function handleLayerChange(layer: typeof mapLayer) {
+  function handleLayerChange(
+    layer: typeof mapLayer
+  ) {
     setMapLayer(layer);
-    success("Layer aktif", `${layer === "basemap" ? "Peta dasar" : layer === "satellite" ? "Satelit" : "Lalu lintas"}`);
-  }
-
-  function handleRefresh() {
-    setRefreshing(true);
-    setTimeout(() => {
-      setLastRefresh(new Date());
-      setRefreshing(false);
-      success("Data diperbarui", `${vehicles.length} unit dimuat`);
-    }, 800);
-  }
-
-  function handleFind() {
-    if (!search.trim()) {
-      warning("Cari unit", "Ketik plat nomor atau nama driver untuk mencari");
-    }
   }
 
   function handleZoomToFit() {
-    info("Zoom to fit", "Semua unit ditampikan di peta");
+    if (!fitAllRef.current) {
+      warning("Peta belum siap", "Tunggu hingga peta selesai dimuat");
+      return;
+    }
+
+    fitAllRef.current();
   }
 
   function handleClusterToggle() {
     toggle("cluster");
-    success("Cluster", visibility.cluster ? "D Sembunyikan" : "✓ Tampilkan");
   }
 
   function handleZoneToggle() {
     toggle("geofence");
-    success("Zone/Geofence", visibility.geofence ? "D Sembunyikan" : "✓ Tampilkan");
   }
 
   /* ── Sort handler ──────────────────────────────────────────────────────── */
@@ -335,39 +521,21 @@ export default function TrackingPage() {
 
   /* ──────────────────────────────────────────────────────────────────────── */
   return (
-    <div className="flex h-[calc(100vh-4rem)] flex-col overflow-hidden">
+    <div className="flex h-[calc(100vh-4rem)] max-h-[calc(100vh-4rem)] min-h-0 flex-col overflow-hidden">
       {/* ── TOOLBAR ────────────────────────────────────────────────────────── */}
       <header
-        className="flex items-center justify-between gap-4 border-b border-border bg-surface-1 px-4 py-2 shrink-0"
+        className="flex shrink-0 items-center gap-3 border-b border-border bg-surface-1 px-3 py-2"
         role="toolbar"
         aria-label="Kontrol Realtime Monitor"
       >
-        {/* Left: title + counts */}
-        <div className="flex items-center gap-4 min-w-0">
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand text-white">
-              <Map className="h-4 w-4" />
-            </div>
-            <div>
-              <h1 className="text-sm font-semibold text-foreground leading-none">
-                Realtime Monitor
-              </h1>
-              <p className="text-xs text-muted mt-0.5 tabular-nums">
-                {counts.all} unit ·{" "}
-                <span className="text-st-driving">{counts.driving} berkendara</span>
-              </p>
-            </div>
-          </div>
-        </div>
-
         {/* Center: mode toggle */}
-        <div className="flex items-center rounded-lg bg-surface-2 p-0.5 shrink-0">
+        <div className="flex h-9 shrink-0 items-center rounded-md border border-border bg-surface-1 p-0.5">
           <button
             id="tsb-mode-map"
             onClick={() => handleModeToggle("map")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-100 focus-visible:outline-2 focus-visible:outline-brand ${
+            className={`flex h-8 items-center gap-1.5 rounded px-3 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-brand ${
               viewMode === "map"
-                ? "bg-surface-1 text-foreground shadow-sm"
+                ? "bg-brand-soft text-brand"
                 : "text-muted hover:text-foreground"
             }`}
             aria-pressed={viewMode === "map"}
@@ -378,9 +546,9 @@ export default function TrackingPage() {
           <button
             id="tsb-mode-tbl"
             onClick={() => handleModeToggle("table")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-100 focus-visible:outline-2 focus-visible:outline-brand ${
+            className={`flex h-8 items-center gap-1.5 rounded px-3 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-brand ${
               viewMode === "table"
-                ? "bg-surface-1 text-foreground shadow-sm"
+                ? "bg-brand-soft text-brand"
                 : "text-muted hover:text-foreground"
             }`}
             aria-pressed={viewMode === "table"}
@@ -391,156 +559,205 @@ export default function TrackingPage() {
         </div>
 
         {/* Right: all toolbar buttons */}
-        <div className="flex items-center gap-2 flex-wrap justify-end">
-          {/* Map layer switcher */}
-          <div className="flex items-center rounded-lg bg-surface-2 p-0.5 gap-0.5">
-            {(["basemap", "satellite", "traffic"] as const).map((layer) => (
-              <button
-                key={layer}
-                id={`tsb-map-layer-${layer}`}
-                onClick={() => handleLayerChange(layer)}
-                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all duration-100 focus-visible:outline-2 focus-visible:outline-brand ${
-                  mapLayer === layer
-                    ? "bg-surface-1 text-foreground shadow-sm"
-                    : "text-muted hover:text-foreground"
-                }`}
-                aria-pressed={mapLayer === layer}
-              >
-                {layer === "basemap" ? "Peta" : layer === "satellite" ? "Satelit" : "Lalu Lintas"}
-              </button>
-            ))}
-          </div>
+        <div className="ml-auto flex min-w-0 items-center justify-end gap-1.5 overflow-x-auto whitespace-nowrap">
+          {viewMode === "map" && (
+            <div
+              className="
+                flex
+                h-9
+                shrink-0
+                items-center
+                rounded-md
+                border
+                border-border
+                bg-surface-1
+                p-0.5
+              "
+              role="group"
+              aria-label="Jenis peta"
+            >
+              {(
+                [
+                  ["basemap", "Standar"],
+                  ["satellite", "Satelit"],
+                  ["traffic", "Lalu Lintas"],
+                ] as const
+              ).map(([layer, label]) => {
+                const active =
+                  mapLayer === layer;
 
-          {/* Search */}
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted pointer-events-none" />
-            <input
-              id="tsb-find"
-              type="search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleFind()}
-              placeholder="Cari plat / driver..."
-              className="h-8 w-40 pl-8 pr-3 rounded-lg border border-border bg-surface-1 text-xs text-foreground placeholder:text-faint focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand-soft transition-colors"
-            />
-          </div>
-
-          {/* Filter */}
-          <Button
-            id="tsb-filter"
-            variant="secondary"
-            size="sm"
-            onClick={() => {
-              const allFilters: FilterStatus[] = ["all", "driving", "idle", "stop", "offline"];
-              const currentIdx = allFilters.indexOf(filter);
-              const next = allFilters[(currentIdx + 1) % allFilters.length];
-              setFilter(next);
-              info("Filter", `Status: ${STATUS_META[next].label}`);
-            }}
-            icon={<Filter className="h-3.5 w-3.5" />}
-          >
-            {STATUS_META[filter].label}
-          </Button>
-
-          {/* Refresh */}
-          <Button
-            id="tsb-reload"
-            variant="secondary"
-            size="sm"
-            onClick={handleRefresh}
-            disabled={refreshing}
-            icon={
-              <RefreshCw
-                className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`}
-              />
-            }
-            aria-label="Refresh data"
-          >
-            <span className="tabular-nums text-xs">
-              {lastRefresh.toLocaleTimeString("id-ID", {
-                hour: "2-digit",
-                minute: "2-digit",
+                return (
+                  <button
+                    key={layer}
+                    id={`tsb-map-layer-${layer}`}
+                    type="button"
+                    onClick={() =>
+                      handleLayerChange(layer)
+                    }
+                    className={`
+                      h-8
+                      rounded
+                      px-3
+                      text-sm
+                      font-medium
+                      transition-colors
+                      focus-visible:outline
+                      focus-visible:outline-2
+                      focus-visible:outline-brand
+                      ${
+                        active
+                          ? "bg-brand-soft text-brand"
+                          : "text-muted hover:bg-surface-3 hover:text-foreground"
+                      }
+                    `}
+                    aria-pressed={active}
+                  >
+                    {label}
+                  </button>
+                );
               })}
-            </span>
-          </Button>
+            </div>
+          )}
 
-          {/* Zoom to fit */}
-          <Button
-            id="tsb-zoom"
-            variant="ghost"
-            size="icon"
-            onClick={handleZoomToFit}
-            icon={<Maximize2 className="h-3.5 w-3.5" />}
-            aria-label="Zoom to fit semua unit"
-          />
+          {viewMode === "table" && (
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted" />
+              <input
+                id="tsb-find"
+                type="search"
+                value={search}
+                onChange={(event) =>
+                  setSearch(event.target.value)
+                }
+                placeholder="Cari plat atau pengemudi"
+                className="h-9 w-56 rounded-md border border-border bg-surface-1 pl-8 pr-3 text-sm text-foreground placeholder:text-faint transition-colors focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand-soft"
+              />
+            </div>
+          )}
 
-          {/* Cluster toggle */}
-          <Button
-            id="tsb-cluster"
-            variant={visibility.cluster ? "secondary" : "ghost"}
-            size="sm"
-            onClick={handleClusterToggle}
-            icon={<CircleDot className="h-3.5 w-3.5" />}
-            aria-pressed={visibility.cluster}
-          >
-            Cluster
-          </Button>
+          {viewMode === "map" && (
+            <div className="flex h-9 items-center gap-1 border-l border-border pl-1.5">
+              <Button
+                id="tsb-zoom"
+                variant="ghost"
+                size="icon"
+                onClick={handleZoomToFit}
+                icon={<Maximize2 className="h-3.5 w-3.5" />}
+                aria-label="Tampilkan seluruh unit"
+                title="Tampilkan seluruh unit"
+              />
 
-          {/* Zone / geofence toggle */}
-          <Button
-            id="tsb-zone"
-            variant={visibility.geofence ? "secondary" : "ghost"}
-            size="sm"
-            onClick={handleZoneToggle}
-            icon={<Hexagon className="h-3.5 w-3.5" />}
-            aria-pressed={visibility.geofence}
-          >
-            Zone
-          </Button>
+              <Button
+                id="tsb-cluster"
+                variant={visibility.cluster ? "secondary" : "ghost"}
+                size="sm"
+                onClick={handleClusterToggle}
+                icon={<CircleDot className="h-3.5 w-3.5" />}
+                aria-pressed={visibility.cluster}
+                aria-label="Aktifkan atau nonaktifkan cluster kendaraan"
+                title="Cluster digunakan pada overview; kendaraan tampil satu per satu ketika zoom dekat"
+              >
+                Cluster
+              </Button>
+
+              <Button
+                id="tsb-zone"
+                variant={visibility.geofence ? "secondary" : "ghost"}
+                size="sm"
+                onClick={handleZoneToggle}
+                icon={<Hexagon className="h-3.5 w-3.5" />}
+                aria-pressed={visibility.geofence}
+              >
+                Zona
+              </Button>
+            </div>
+          )}
         </div>
       </header>
 
-      {/* ── FILTER BAR ──────────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-2 border-b border-border bg-surface-1 px-4 py-2 shrink-0">
-        <Filter className="h-3.5 w-3.5 text-muted shrink-0" />
-        <span className="text-xs font-semibold uppercase tracking-widest text-muted mr-1">
-          Status:
-        </span>
+      {/* ── STATUS FILTER ───────────────────────────────────────────────────── */}
+      <div
+        id="tracking-status-filter"
+        className="flex h-11 shrink-0 items-stretch gap-1 overflow-x-auto border-b border-border bg-surface-1 px-4"
+        aria-label="Filter status armada"
+      >
+        <div className="mr-2 flex shrink-0 items-center gap-2 text-sm font-medium text-muted">
+          <Filter className="h-3.5 w-3.5" />
+          <span>Status armada</span>
+        </div>
+
         {(Object.keys(STATUS_META) as FilterStatus[]).map((key) => (
           <button
             key={key}
-            onClick={() => {
-              setFilter(key);
-              if (key !== "all") info("Filter status", STATUS_META[key].label);
-            }}
-            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-all duration-100 focus-visible:outline-2 focus-visible:outline-brand ${
+            data-status-filter={key}
+            onClick={() =>
+              setFilter(key)
+            }
+            className={`inline-flex h-full shrink-0 items-center gap-1.5 border-b-2 px-3 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-brand ${
               filter === key
-                ? "bg-foreground text-background"
-                : "bg-surface-2 text-muted hover:bg-surface-3 hover:text-foreground"
+                ? "border-brand text-foreground"
+                : "border-transparent text-muted hover:text-foreground"
             }`}
             aria-pressed={filter === key}
           >
             {key !== "all" && (
-              <span className="w-2.5 h-2.5">{STATUS_META[key].icon}</span>
+              <span
+                className="h-2 w-2 rounded-full"
+                style={{
+                  background:
+                    STATUS_META[key].colorVar,
+                }}
+              />
             )}
-            {STATUS_META[key].label}
-            <span className="tabular-nums opacity-60">({counts[key]})</span>
+
+            <span>{STATUS_META[key].label}</span>
+
+            <span className="text-xs tabular-nums text-faint">
+              {counts[key]}
+            </span>
           </button>
         ))}
       </div>
 
       {/* ── CONTENT ────────────────────────────────────────────────────────── */}
       {viewMode === "map" ? (
-        <div className="grid flex-1 grid-cols-[280px_1fr] overflow-hidden">
+        <div className="grid min-h-0 flex-1 grid-cols-[320px_minmax(0,1fr)] overflow-hidden">
           {/* ── LEFT: Vehicle List ─────────────────────────────────────────── */}
-          <aside className="flex flex-col border-r border-border overflow-hidden bg-surface-1">
-            <div className="border-b border-border px-3 py-2 shrink-0">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted">
-                Unit ({filteredVehicles.length})
-              </p>
+          <aside
+            id="tracking-vehicle-list"
+            className="flex min-h-0 flex-col overflow-hidden border-r border-border bg-surface-1"
+            aria-label="Daftar kendaraan"
+          >
+            <div className="shrink-0 border-b border-border p-3">
+              <div className="mb-2.5 flex items-center justify-between">
+                <p className="text-sm font-semibold text-foreground">
+                  Armada
+                </p>
+
+                <span className="text-sm tabular-nums text-muted">
+                  {filteredVehicles.length} unit
+                </span>
+              </div>
+
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted" />
+                <input
+                  id="tsb-find"
+                  type="search"
+                  value={search}
+                  onChange={(event) =>
+                    setSearch(event.target.value)
+                  }
+                  placeholder="Cari plat atau pengemudi"
+                  className="h-9 w-full rounded-md border border-border bg-surface-1 pl-8 pr-3 text-sm text-foreground placeholder:text-faint transition-colors focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand-soft"
+                />
+              </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto">
+            <div
+              id="tracking-vehicle-scroll"
+              className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain [contain:layout_paint]"
+            >
               {GROUP_ORDER.filter((g) => groupedVehicles[g]?.length).map((groupKey) => {
                 const isCollapsed = collapsedGroups.has(groupKey);
                 return (
@@ -548,7 +765,7 @@ export default function TrackingPage() {
                     {/* Group header — clickable to collapse/expand */}
                     <button
                       onClick={() => toggleGroup(groupKey)}
-                      className="sticky top-0 z-10 w-full flex items-center gap-2 bg-surface-2 border-b border-border px-3 py-1.5 text-left transition-colors hover:bg-surface-3 focus-visible:outline-2 focus-visible:outline-brand"
+                      className="sticky top-0 z-10 flex h-9 w-full items-center gap-2 border-b border-border bg-surface-1 px-4 text-left transition-colors hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-brand"
                       aria-expanded={!isCollapsed}
                       aria-controls={`group-${groupKey}`}
                     >
@@ -560,50 +777,70 @@ export default function TrackingPage() {
                         className="w-1.5 h-1.5 rounded-full shrink-0"
                         style={{ background: STATUS_META[groupKey].colorVar }}
                       />
-                      <span className="text-[10px] font-semibold uppercase tracking-widest text-muted flex-1">
+                      <span className="flex-1 text-sm font-medium text-muted">
                         {STATUS_META[groupKey].label}
                       </span>
-                      <span className="tabular-nums text-[10px] text-muted">
+                      <span className="text-xs tabular-nums text-faint">
                         {groupedVehicles[groupKey].length}
                       </span>
                     </button>
 
                     {/* Vehicles in group — hidden when collapsed */}
                     {!isCollapsed && (
-                      <>
+                      <div id={`group-${groupKey}`}>
                         {groupedVehicles[groupKey].map((v) => {
-                          const isSelected = selectedId === v.id;
+                          const isSelected =
+                            selectedId === v.id;
+                          const canonicalStatus =
+                            toCanonicalStatus(v.status);
                           return (
                             <button
                               key={v.id}
-                              id={`group-${groupKey}`}
                               onClick={() => handleSelect(v.id)}
-                              onDoubleClick={() => handleDoubleClick(v.id)}
-                              className={`w-full border-b border-border px-3 py-2.5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-brand focus-visible:outline-inset ${
+                              className={`group w-full border-b border-border px-4 py-3 text-left transition-colors focus-visible:outline-2 focus-visible:outline-brand focus-visible:outline-inset ${
                                 isSelected
-                                  ? "bg-brand-soft border-l-2 border-l-brand"
-                                  : "hover:bg-surface-2"
+                                  ? "border-l-[3px] border-l-brand bg-brand-soft"
+                                  : "border-l-[3px] border-l-transparent hover:bg-surface-2"
                               }`}
-                              aria-selected={isSelected}
+                              aria-pressed={isSelected}
                             >
                               {/* Plate */}
                               <div className="flex items-center justify-between gap-2">
                                 <p className={`font-mono text-sm font-semibold tabular-nums ${isSelected ? "text-brand" : "text-foreground"}`}>
                                   {v.plate_number}
                                 </p>
-                                <StatusPill
-                                  status={v.status as any}
-                                  showIcon={false}
-                                  showDot={true}
-                                  className="text-[10px]"
-                                />
+                                <span
+                                  className="inline-flex h-5 w-5 shrink-0 items-center justify-center"
+                                  title={
+                                    STATUS_META[
+                                      canonicalStatus
+                                    ].label
+                                  }
+                                >
+                                  <span
+                                    className="h-2 w-2 rounded-full"
+                                    style={{
+                                      background:
+                                        STATUS_META[
+                                          canonicalStatus
+                                        ].colorVar,
+                                    }}
+                                  />
+                                  <span className="sr-only">
+                                    {
+                                      STATUS_META[
+                                        canonicalStatus
+                                      ].label
+                                    }
+                                  </span>
+                                </span>
                               </div>
                               {/* Driver */}
-                              <p className={`mt-0.5 text-xs truncate ${isSelected ? "text-brand/70" : "text-muted"}`}>
+                              <p className="mt-1 truncate text-sm text-muted">
                                 {v.driver_name || "Tanpa driver"}
                               </p>
                               {/* Speed + fuel */}
-                              <div className={`mt-1 flex gap-3 text-[11px] ${isSelected ? "text-brand/60" : "text-faint"}`}>
+                              <div className="mt-1.5 flex gap-4 text-xs text-faint">
                                 <span className="flex items-center gap-1">
                                   <Navigation className="h-3 w-3" />
                                   <span className="tabular-nums">{v.speed} km/j</span>
@@ -616,7 +853,7 @@ export default function TrackingPage() {
                             </button>
                           );
                         })}
-                      </>
+                      </div>
                     )}
                   </div>
                 );
@@ -634,7 +871,7 @@ export default function TrackingPage() {
           </aside>
 
           {/* ── RIGHT: Map ──────────────────────────────────────────────────── */}
-          <main className="relative overflow-hidden">
+          <main className="relative min-h-0 overflow-hidden">
             <TrackingMap
               vehicles={filteredVehicles}
               selectedId={selectedId}
@@ -642,12 +879,13 @@ export default function TrackingPage() {
               visibility={visibility}
               toggleLayer={toggle}
               mapLayer={mapLayer}
+              onFitAllReady={handleFitAllReady}
             />
           </main>
         </div>
       ) : (
         /* ── TABLE VIEW ─────────────────────────────────────────────────── */
-        <div className="flex-1 overflow-auto">
+        <div className="flex-1 overflow-auto bg-surface-2/40 p-3">
           {loading ? (
             <div className="p-4 space-y-3">
               {Array.from({ length: 6 }).map((_, i) => (
@@ -661,7 +899,40 @@ export default function TrackingPage() {
               description="Periksa filter atau kata kunci pencarian Anda."
             />
           ) : (
-            <TableContainer scrollable>
+            <div
+              id="tracking-operational-table"
+              className="
+                min-w-[980px]
+                overflow-hidden
+                rounded-lg
+                border
+                border-border
+                bg-surface-1
+                shadow-none
+                [&_table]:w-full
+                [&_table]:border-collapse
+                [&_thead]:sticky
+                [&_thead]:top-0
+                [&_thead]:z-20
+                [&_thead]:bg-surface-2
+                [&_th]:border-b
+                [&_th]:border-r
+                [&_th]:border-border
+                [&_th]:bg-surface-2
+                [&_th]:px-4
+                [&_th]:py-3
+                [&_td]:border-b
+                [&_td]:border-r
+                [&_td]:border-border
+                [&_td]:px-4
+                [&_td]:py-3
+                [&_th:last-child]:border-r-0
+                [&_td:last-child]:border-r-0
+                [&_tbody_tr]:transition-colors
+                [&_tbody_tr:hover]:bg-surface-2/70
+              "
+            >
+              <TableContainer scrollable>
               <TableHead>
                 <tr>
                   <TableHeadCell
@@ -678,7 +949,7 @@ export default function TrackingPage() {
                     sorted={sortKey === "driver_name" ? sortDir ?? false : false}
                     onClick={() => handleSort("driver_name")}
                   >
-                    Driver
+                    Pengemudi
                   </TableHeadCell>
                   <TableHeadCell>Kendaraan</TableHeadCell>
                   <TableHeadCell
@@ -762,7 +1033,8 @@ export default function TrackingPage() {
                   );
                 })}
               </TableBody>
-            </TableContainer>
+              </TableContainer>
+            </div>
           )}
         </div>
       )}
@@ -780,7 +1052,11 @@ export default function TrackingPage() {
                 ? { duration: 0 }
                 : { type: "spring", stiffness: 400, damping: 30 }
             }
-            className="fixed bottom-6 right-6 z-toast flex items-start gap-3 rounded-xl border border-st-delayed/40 bg-surface-1 px-4 py-3 shadow-elev-3 max-w-xs"
+            className={`fixed bottom-4 z-toast flex max-w-xs items-start gap-3 rounded-lg border border-st-delayed/40 bg-surface-1 px-4 py-3 shadow-elev-2 ${
+              viewMode === "map" && selectedId
+                ? "right-[376px]"
+                : "right-4"
+            }`}
             role="alert"
             aria-live="polite"
           >

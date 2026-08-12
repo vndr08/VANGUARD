@@ -147,6 +147,7 @@ export const livePulse = {
 export function useAnimatedNumber(target: number, duration: number = DURATION.slow): number {
   const { reducedMotion } = useTheme();
   const [value, setValue] = useState(target);
+  const valueRef = useRef(target);
   const rafRef = useRef<number | null>(null);
   const startRef = useRef<number | null>(null);
   const fromRef = useRef(target);
@@ -154,11 +155,12 @@ export function useAnimatedNumber(target: number, duration: number = DURATION.sl
   useEffect(() => {
     // If reduced motion, jump directly to target
     if (reducedMotion) {
+      valueRef.current = target;
       setValue(target);
       return;
     }
 
-    fromRef.current = value;
+    fromRef.current = valueRef.current;
     startRef.current = null;
 
     const animate = (timestamp: number) => {
@@ -173,6 +175,8 @@ export function useAnimatedNumber(target: number, duration: number = DURATION.sl
       const eased = 1 - Math.pow(1 - progress, 3);
 
       const current = Math.round(fromRef.current + (target - fromRef.current) * eased);
+
+      valueRef.current = current;
       setValue(current);
 
       if (progress < 1) {

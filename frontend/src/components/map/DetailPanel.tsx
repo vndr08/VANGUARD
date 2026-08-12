@@ -33,7 +33,7 @@ interface DetailPanelProps {
 /* ─── DetailPanel ──────────────────────────────────────────────────────── */
 export function DetailPanel({ vehicle, visibility, onToggleLayer, onClose, className = "" }: DetailPanelProps) {
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
-    new Set(["identity", "task", "traveled", "estimated", "layers"])
+    new Set(["identity", "task"])
   );
   const [detail, setDetail] = useState<VehicleDetail | null>(null);
 
@@ -42,6 +42,10 @@ export function DetailPanel({ vehicle, visibility, onToggleLayer, onClose, class
       setDetail(null);
       return;
     }
+
+    setExpandedSections(
+      new Set(["identity", "task"])
+    );
 
     // Build detail from mock data (replace with real API)
     const task = MOCK_TASKS[vehicle.id];
@@ -85,8 +89,8 @@ export function DetailPanel({ vehicle, visibility, onToggleLayer, onClose, class
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: 24 }}
           transition={{ type: "spring", stiffness: 320, damping: 30 }}
-          className={`glass absolute top-0 right-0 bottom-0 z-dock flex w-[380px] max-w-full flex-col overflow-hidden border-l border-border shadow-elev-3 ${className}`}
-          style={{ backdropFilter: "blur(12px)" }}
+          id="tracking-detail-panel"
+          className={`absolute bottom-0 right-0 top-0 z-dock flex w-[360px] max-w-full flex-col overflow-hidden border-l border-border bg-surface-1 shadow-elev-2 ${className}`}
         >
           {/* ── Header ──────────────────────────────────────── */}
           <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-3">
@@ -103,13 +107,15 @@ export function DetailPanel({ vehicle, visibility, onToggleLayer, onClose, class
                 className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
                 style={{ background: bgColor, color }}
               >
-                {vehicle.displayStatus}
+                {formatVehicleStatus(
+                  vehicle.displayStatus
+                )}
               </span>
             </div>
             <button
               onClick={onClose}
               className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-foreground focus-visible:outline-2 focus-visible:outline-brand"
-              aria-label="Close detail panel"
+              aria-label="Tutup detail kendaraan"
             >
               <X className="h-4 w-4" />
             </button>
@@ -120,47 +126,57 @@ export function DetailPanel({ vehicle, visibility, onToggleLayer, onClose, class
 
             {/* Identity */}
             <Section
-              title="Identity"
+              title="Identitas"
               icon={<Truck className="h-3.5 w-3.5" />}
               expanded={expandedSections.has("identity")}
               onToggle={() => toggleSection("identity")}
             >
-              <DetailRow label="Vehicle" value={`${vehicle.brand} ${vehicle.model}`} mono={false} />
-              <DetailRow label="Driver" value={vehicle.driver_name ?? "—"} mono={false} />
-              <DetailRow label="State" value={vehicle.displayStatus} color={color} />
-              <DetailRow label="Speed" value={`${vehicle.speed} km/h`} mono />
-              <DetailRow label="Direction" value={`${vehicle.heading.toFixed(0)}°`} mono icon={<Compass className="h-3 w-3" />} />
-              <DetailRow label="Location" value={`${vehicle.latitude?.toFixed(5) ?? "—"}, ${vehicle.longitude?.toFixed(5) ?? "—"}`} mono />
+              <DetailRow label="Kendaraan" value={`${vehicle.brand} ${vehicle.model}`} mono={false} />
+              <DetailRow label="Pengemudi" value={vehicle.driver_name ?? "—"} mono={false} />
+              <DetailRow
+                label="Status"
+                value={formatVehicleStatus(
+                  vehicle.displayStatus
+                )}
+                color={color}
+              />
+              <DetailRow label="Kecepatan" value={`${vehicle.speed} km/j`} mono />
+              <DetailRow label="Arah" value={`${vehicle.heading.toFixed(0)}°`} mono icon={<Compass className="h-3 w-3" />} />
+              <DetailRow label="Koordinat" value={`${vehicle.latitude?.toFixed(5) ?? "—"}, ${vehicle.longitude?.toFixed(5) ?? "—"}`} mono />
             </Section>
 
             {/* Task Info */}
             {detail?.task && (
               <Section
-                title="Task Info"
+                title="Informasi Tugas"
                 icon={<Layers className="h-3.5 w-3.5" />}
                 expanded={expandedSections.has("task")}
                 onToggle={() => toggleSection("task")}
               >
-                <DetailRow label="Ref" value={detail.task.taskRef} mono />
-                <DetailRow label="Task" value={detail.task.taskName} />
-                <DetailRow label="Schedule" value={detail.task.scheduleStart} mono />
+                <DetailRow label="Referensi" value={detail.task.taskRef} mono />
+                <DetailRow label="Tugas" value={detail.task.taskName} />
+                <DetailRow label="Jadwal" value={detail.task.scheduleStart} mono />
                 <div className="border-t border-border mt-2 pt-2">
                   {detail.task.trips.map((trip, i) => (
                     <div key={i} className="mb-2">
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-[10px] font-semibold uppercase tracking-widest text-muted">
-                          {trip.tripType}
+                          {formatTripType(
+                            trip.tripType
+                          )}
                         </span>
                         <span
                           className="rounded-full px-1.5 py-0.5 text-[9px] font-semibold"
                           style={{ background: STATUS_BG[trip.status === "Completed" ? "driving" : "idle"], color: trip.status === "Completed" ? STATUS_COLORS.driving : STATUS_COLORS.idle }}
                         >
-                          {trip.status}
+                          {formatTripStatus(
+                            trip.status
+                          )}
                         </span>
                       </div>
-                      <DetailRow label="Origin" value={trip.origin} mono={false} />
-                      <DetailRow label="Destination" value={trip.destination} mono={false} />
-                      <DetailRow label="Distance" value={`${trip.distance} km`} mono />
+                      <DetailRow label="Asal" value={trip.origin} mono={false} />
+                      <DetailRow label="Tujuan" value={trip.destination} mono={false} />
+                      <DetailRow label="Jarak" value={`${trip.distance} km`} mono />
                     </div>
                   ))}
                 </div>
@@ -169,46 +185,45 @@ export function DetailPanel({ vehicle, visibility, onToggleLayer, onClose, class
 
             {/* Traveled */}
             <Section
-              title="Traveled"
+              title="Perjalanan"
               icon={<Route className="h-3.5 w-3.5" />}
               expanded={expandedSections.has("traveled")}
               onToggle={() => toggleSection("traveled")}
             >
               <div className="grid grid-cols-3 gap-2">
-                <MetricCell label="Distance" value={detail ? (detail.traveled.distance / 1000).toFixed(1) : "—"} unit="km" />
-                <MetricCell label="Duration" value={detail?.traveled.duration ?? "—"} unit="" />
-                <MetricCell label="Avg Speed" value={detail ? String(detail.traveled.avgSpeed) : "—"} unit="km/h" />
+                <MetricCell label="Jarak" value={detail ? (detail.traveled.distance / 1000).toFixed(1) : "—"} unit="km" />
+                <MetricCell label="Durasi" value={detail?.traveled.duration ?? "—"} unit="" />
+                <MetricCell label="Kecepatan Rata-rata" value={detail ? String(detail.traveled.avgSpeed) : "—"} unit="km/j" />
               </div>
             </Section>
 
             {/* Estimated */}
             <Section
-              title="Estimated"
+              title="Estimasi"
               icon={<Clock className="h-3.5 w-3.5" />}
               expanded={expandedSections.has("estimated")}
               onToggle={() => toggleSection("estimated")}
             >
               <div className="grid grid-cols-3 gap-2">
-                <MetricCell label="Distance Left" value={detail ? detail.estimated.distanceLeft.toFixed(1) : "—"} unit="km" />
-                <MetricCell label="Time Left" value={detail?.estimated.timeLeft ?? "—"} unit="" />
-                <MetricCell label="Arrive at" value={detail?.estimated.arriveAt ?? "—"} unit="" />
+                <MetricCell label="Sisa Jarak" value={detail ? detail.estimated.distanceLeft.toFixed(1) : "—"} unit="km" />
+                <MetricCell label="Sisa Waktu" value={detail?.estimated.timeLeft ?? "—"} unit="" />
+                <MetricCell label="Perkiraan Tiba" value={detail?.estimated.arriveAt ?? "—"} unit="" />
               </div>
             </Section>
 
             {/* Layers */}
             <Section
-              title="Layers"
+              title="Lapisan Peta"
               icon={<Layers className="h-3.5 w-3.5" />}
               expanded={expandedSections.has("layers")}
               onToggle={() => toggleSection("layers")}
             >
               <div className="space-y-1.5">
                 {([
-                  ["cluster", "Show Cluster"],
-                  ["plannedRoute", "Planned Route"],
-                  ["actualRoute", "Actual Route"],
-                  ["checkpoint", "Checkpoint"],
-                  ["geofence", "Geofence"],
+                  ["cluster", "Cluster kendaraan"],
+                  ["plannedRoute", "Rute rencana"],
+                  ["actualRoute", "Rute aktual"],
+                  ["geofence", "Zona / geofence"],
                 ] as [keyof LayerVisibility, string][]).map(([key, label]) => (
                   <button
                     key={key}
@@ -235,7 +250,7 @@ export function DetailPanel({ vehicle, visibility, onToggleLayer, onClose, class
             <div className="mx-4 mt-2 rounded-lg border border-border bg-surface-2 px-3 py-2.5">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-widest text-muted mb-0.5">Fuel</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-muted mb-0.5">BBM</p>
                   <div className="flex items-center gap-1.5">
                     <div className="flex-1 h-1.5 rounded-full bg-surface-3 overflow-hidden">
                       <div
@@ -288,7 +303,7 @@ function Section({
         aria-expanded={expanded}
       >
         <span className="text-muted shrink-0">{icon}</span>
-        <span className="flex-1 text-[10px] font-semibold uppercase tracking-widest text-muted">
+        <span className="flex-1 text-xs font-semibold tracking-wide text-muted">
           {title}
         </span>
         {expanded ? (
@@ -344,13 +359,54 @@ function DetailRow({
 function MetricCell({ label, value, unit }: { label: string; value: string; unit: string }) {
   return (
     <div>
-      <p className="text-[10px] uppercase tracking-widest text-muted mb-0.5">{label}</p>
+      <p className="mb-0.5 text-[10px] font-medium text-muted">
+        {label}
+      </p>
       <p className="font-mono text-sm font-semibold tabular-nums text-foreground leading-tight">
         {value}
         {unit && <span className="text-[10px] text-muted ml-0.5">{unit}</span>}
       </p>
     </div>
   );
+}
+
+function formatVehicleStatus(
+  status: string
+): string {
+  const labels: Record<string, string> = {
+    driving: "Berkendara",
+    idle: "Diam",
+    stop: "Berhenti",
+    stopped: "Berhenti",
+    offline: "Offline",
+    delayed: "Terlambat",
+  };
+
+  return labels[status.toLowerCase()] ?? status;
+}
+
+function formatTripType(
+  value: string
+): string {
+  const labels: Record<string, string> = {
+    "Main Task": "Tugas Utama",
+    "Return Task": "Tugas Kembali",
+  };
+
+  return labels[value] ?? value;
+}
+
+function formatTripStatus(
+  value: string
+): string {
+  const labels: Record<string, string> = {
+    Completed: "Selesai",
+    Progress: "Berjalan",
+    "In Progress": "Berjalan",
+    Waiting: "Menunggu",
+  };
+
+  return labels[value] ?? value;
 }
 
 /* ─── Helpers ──────────────────────────────────────────────────────────── */

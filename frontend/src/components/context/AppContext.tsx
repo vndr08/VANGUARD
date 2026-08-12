@@ -51,7 +51,11 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
     setSpeedingAlertEnabled,
     telemetriInterval,
     setTelemetriInterval,
-  }), [speedingAlertEnabled, telemetriInterval]);
+  }), [
+    speedingAlertEnabled,
+    telemetriInterval,
+    setTelemetriInterval,
+  ]);
 
   return (
     <AppContext.Provider value={value}>
