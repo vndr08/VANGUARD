@@ -19,7 +19,6 @@ import {
 } from "lucide-react";
 import { EmptyState } from "@/components/ui/Card";
 import { StatusPill } from "@/components/ui/Badge";
-import { useToast } from "@/components/ui/Toast";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
 import { lerp, lerpAngle } from "@/lib/motion";
 import { GRAPHITE_DARK_RASTER } from "@/components/map/types";
@@ -527,7 +526,6 @@ function EventsTab({ events }: { events: HistoryEvent[] }) {
 
 /* ─── Main Page ────────────────────────────────────────────────────────────── */
 export default function HistoryPage() {
-  const { success, info } = useToast();
   const searchParams = useSearchParams();
   const reducedMotion = useReducedMotion();
 
@@ -607,11 +605,11 @@ export default function HistoryPage() {
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [playing, speed, totalDurationSec]);
 
-  function handlePlayPause() { setPlaying(p => !p); success(playing ? "Dipause" : "Diputar", `Playback ${playing ? "dihentikan" : "dijalankan"} — ${speed}x`); }
-  function handleReset() { setPlaying(false); setProgress(0); info("Reset", "Playback dikembalikan ke awal"); }
-  function handleStepBack() { setPlaying(false); setProgress(p => Math.max(0, p - 10 / totalDurationSec)); info("Step", "Mundur 10%"); }
-  function handleStepForward() { setPlaying(false); setProgress(p => Math.min(1, p + 10 / totalDurationSec)); info("Step", "Maju 10%"); }
-  function handleSpeed(s: 1 | 2 | 4) { setSpeed(s); info("Kecepatan", `${s}x playback aktif`); }
+  function handlePlayPause() { setPlaying(p => !p); }
+  function handleReset() { setPlaying(false); setProgress(0); }
+  function handleStepBack() { setPlaying(false); setProgress(p => Math.max(0, p - 10 / totalDurationSec)); }
+  function handleStepForward() { setPlaying(false); setProgress(p => Math.min(1, p + 10 / totalDurationSec)); }
+  function handleSpeed(s: 1 | 2 | 4) { setSpeed(s); }
   function handleScrub(e: React.ChangeEvent<HTMLInputElement>) { setPlaying(false); setProgress(Number(e.target.value)); }
   function handleExport() {
     if (visibleTrips.length === 0 || tripNotFound) return;
@@ -635,7 +633,6 @@ export default function HistoryPage() {
     setSelectedEventId(null);
     setPlaying(false);
     setProgress(0);
-    info("Perjalanan dipilih", REPLAY_VEHICLES.find((trip) => trip.id === id)?.plate_number ?? "");
   }
 
   const curTelemetry = selectedVehicle.telemetry[Math.floor(progress * (selectedVehicle.telemetry.length - 1))];
@@ -828,7 +825,7 @@ export default function HistoryPage() {
                   role="tab"
                   aria-selected={activeTab === tab}
                   tabIndex={activeTab === tab ? 0 : -1}
-                  onClick={() => { setActiveTab(tab); info("Tab", tab); }}
+                  onClick={() => { setActiveTab(tab); }}
                   onKeyDown={e => handleTabKey(e, i)}
                   className={`shrink-0 px-3 py-2.5 text-[11px] font-semibold whitespace-nowrap border-b-2 transition-colors focus-visible:outline-2 focus-visible:outline-brand ${
                     activeTab === tab ? "border-brand text-foreground" : "border-transparent text-muted hover:text-foreground"

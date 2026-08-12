@@ -7,7 +7,6 @@ import { motion } from "motion/react";
 import {
   Search, Filter, Navigation, MapPin, Truck, Clock, Route, X,
 } from "lucide-react";
-import { useToast } from "@/components/ui/Toast";
 import { TaskStatusBadge } from "@/components/ui/Badge";
 import { Skeleton, EmptyState } from "@/components/ui/Card";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
@@ -126,7 +125,6 @@ const STATUS_META: Record<TaskStatus, { label: string; colorVar: string; dotColo
 type SortKey = "time" | "vehicle" | "status" | "distance";
 
 export default function TasksPage() {
-  const { info } = useToast();
   const searchParams = useSearchParams();
   const reducedMotion = useReducedMotion();
   const tasks = TASK_ROWS;
@@ -193,14 +191,12 @@ export default function TasksPage() {
 
   /* ── Handlers ───────────────────────────────────────────────────────────── */
   function handleSort(key: SortKey) {
-    if (sortKey === key) setSortDir(d => d === "asc" ? "desc" : "desc");
+    if (sortKey === key) setSortDir(d => d === "asc" ? "desc" : "asc");
     else { setSortKey(key); setSortDir("asc"); }
   }
 
   function handleSelect(id: string) {
     setSelectedId(id);
-    const t = tasks.find(t => t.id === id);
-    if (t) info("Tugas dipilih", `${t.vehicle} — ${t.task}`);
   }
 
   function handleDoubleClick(id: string) {
@@ -241,7 +237,7 @@ export default function TasksPage() {
         <Filter className="h-3.5 w-3.5 text-muted shrink-0" />
         <span className="text-[10px] font-semibold uppercase tracking-widest text-muted mr-1">Status:</span>
         <button
-          onClick={() => { setFilter("all"); info("Filter", "Semua status"); }}
+          onClick={() => { setFilter("all"); }}
           className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-all duration-100 focus-visible:outline-2 focus-visible:outline-brand ${
             filter === "all" ? "bg-foreground text-background" : "bg-surface-2 text-muted hover:bg-surface-3 hover:text-foreground"
           }`}
@@ -251,7 +247,7 @@ export default function TasksPage() {
         {STATUS_ORDER.map(s => (
           <button
             key={s}
-            onClick={() => { setFilter(s); info("Filter status", STATUS_META[s].label); }}
+            onClick={() => { setFilter(s); }}
             className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-all duration-100 focus-visible:outline-2 focus-visible:outline-brand ${
               filter === s ? "bg-foreground text-background" : "bg-surface-2 text-muted hover:bg-surface-3 hover:text-foreground"
             }`}
