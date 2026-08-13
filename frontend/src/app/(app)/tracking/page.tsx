@@ -524,152 +524,125 @@ export default function TrackingPage() {
     <div className="flex h-[calc(100vh-4rem)] max-h-[calc(100vh-4rem)] min-h-0 flex-col overflow-hidden">
       {/* ── TOOLBAR ────────────────────────────────────────────────────────── */}
       <header
-        className="flex shrink-0 items-center gap-3 border-b border-border bg-surface-1 px-3 py-2"
+        className="flex shrink-0 items-center justify-between gap-3 border-b border-border bg-surface-1 px-4 py-2.5"
         role="toolbar"
         aria-label="Kontrol Realtime Monitor"
       >
-        {/* Center: mode toggle */}
-        <div className="flex h-9 shrink-0 items-center rounded-md border border-border bg-surface-1 p-0.5">
+        {/* Left: mode toggle */}
+        <div className="flex h-9 shrink-0 items-center gap-1 rounded-lg border border-border bg-surface-2 p-0.5">
           <button
             id="tsb-mode-map"
             onClick={() => handleModeToggle("map")}
-            className={`flex h-8 items-center gap-1.5 rounded px-3 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-brand ${
+            className={`flex h-8 items-center gap-2 rounded-md px-4 text-sm font-medium transition-all duration-200 focus-visible:outline-2 focus-visible:outline-brand ${
               viewMode === "map"
-                ? "bg-brand-soft text-brand"
-                : "text-muted hover:text-foreground"
+                ? "bg-brand text-white shadow-sm"
+                : "text-muted hover:text-foreground hover:bg-surface-3"
             }`}
             aria-pressed={viewMode === "map"}
           >
-            <Map className="h-3.5 w-3.5" />
+            <Map className="h-4 w-4" />
             <span className="hidden sm:inline">Peta</span>
           </button>
           <button
             id="tsb-mode-tbl"
             onClick={() => handleModeToggle("table")}
-            className={`flex h-8 items-center gap-1.5 rounded px-3 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-brand ${
+            className={`flex h-8 items-center gap-2 rounded-md px-4 text-sm font-medium transition-all duration-200 focus-visible:outline-2 focus-visible:outline-brand ${
               viewMode === "table"
-                ? "bg-brand-soft text-brand"
-                : "text-muted hover:text-foreground"
+                ? "bg-brand text-white shadow-sm"
+                : "text-muted hover:text-foreground hover:bg-surface-3"
             }`}
             aria-pressed={viewMode === "table"}
           >
-            <TableIcon className="h-3.5 w-3.5" />
+            <TableIcon className="h-4 w-4" />
             <span className="hidden sm:inline">Tabel</span>
           </button>
         </div>
 
-        {/* Right: all toolbar buttons */}
-        <div className="ml-auto flex min-w-0 items-center justify-end gap-1.5 overflow-x-auto whitespace-nowrap">
+        {/* Center/Right: toolbar buttons */}
+        <div className="flex min-w-0 items-center gap-2">
           {viewMode === "map" && (
-            <div
-              className="
-                flex
-                h-9
-                shrink-0
-                items-center
-                rounded-md
-                border
-                border-border
-                bg-surface-1
-                p-0.5
-              "
-              role="group"
-              aria-label="Jenis peta"
-            >
-              {(
-                [
-                  ["basemap", "Standar"],
-                  ["satellite", "Satelit"],
-                  ["traffic", "Lalu Lintas"],
-                ] as const
-              ).map(([layer, label]) => {
-                const active =
-                  mapLayer === layer;
+            <>
+              <div
+                className="flex h-9 items-center gap-1 rounded-lg border border-border bg-surface-2 p-0.5"
+                role="group"
+                aria-label="Jenis peta"
+              >
+                {(
+                  [
+                    ["basemap", "Standar"],
+                    ["satellite", "Satelit"],
+                    ["traffic", "Lalu Lintas"],
+                  ] as const
+                ).map(([layer, label]) => {
+                  const active = mapLayer === layer;
+                  return (
+                    <button
+                      key={layer}
+                      id={`tsb-map-layer-${layer}`}
+                      type="button"
+                      onClick={() => handleLayerChange(layer)}
+                      className={`
+                        h-8 rounded-md px-3 text-sm font-medium transition-all duration-200 focus-visible:outline-2 focus-visible:outline-brand
+                        ${active
+                          ? "bg-brand text-white shadow-sm"
+                          : "text-muted hover:text-foreground hover:bg-surface-3"
+                        }
+                      `}
+                      aria-pressed={active}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
 
-                return (
-                  <button
-                    key={layer}
-                    id={`tsb-map-layer-${layer}`}
-                    type="button"
-                    onClick={() =>
-                      handleLayerChange(layer)
-                    }
-                    className={`
-                      h-8
-                      rounded
-                      px-3
-                      text-sm
-                      font-medium
-                      transition-colors
-                      focus-visible:outline
-                      focus-visible:outline-2
-                      focus-visible:outline-brand
-                      ${
-                        active
-                          ? "bg-brand-soft text-brand"
-                          : "text-muted hover:bg-surface-3 hover:text-foreground"
-                      }
-                    `}
-                    aria-pressed={active}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-
-          {viewMode === "table" && (
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted" />
-              <input
-                id="tsb-find"
-                type="search"
-                value={search}
-                onChange={(event) =>
-                  setSearch(event.target.value)
-                }
-                placeholder="Cari plat atau pengemudi"
-                className="h-9 w-56 rounded-md border border-border bg-surface-1 pl-8 pr-3 text-sm text-foreground placeholder:text-faint transition-colors focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand-soft"
-              />
-            </div>
-          )}
-
-          {viewMode === "map" && (
-            <div className="flex h-9 items-center gap-1 border-l border-border pl-1.5">
               <Button
                 id="tsb-zoom"
                 variant="ghost"
                 size="icon"
                 onClick={handleZoomToFit}
-                icon={<Maximize2 className="h-3.5 w-3.5" />}
+                icon={<Maximize2 className="h-4 w-4" />}
                 aria-label="Tampilkan seluruh unit"
                 title="Tampilkan seluruh unit"
               />
 
               <Button
                 id="tsb-cluster"
-                variant={visibility.cluster ? "secondary" : "ghost"}
+                variant={visibility.cluster ? "primary" : "ghost"}
                 size="sm"
                 onClick={handleClusterToggle}
-                icon={<CircleDot className="h-3.5 w-3.5" />}
+                icon={<CircleDot className="h-4 w-4" />}
                 aria-pressed={visibility.cluster}
                 aria-label="Aktifkan atau nonaktifkan cluster kendaraan"
                 title="Cluster digunakan pada overview; kendaraan tampil satu per satu ketika zoom dekat"
               >
-                Cluster
+                <span className="hidden md:inline">Cluster</span>
               </Button>
 
               <Button
                 id="tsb-zone"
-                variant={visibility.geofence ? "secondary" : "ghost"}
+                variant={visibility.geofence ? "primary" : "ghost"}
                 size="sm"
                 onClick={handleZoneToggle}
-                icon={<Hexagon className="h-3.5 w-3.5" />}
+                icon={<Hexagon className="h-4 w-4" />}
                 aria-pressed={visibility.geofence}
               >
-                Zona
+                <span className="hidden md:inline">Zona</span>
               </Button>
+            </>
+          )}
+
+          {viewMode === "table" && (
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+              <input
+                id="tsb-find"
+                type="search"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Cari plat atau pengemudi..."
+                className="h-9 w-64 rounded-lg border border-border bg-surface-2 pl-9 pr-4 text-sm text-foreground placeholder:text-faint transition-all duration-200 focus:border-brand focus:bg-surface-1 focus:outline-none focus:ring-2 focus:ring-brand/20"
+              />
             </div>
           )}
         </div>
@@ -678,41 +651,36 @@ export default function TrackingPage() {
       {/* ── STATUS FILTER ───────────────────────────────────────────────────── */}
       <div
         id="tracking-status-filter"
-        className="flex h-11 shrink-0 items-stretch gap-1 overflow-x-auto border-b border-border bg-surface-1 px-4"
+        className="flex h-12 shrink-0 items-center gap-1 overflow-x-auto border-b border-border bg-surface-1 px-4"
         aria-label="Filter status armada"
       >
-        <div className="mr-2 flex shrink-0 items-center gap-2 text-sm font-medium text-muted">
-          <Filter className="h-3.5 w-3.5" />
-          <span>Status armada</span>
-        </div>
+        <span className="mr-3 flex shrink-0 items-center gap-2 text-sm font-semibold text-foreground">
+          <Filter className="h-4 w-4 text-muted" />
+          Filter
+        </span>
 
         {(Object.keys(STATUS_META) as FilterStatus[]).map((key) => (
           <button
             key={key}
             data-status-filter={key}
-            onClick={() =>
-              setFilter(key)
-            }
-            className={`inline-flex h-full shrink-0 items-center gap-1.5 border-b-2 px-3 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-brand ${
+            onClick={() => setFilter(key)}
+            className={`group inline-flex h-8 shrink-0 items-center gap-2 rounded-lg px-3.5 text-sm font-medium transition-all duration-200 focus-visible:outline-2 focus-visible:outline-brand ${
               filter === key
-                ? "border-brand text-foreground"
-                : "border-transparent text-muted hover:text-foreground"
+                ? "bg-brand text-white shadow-sm"
+                : "text-muted hover:bg-surface-2 hover:text-foreground"
             }`}
             aria-pressed={filter === key}
           >
             {key !== "all" && (
               <span
-                className="h-2 w-2 rounded-full"
+                className={`h-2 w-2 rounded-full transition-all ${filter === key ? "bg-white" : "opacity-70 group-hover:opacity-100"}`}
                 style={{
-                  background:
-                    STATUS_META[key].colorVar,
+                  background: filter === key ? "currentColor" : STATUS_META[key].colorVar,
                 }}
               />
             )}
-
             <span>{STATUS_META[key].label}</span>
-
-            <span className="text-xs tabular-nums text-faint">
+            <span className={`text-xs tabular-nums transition-all ${filter === key ? "text-white/70" : "text-faint"}`}>
               {counts[key]}
             </span>
           </button>
@@ -728,28 +696,26 @@ export default function TrackingPage() {
             className="flex min-h-0 flex-col overflow-hidden border-r border-border bg-surface-1"
             aria-label="Daftar kendaraan"
           >
-            <div className="shrink-0 border-b border-border p-3">
-              <div className="mb-2.5 flex items-center justify-between">
-                <p className="text-sm font-semibold text-foreground">
-                  Armada
-                </p>
-
-                <span className="text-sm tabular-nums text-muted">
-                  {filteredVehicles.length} unit
+            <div className="shrink-0 border-b border-border bg-gradient-to-r from-surface-1 to-surface-2 p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <div>
+                  <p className="text-base font-bold text-foreground">Daftar Armada</p>
+                  <p className="text-xs text-muted mt-0.5">{filteredVehicles.length} unit</p>
+                </div>
+                <span className="flex h-7 items-center rounded-full bg-surface-2 px-2.5 text-xs font-medium text-muted">
+                  {Object.keys(groupedVehicles).length} grup
                 </span>
               </div>
 
               <div className="relative">
-                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted" />
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
                 <input
                   id="tsb-find"
                   type="search"
                   value={search}
-                  onChange={(event) =>
-                    setSearch(event.target.value)
-                  }
-                  placeholder="Cari plat atau pengemudi"
-                  className="h-9 w-full rounded-md border border-border bg-surface-1 pl-8 pr-3 text-sm text-foreground placeholder:text-faint transition-colors focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand-soft"
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Cari plat atau driver..."
+                  className="h-10 w-full rounded-lg border border-border bg-surface-1 pl-9 pr-4 text-sm text-foreground placeholder:text-faint transition-all duration-200 focus:border-brand focus:bg-surface-1 focus:outline-none focus:ring-2 focus:ring-brand/20"
                 />
               </div>
             </div>
@@ -762,92 +728,70 @@ export default function TrackingPage() {
                 const isCollapsed = collapsedGroups.has(groupKey);
                 return (
                   <div key={groupKey}>
-                    {/* Group header — clickable to collapse/expand */}
+                    {/* Group header */}
                     <button
                       onClick={() => toggleGroup(groupKey)}
-                      className="sticky top-0 z-10 flex h-9 w-full items-center gap-2 border-b border-border bg-surface-1 px-4 text-left transition-colors hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-brand"
+                      className="sticky top-0 z-10 flex h-11 w-full items-center gap-3 border-b border-border bg-surface-1/95 px-4 text-left backdrop-blur-sm transition-colors hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-brand"
                       aria-expanded={!isCollapsed}
                       aria-controls={`group-${groupKey}`}
                     >
-                      {/* Collapse/expand chevron */}
                       <ChevronRight
-                        className={`h-3.5 w-3.5 text-muted shrink-0 transition-transform ${!isCollapsed ? "rotate-90" : ""}`}
+                        className={`h-4 w-4 text-muted shrink-0 transition-transform duration-200 ${!isCollapsed ? "rotate-90" : ""}`}
                       />
                       <span
-                        className="w-1.5 h-1.5 rounded-full shrink-0"
+                        className="h-2.5 w-2.5 rounded-full shrink-0 shadow-sm"
                         style={{ background: STATUS_META[groupKey].colorVar }}
                       />
-                      <span className="flex-1 text-sm font-medium text-muted">
+                      <span className="flex-1 text-sm font-semibold text-foreground">
                         {STATUS_META[groupKey].label}
                       </span>
-                      <span className="text-xs tabular-nums text-faint">
+                      <span className="rounded-full bg-surface-2 px-2 py-0.5 text-xs font-semibold tabular-nums text-muted">
                         {groupedVehicles[groupKey].length}
                       </span>
                     </button>
 
-                    {/* Vehicles in group — hidden when collapsed */}
+                    {/* Vehicles in group */}
                     {!isCollapsed && (
                       <div id={`group-${groupKey}`}>
                         {groupedVehicles[groupKey].map((v) => {
-                          const isSelected =
-                            selectedId === v.id;
-                          const canonicalStatus =
-                            toCanonicalStatus(v.status);
+                          const isSelected = selectedId === v.id;
+                          const canonicalStatus = toCanonicalStatus(v.status);
                           return (
                             <button
                               key={v.id}
                               onClick={() => handleSelect(v.id)}
-                              className={`group w-full border-b border-border px-4 py-3 text-left transition-colors focus-visible:outline-2 focus-visible:outline-brand focus-visible:outline-inset ${
+                              className={`group w-full border-b border-border/50 px-4 py-3.5 text-left transition-all duration-150 focus-visible:outline-2 focus-visible:outline-brand focus-visible:outline-inset ${
                                 isSelected
-                                  ? "border-l-[3px] border-l-brand bg-brand-soft"
-                                  : "border-l-[3px] border-l-transparent hover:bg-surface-2"
+                                  ? "border-l-[3px] border-l-brand bg-brand/5"
+                                  : "border-l-[3px] border-l-transparent hover:bg-surface-2/50"
                               }`}
                               aria-pressed={isSelected}
                             >
-                              {/* Plate */}
+                              {/* Header row */}
                               <div className="flex items-center justify-between gap-2">
-                                <p className={`font-mono text-sm font-semibold tabular-nums ${isSelected ? "text-brand" : "text-foreground"}`}>
+                                <p className={`font-mono text-base font-bold tabular-nums ${isSelected ? "text-brand" : "text-foreground"}`}>
                                   {v.plate_number}
                                 </p>
                                 <span
-                                  className="inline-flex h-5 w-5 shrink-0 items-center justify-center"
-                                  title={
-                                    STATUS_META[
-                                      canonicalStatus
-                                    ].label
-                                  }
-                                >
-                                  <span
-                                    className="h-2 w-2 rounded-full"
-                                    style={{
-                                      background:
-                                        STATUS_META[
-                                          canonicalStatus
-                                        ].colorVar,
-                                    }}
-                                  />
-                                  <span className="sr-only">
-                                    {
-                                      STATUS_META[
-                                        canonicalStatus
-                                      ].label
-                                    }
-                                  </span>
-                                </span>
+                                  className="h-2 w-2 rounded-full shadow-sm"
+                                  style={{ background: STATUS_META[canonicalStatus].colorVar }}
+                                />
                               </div>
                               {/* Driver */}
-                              <p className="mt-1 truncate text-sm text-muted">
+                              <p className={`mt-1 text-sm ${isSelected ? "text-brand/70" : "text-muted"}`}>
                                 {v.driver_name || "Tanpa driver"}
                               </p>
-                              {/* Speed + fuel */}
-                              <div className="mt-1.5 flex gap-4 text-xs text-faint">
-                                <span className="flex items-center gap-1">
-                                  <Navigation className="h-3 w-3" />
-                                  <span className="tabular-nums">{v.speed} km/j</span>
+                              {/* Stats row */}
+                              <div className="mt-2 flex items-center gap-4 text-xs">
+                                <span className="flex items-center gap-1.5 text-muted">
+                                  <Navigation className="h-3.5 w-3.5" />
+                                  <span className="font-mono tabular-nums font-medium">{v.speed}</span>
+                                  <span>km/j</span>
                                 </span>
-                                <span className="flex items-center gap-1">
-                                  <Fuel className="h-3 w-3" />
-                                  <span className="tabular-nums">{v.fuel_level}%</span>
+                                <span className="flex items-center gap-1.5 text-muted">
+                                  <Fuel className="h-3.5 w-3.5" />
+                                  <span className="font-mono tabular-nums font-medium">{v.fuel_level}</span>
+                                  <span>%</span>
                                 </span>
                               </div>
                             </button>
@@ -861,8 +805,9 @@ export default function TrackingPage() {
             </div>
 
             {filteredVehicles.length === 0 && (
-              <div className="p-6">
+              <div className="flex flex-1 flex-col items-center justify-center p-6">
                 <EmptyState
+                  icon={<Search className="w-10 h-10" />}
                   title="Tidak ada unit"
                   description="Coba ubah filter atau kata kunci pencarian."
                 />
@@ -885,154 +830,137 @@ export default function TrackingPage() {
         </div>
       ) : (
         /* ── TABLE VIEW ─────────────────────────────────────────────────── */
-        <div className="flex-1 overflow-auto bg-surface-2/40 p-3">
+        <div className="flex-1 overflow-auto bg-surface-2/30 p-4">
           {loading ? (
             <div className="p-4 space-y-3">
               {Array.from({ length: 6 }).map((_, i) => (
-                <Skeleton key={i} height={52} rounded="lg" />
+                <Skeleton key={i} height={56} rounded="lg" />
               ))}
             </div>
           ) : sortedVehicles.length === 0 ? (
-            <EmptyState
-              icon={<Search className="w-8 h-8" />}
-              title="Tidak ada unit ditemukan"
-              description="Periksa filter atau kata kunci pencarian Anda."
-            />
+            <div className="flex flex-col items-center justify-center py-16">
+              <EmptyState
+                icon={<Search className="w-12 h-12" />}
+                title="Tidak ada unit ditemukan"
+                description="Periksa filter atau kata kunci pencarian Anda."
+              />
+            </div>
           ) : (
             <div
               id="tracking-operational-table"
-              className="
-                min-w-[980px]
-                overflow-hidden
-                rounded-lg
-                border
-                border-border
-                bg-surface-1
-                shadow-none
-                [&_table]:w-full
-                [&_table]:border-collapse
-                [&_thead]:sticky
-                [&_thead]:top-0
-                [&_thead]:z-20
-                [&_thead]:bg-surface-2
-                [&_th]:border-b
-                [&_th]:border-r
-                [&_th]:border-border
-                [&_th]:bg-surface-2
-                [&_th]:px-4
-                [&_th]:py-3
-                [&_td]:border-b
-                [&_td]:border-r
-                [&_td]:border-border
-                [&_td]:px-4
-                [&_td]:py-3
-                [&_th:last-child]:border-r-0
-                [&_td:last-child]:border-r-0
-                [&_tbody_tr]:transition-colors
-                [&_tbody_tr:hover]:bg-surface-2/70
-              "
+              className="min-w-[1000px] overflow-hidden rounded-xl border border-border bg-surface-1 shadow-sm"
             >
               <TableContainer scrollable>
-              <TableHead>
-                <tr>
-                  <TableHeadCell
-                    id="th-plate"
-                    sortable
-                    sorted={sortKey === "plate_number" ? sortDir ?? false : false}
-                    onClick={() => handleSort("plate_number")}
-                  >
-                    Plat
-                  </TableHeadCell>
-                  <TableHeadCell
-                    id="th-driver"
-                    sortable
-                    sorted={sortKey === "driver_name" ? sortDir ?? false : false}
-                    onClick={() => handleSort("driver_name")}
-                  >
-                    Pengemudi
-                  </TableHeadCell>
-                  <TableHeadCell>Kendaraan</TableHeadCell>
-                  <TableHeadCell
-                    className="text-right"
-                    sortable
-                    sorted={sortKey === "speed" ? sortDir ?? false : false}
-                    onClick={() => handleSort("speed")}
-                  >
-                    Kecepatan
-                  </TableHeadCell>
-                  <TableHeadCell>BBM</TableHeadCell>
-                  <TableHeadCell
-                    sortable
-                    sorted={sortKey === "status" ? sortDir ?? false : false}
-                    onClick={() => handleSort("status")}
-                  >
-                    Status
-                  </TableHeadCell>
-                  <TableHeadCell
-                    sortable
-                    sorted={sortKey === "last_update" ? sortDir ?? false : false}
-                    onClick={() => handleSort("last_update")}
-                  >
-                    Update Terakhir
-                  </TableHeadCell>
-                </tr>
-              </TableHead>
-              <TableBody>
-                {sortedVehicles.map((v) => {
-                  const isSelected = selectedId === v.id;
-                  return (
-                    <TableRow
-                      key={v.id}
-                      selectable
-                      selected={isSelected}
-                      onClick={() => handleSelect(v.id)}
+                <TableHead>
+                  <tr className="bg-gradient-to-r from-surface-2 to-surface-1">
+                    <TableHeadCell
+                      id="th-plate"
+                      sortable
+                      sorted={sortKey === "plate_number" ? sortDir ?? false : false}
+                      onClick={() => handleSort("plate_number")}
+                      className="font-semibold"
                     >
-                      <TableCell>
-                        <span className="font-mono text-sm font-semibold tabular-nums">
-                          {v.plate_number}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-muted">
-                        {v.driver_name || "—"}
-                      </TableCell>
-                      <TableCell className="text-muted">
-                        {v.brand} {v.model}
-                      </TableCell>
-                      <TableCell numeric>
-                        <span className="font-mono text-sm tabular-nums">
-                          {v.speed} <span className="text-muted">km/j</span>
-                        </span>
-                      </TableCell>
-                      <TableCell numeric>
-                        <div className="flex items-center justify-end gap-1.5">
-                          <div className="w-10 h-1.5 rounded-full bg-surface-3 overflow-hidden">
-                            <div
-                              className="h-full rounded-full"
-                              style={{
-                                width: `${v.fuel_level}%`,
-                                background: v.fuel_level < 25
-                                  ? "var(--st-offline)"
-                                  : "var(--st-driving)",
-                              }}
-                            />
-                          </div>
-                          <span className="font-mono text-xs tabular-nums text-muted w-8 text-right">
-                            {v.fuel_level}%
+                      Plat Nomor
+                    </TableHeadCell>
+                    <TableHeadCell
+                      id="th-driver"
+                      sortable
+                      sorted={sortKey === "driver_name" ? sortDir ?? false : false}
+                      onClick={() => handleSort("driver_name")}
+                      className="font-semibold"
+                    >
+                      Pengemudi
+                    </TableHeadCell>
+                    <TableHeadCell className="font-semibold">Kendaraan</TableHeadCell>
+                    <TableHeadCell
+                      className="text-right font-semibold"
+                      sortable
+                      sorted={sortKey === "speed" ? sortDir ?? false : false}
+                      onClick={() => handleSort("speed")}
+                    >
+                      Kecepatan
+                    </TableHeadCell>
+                    <TableHeadCell className="text-right font-semibold">BBM</TableHeadCell>
+                    <TableHeadCell
+                      sortable
+                      sorted={sortKey === "status" ? sortDir ?? false : false}
+                      onClick={() => handleSort("status")}
+                      className="font-semibold"
+                    >
+                      Status
+                    </TableHeadCell>
+                    <TableHeadCell
+                      sortable
+                      sorted={sortKey === "last_update" ? sortDir ?? false : false}
+                      onClick={() => handleSort("last_update")}
+                      className="font-semibold"
+                    >
+                      Update Terakhir
+                    </TableHeadCell>
+                  </tr>
+                </TableHead>
+                <TableBody>
+                  {sortedVehicles.map((v) => {
+                    const isSelected = selectedId === v.id;
+                    return (
+                      <TableRow
+                        key={v.id}
+                        selectable
+                        selected={isSelected}
+                        onClick={() => handleSelect(v.id)}
+                      >
+                        <TableCell>
+                          <span className="font-mono text-base font-bold tabular-nums">
+                            {v.plate_number}
                           </span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <StatusPill status={v.status as any} />
-                      </TableCell>
-                      <TableCell>
-                        <span className="font-mono text-xs tabular-nums text-muted">
-                          {timeAgo(v.last_update)}
-                        </span>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-sm font-medium">
+                            {v.driver_name || "—"}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-sm">
+                            {v.brand} {v.model}
+                          </span>
+                        </TableCell>
+                        <TableCell numeric>
+                          <span className="font-mono text-base tabular-nums font-semibold">
+                            {v.speed} <span className="text-muted font-normal">km/j</span>
+                          </span>
+                        </TableCell>
+                        <TableCell numeric>
+                          <div className="flex items-center justify-end gap-2">
+                            <div className="w-12 h-2 rounded-full bg-surface-3 overflow-hidden">
+                              <div
+                                className="h-full rounded-full transition-all duration-300"
+                                style={{
+                                  width: `${v.fuel_level}%`,
+                                  background: v.fuel_level < 25
+                                    ? "var(--st-offline)"
+                                    : v.fuel_level < 50
+                                    ? "var(--st-idle)"
+                                    : "var(--st-driving)",
+                                }}
+                              />
+                            </div>
+                            <span className="font-mono text-sm tabular-nums font-medium text-foreground w-10 text-right">
+                              {v.fuel_level}%
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <StatusPill status={v.status as any} />
+                        </TableCell>
+                        <TableCell>
+                          <span className="font-mono text-sm tabular-nums text-muted">
+                            {timeAgo(v.last_update)}
+                          </span>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
               </TableContainer>
             </div>
           )}
