@@ -82,7 +82,7 @@ type Section = typeof NAV_SECTIONS[number]["id"];
 export default function SettingsPage() {
   const [activeSection, setActiveSection] = useState<Section>("profil");
   const { theme, toggleTheme } = useTheme();
-  const { success, error, info, warning } = useToast();
+  const { success, error } = useToast();
   const reducedMotion = useReducedMotion();
   const { setSpeedingAlertEnabled, setTelemetriInterval } = useAppContext();
 
@@ -116,19 +116,16 @@ export default function SettingsPage() {
   ]);
 
   /* ─── Handlers ────────────────────────────────────── */
-  const handleSimpanProfil = () => success("Profil disimpan", "Perubahan profil berhasil disimpan.");
-  const handleSimpanArmada = () => success("Pengaturan armada disimpan");
-  const handleNotifToggle = (key: string, label: string, val: boolean) => {
+  const handleSimpanProfil = () => success("Profil disimpan", "Perubahan berhasil disimpan.");
+  const handleSimpanArmada = () => success("Pengaturan disimpan");
+  const handleNotifToggle = (key: string, val: boolean) => {
     if (key === "speeding") setSpeedingAlertEnabled(val);
-    info(label, val ? "diaktifkan" : "dinonaktifkan");
   };
   const handleIntegrasiToggle = (id: string, current: "connected"|"disconnected") => {
     if (current === "connected") {
       setIntegrations(prev => prev.map(i => i.id === id ? { ...i, status: "disconnected" as const } : i));
-      warning("Terputus", "Koneksi ke server putus.");
     } else {
       setIntegrations(prev => prev.map(i => i.id === id ? { ...i, status: "connected" as const } : i));
-      success("Terhubung", "Berhasil tersambung ke server.");
     }
   };
   const handleSimpanPassword = () => {
@@ -139,7 +136,7 @@ export default function SettingsPage() {
     setPasswords({ current: "", baru: "", konfirmasi: "" });
   };
   const handleAkhiriSesi = (id: string) => {
-    success("Sesi diakhiri", "Sesi tersebut berhasil di-logout.");
+    // Session management in development
   };
 
   /* ─── Nav icon map ────────────────────────────────── */
@@ -353,19 +350,19 @@ export default function SettingsPage() {
               >
                 <div className="px-4">
                   <SettingRow label="Speeding Alert" description="Peringatan ketika kendaraan melebihi batas kecepatan">
-                    <Toggle checked={notif.speeding} onChange={v => { setNotif(n => ({ ...n, speeding: v })); handleNotifToggle("speeding", "Speeding Alert", v); }} />
+                    <Toggle checked={notif.speeding} onChange={v => { setNotif(n => ({ ...n, speeding: v })); handleNotifToggle("speeding", v); }} />
                   </SettingRow>
                   <SettingRow label="Geofence In/Out" description="Notifikasi saat kendaraan masuk atau keluar zona">
-                    <Toggle checked={notif.geofence} onChange={v => { setNotif(n => ({ ...n, geofence: v })); handleNotifToggle("Geofence", "Geofence In/Out", v); }} />
+                    <Toggle checked={notif.geofence} onChange={v => { setNotif(n => ({ ...n, geofence: v })); handleNotifToggle("geofence", v); }} />
                   </SettingRow>
                   <SettingRow label="Engine Cut-off" description="Peringatan pemotongan mesin">
-                    <Toggle checked={notif.engineCut} onChange={v => { setNotif(n => ({ ...n, engineCut: v })); handleNotifToggle("Engine Cut-off", "Engine Cut-off", v); }} />
+                    <Toggle checked={notif.engineCut} onChange={v => { setNotif(n => ({ ...n, engineCut: v })); handleNotifToggle("engineCut", v); }} />
                   </SettingRow>
                   <SettingRow label="Insiden" description="Notifikasi kejadian atau kecelakaan">
-                    <Toggle checked={notif.insiden} onChange={v => { setNotif(n => ({ ...n, insiden: v })); handleNotifToggle("Insiden", "Insiden", v); }} />
+                    <Toggle checked={notif.insiden} onChange={v => { setNotif(n => ({ ...n, insiden: v })); handleNotifToggle("insiden", v); }} />
                   </SettingRow>
                   <SettingRow label="Laporan Harian (Email)" description="Kirim ringkasan harian ke email">
-                    <Toggle checked={notif.laporanHarian} onChange={v => { setNotif(n => ({ ...n, laporanHarian: v })); handleNotifToggle("Laporan Harian", "Laporan Harian", v); }} />
+                    <Toggle checked={notif.laporanHarian} onChange={v => { setNotif(n => ({ ...n, laporanHarian: v })); handleNotifToggle("laporanHarian", v); }} />
                   </SettingRow>
                 </div>
               </SettingSection>
@@ -543,7 +540,7 @@ export default function SettingsPage() {
                     label="Aktifkan 2FA"
                     description="Menambah lapisan keamanan dengan kode verifikasi"
                   >
-                    <Toggle checked={twoFA} onChange={v => { setTwoFA(v); info("2FA", v ? "diaktifkan" : "dinonaktifkan"); }} />
+                    <Toggle checked={twoFA} onChange={v => setTwoFA(v)} />
                   </SettingRow>
                 </div>
               </SettingSection>

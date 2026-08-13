@@ -197,7 +197,7 @@ function CameraFeed({
 /* ─── Main Page ─────────────────────────────────────────────────────────────── */
 
 export default function DashcamPage() {
-  const { success, info } = useToast();
+  const { success } = useToast();
 
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<"all" | Vehicle["status"]>("all");
@@ -231,19 +231,14 @@ export default function DashcamPage() {
 
   function handleSelectUnit(idx: number) {
     setSelectedIdx(idx);
-    info("Unit dipilih", rows[idx]?.vehicle.plate_number);
   }
 
   function handleSnapshotAll() {
-    if (!selectedUnit) return;
-    const active = (Object.entries(selectedUnit.cameras) as [CameraPos, boolean][])
-      .filter(([, a]) => a).map(([pos]) => pos);
-    success("Snapshot semua kamera", `${selectedUnit.vehicle.plate_number}: ${active.join(", ")}`);
+    // Snapshot all functionality in development
   }
 
   function handleSnapshotFeed(camera: CameraPos) {
-    if (!selectedUnit) return;
-    success("Snapshot diambil", `${selectedUnit.vehicle.plate_number} — Kamera ${camera}`);
+    // Snapshot functionality in development
   }
 
   function handleToggleRec(camera: CameraPos) {
@@ -251,23 +246,14 @@ export default function DashcamPage() {
     const key = String(selectedUnit.vehicle.id);
     const isOn = !!recording[key + camera];
     setRecording((prev) => ({ ...prev, [key + camera]: !isOn }));
-    if (isOn) {
-      info("Rekaman dihentikan", `${selectedUnit.vehicle.plate_number} — Kamera ${camera}`);
-    } else {
-      success("Rekaman dimulai", `${selectedUnit.vehicle.plate_number} — Kamera ${camera}`);
-    }
   }
 
   function handleFullscreen(camera: CameraPos) {
     setFullscreenFeed(camera === fullscreenFeed ? null : camera);
-    info("Fullscreen", camera === fullscreenFeed ? "Mode normal" : `Kamera ${camera}`);
   }
 
   function handleSwapFeed(camera: CameraPos) {
-    // In focus mode, clicking a thumbnail swaps it to main
-    if (viewMode === "focus") {
-      info("Swap feed", `${camera} dijadikan feed utama`);
-    }
+    // Swap functionality in focus mode
   }
 
   function resetFilters() {

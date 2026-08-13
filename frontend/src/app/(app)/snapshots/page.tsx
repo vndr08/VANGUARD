@@ -374,7 +374,7 @@ function Lightbox({
 /* ─── Main Page ─────────────────────────────────────────────────────────────── */
 
 export default function SnapshotsPage() {
-  const { success, error, info } = useToast();
+  const { success, error } = useToast();
   const reducedMotion = useReducedMotion();
 
   const [snapshots, setSnapshots] = useState<Snapshot[]>(INITIAL_SNAPSHOTS);
@@ -444,7 +444,6 @@ export default function SnapshotsPage() {
       setSnapshots((prev) =>
         prev.map((s) => s.id === newSnapshot.id ? { ...s, status: "Tersedia" as SnapshotStatus } : s)
       );
-      info("Snapshot siap", `${vehicleMap.get(vehicleId)?.plate_number ?? ""} — Kamera ${data.camera}`);
     }, 2500);
   }
 
@@ -456,8 +455,7 @@ export default function SnapshotsPage() {
   }
 
   function handleDownload(s: Snapshot) {
-    const v = vehicleMap.get(s.vehicleId);
-    info("Mengunduh snapshot", `${v?.plate_number ?? ""} — ${s.event}`);
+    // Download functionality in development
   }
 
   function handleLightboxDownload() {

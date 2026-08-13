@@ -350,7 +350,7 @@ function FormField({ label, required, children }: { label: string; required?: bo
 /* ─── Main Page ─────────────────────────────────────────────────────────────── */
 
 export default function ReportsPage() {
-  const { success, error, info } = useToast();
+  const { success, error } = useToast();
   const reducedMotion = useReducedMotion();
 
   const [search, setSearch] = useState("");
@@ -414,7 +414,6 @@ export default function ReportsPage() {
       createdAt: new Date().toISOString(),
     };
     setHistory((prev) => [newReport, ...prev]);
-    success("Laporan sedang diproses", reportType.name + " dalam antrean.");
     closeDrawer();
 
     // Mock: complete after 3 seconds
@@ -422,7 +421,6 @@ export default function ReportsPage() {
       setHistory((prev) =>
         prev.map((h) => h.id === newReport.id ? { ...h, status: "done" as GenerateStatus } : h)
       );
-      info("Laporan siap diunduh", reportType.name);
     }, 3000);
   }
 
@@ -433,7 +431,7 @@ export default function ReportsPage() {
   }
 
   function handleDownload(report: GeneratedReport) {
-    info("Mengunduh laporan", `${report.typeName} (${FORMAT_LABELS[report.format]})`);
+    // Download functionality in development
   }
 
   function toggleFavorite(id: string) {
@@ -445,7 +443,7 @@ export default function ReportsPage() {
   }
 
   function handleExport() {
-    success("Export Semua", `Mengunduh arsip ${history.length} laporan...`);
+    // Export functionality in development
   }
 
   function resetFilters() {

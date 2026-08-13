@@ -315,7 +315,7 @@ const GeofenceMapPreview = dynamic(() => import("@/components/map/MapView").then
 /* ─── Main Page ─────────────────────────────────────────────────────────────── */
 
 export default function GeofencesPage() {
-  const { success, error, info } = useToast();
+  const { success, error } = useToast();
   const reducedMotion = useReducedMotion();
 
   const [zones, setZones] = useState<Geofence[]>(INITIAL_ZONES);
@@ -407,11 +407,10 @@ export default function GeofencesPage() {
   function handleToggle(z: Geofence) {
     const newStatus: ZoneStatus = z.status === "active" ? "inactive" : "active";
     setZones((prev) => prev.map((x) => x.id === z.id ? { ...x, status: newStatus } : x));
-    info(newStatus === "active" ? "Zona diaktifkan" : "Zona dinonaktifkan", z.name);
   }
 
   function handleExport() {
-    success("Export CSV", "Mengunduh data " + zones.length + " zona...");
+    // Export functionality in development
   }
 
   function resetFilters() {

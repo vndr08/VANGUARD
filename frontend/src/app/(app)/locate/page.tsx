@@ -97,7 +97,7 @@ function formatLastUpdate(iso: string): string {
 /* ─── Main Page ─────────────────────────────────────────────────────────────── */
 
 export default function LocatePage() {
-  const { success, info } = useToast();
+  const { success } = useToast();
 
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
@@ -131,43 +131,34 @@ export default function LocatePage() {
 
   function handleSelect(v: Vehicle) {
     setSelected(v);
-    info("Unit dipilih", v.plate_number);
   }
 
   function handleFitAll() {
     mapCommands?.fitAll();
-    success("Pusatkan ke semua unit", "Zoom diatur ulang");
   }
 
   const router = useRouter();
 
   function handleRealtime() {
     if (!selected) return;
-    info("Buka Lacak Realtime", `Navigasi ke monitor ${selected.plate_number}`);
-    router.push(`/tracking?focus=${selected.id}`);
+    router.push(`/tracking?vehicle=${selected.plate_number.toLowerCase().replace(/\s+/g, "")}`);
   }
 
   function handleHistory() {
-    if (!selected) return;
-    info("Buka Riwayat", `Navigasi ke riwayat ${selected.plate_number}`);
+    // Riwayat dapat diakses dari tracking
   }
 
   function handleMessage() {
-    if (!selected) return;
-    if (!selected.driver_name) {
-      info("Driver tidak ditugaskan", `${selected.plate_number} belum punya driver`);
-      return;
-    }
-    info("Kirim Pesan", `Mengirim pesan ke ${selected.driver_name}`);
+    // Fitur pesan dalam pengembangan
   }
 
   function handleCopyCoords() {
     if (!selected?.latitude || !selected?.longitude) return;
     const coord = `${selected.latitude.toFixed(6)}, ${selected.longitude.toFixed(6)}`;
     navigator.clipboard.writeText(coord).then(() => {
-      success("Koordinat disalin", coord);
+      success("Koordinat disalin ke clipboard");
     }).catch(() => {
-      info("Gagal menyalin", coord);
+      // Clipboard access denied
     });
   }
 

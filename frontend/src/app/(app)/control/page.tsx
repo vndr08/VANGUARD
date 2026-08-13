@@ -237,7 +237,7 @@ function CommandCard({
 /* ─── Main Page ─────────────────────────────────────────────────────────────── */
 
 export default function ControlPage() {
-  const { success, error, info, warning } = useToast();
+  const { success, error } = useToast();
 
   // Target vehicles
   const [search, setSearch] = useState("");
@@ -304,8 +304,6 @@ export default function ControlPage() {
       timestamp: new Date().toISOString(),
     }));
     setCommandLog((prev) => [...entries, ...prev].slice(0, 50));
-
-    success("Perintah dikirim", `${command} ke ${vehicleIds.length} unit`);
     setConfirmKey(null);
 
     // Mock: resolve after 2-4s
@@ -317,11 +315,6 @@ export default function ControlPage() {
           ? { ...l, status: resolvedStatus }
           : l)
       );
-      if (resolvedStatus === "success") {
-        info("Perintah berhasil", `${command} dieksekusi`);
-      } else {
-        warning("Perintah gagal", `${command} — coba lagi`);
-      }
     }, delay);
   }
 

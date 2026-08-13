@@ -673,10 +673,9 @@ export default function AccidentsPage() {
       setIncidents((prev) =>
         prev.map((i) => (i.id === selectedIncident.id ? { ...i, status: newStatus } : i))
       );
-      toast.info(`Status diubah menjadi ${newStatus}`);
       setSelectedIncident((prev) => (prev ? { ...prev, status: newStatus } : null));
     }
-  }, [selectedIncident, toast]);
+  }, [selectedIncident]);
 
   const handleReset = useCallback(() => {
     setSearchQuery("");
