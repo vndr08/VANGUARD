@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { STATUS_COLORS, STATUS_BG } from "./types";
 import type { MapVehicle, TaskInfo, VehicleDetail, LayerVisibility } from "./types";
-import { MOCK_TASKS } from "@/lib/mock-data";
+import { FLEET_TASKS } from "@/lib/fleet-data";
 
 /* ─── Props ──────────────────────────────────────────────────────────────── */
 interface DetailPanelProps {
@@ -48,7 +48,7 @@ export function DetailPanel({ vehicle, visibility, onToggleLayer, onClose, class
     );
 
     // Build detail from mock data (replace with real API)
-    const task = MOCK_TASKS[vehicle.id];
+    const task = FLEET_TASKS[vehicle.id];
     const status = vehicle.displayStatus;
 
     setDetail({

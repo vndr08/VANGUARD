@@ -8,7 +8,7 @@ import {
   Radio, ChevronRight, Command, X, ArrowRight,
 } from "lucide-react";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
-import { MOCK_VEHICLES } from "@/lib/mock-data";
+import { FLEET_VEHICLES } from "@/lib/fleet-data";
 import { StatusPill } from "@/components/ui/Badge";
 
 type SearchResult = {
@@ -44,7 +44,7 @@ function buildResults(query: string): SearchResult[] {
   // Vehicles
   if (!q || "unit".includes(q) || "kendaraan".includes(q) || "plat".includes(q)) {
     const q2 = q.replace("unit", "").replace("kendaraan", "").replace("plat", "").trim();
-    MOCK_VEHICLES.slice(0, 8).forEach(v => {
+    FLEET_VEHICLES.slice(0, 8).forEach(v => {
       if (!q2 || v.plate_number.toLowerCase().includes(q2) || (v.driver_name ?? "").toLowerCase().includes(q2)) {
         results.push({
           id: `v-${v.id}`,
@@ -220,7 +220,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
                   const globalIdx = results.indexOf(result);
                   const Icon = TYPE_ICONS[result.type];
                   const isSelected = globalIdx === selectedIndex;
-                  const v = MOCK_VEHICLES.find(mv => mv.id === result.vehicleId);
+                  const v = FLEET_VEHICLES.find(mv => mv.id === result.vehicleId);
                   return (
                     <button
                       key={result.id}

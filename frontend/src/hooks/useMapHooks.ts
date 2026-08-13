@@ -218,7 +218,7 @@ export function useVehicleDetail(
   if (!vehicle) return null;
 
   // TODO: replace with real API call
-  const task = vehicleId ? import("@/lib/mock-data").then(m => m.MOCK_TASKS[vehicleId]) : null;
+  const task = vehicleId ? import("@/lib/fleet-data").then(m => m.FLEET_TASKS[vehicleId]) : null;
 
   const traveled = {
     distance: vehicle.odometer / 1000,

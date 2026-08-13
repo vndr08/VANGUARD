@@ -16,7 +16,7 @@ import { Button, IconButton } from "@/components/ui/Button";
 import { Panel, PanelSection, PanelDivider } from "@/components/ui/Panel";
 import { Card, Skeleton, EmptyState } from "@/components/ui/Card";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
-import { MOCK_VEHICLES } from "@/lib/mock-data";
+import { FLEET_VEHICLES } from "@/lib/fleet-data";
 
 /* ─── Types ─────────────────────────────────────────────────────────────────── */
 
@@ -195,7 +195,7 @@ function SnapshotForm({
                 autoFocus
               >
                 <option value="">— Pilih kendaraan —</option>
-                {MOCK_VEHICLES.map((v) => (
+                {FLEET_VEHICLES.map((v) => (
                   <option key={v.id} value={String(v.id)}>
                     {v.plate_number} — {v.brand} {v.model}
                   </option>
@@ -387,8 +387,8 @@ export default function SnapshotsPage() {
 
   // Vehicle lookup map
   const vehicleMap = useMemo(() => {
-    const m = new Map<number, typeof MOCK_VEHICLES[0]>();
-    MOCK_VEHICLES.forEach((v) => m.set(v.id, v));
+    const m = new Map<number, typeof FLEET_VEHICLES[0]>();
+    FLEET_VEHICLES.forEach((v) => m.set(v.id, v));
     return m;
   }, []);
 
@@ -553,7 +553,7 @@ export default function SnapshotsPage() {
             aria-label="Filter unit"
           >
             <option value="all">Semua Unit</option>
-            {MOCK_VEHICLES.slice(0, 15).map((v) => (
+            {FLEET_VEHICLES.slice(0, 15).map((v) => (
               <option key={v.id} value={String(v.id)}>{v.plate_number}</option>
             ))}
           </select>

@@ -1,7 +1,7 @@
 /**
  * VANGUARD API — WebSocket + REST structure
  *
- * Current: Mock data (lib/mock-data.ts)
+ * Data: lib/fleet-data.ts
  * Target: Real WebSocket telemetry + REST endpoints
  *
  * WebSocket endpoint: wss://api.vanguard.local/ws/telemetry
@@ -27,26 +27,26 @@ async function fetchApi<T>(endpoint: string): Promise<T | null> {
 export const API = {
   vehicles: {
     list: async (): Promise<import("@/types").Vehicle[]> => {
-      // TODO: GET /v1/vehicles → replace mock
-      const { MOCK_VEHICLES } = await import("@/lib/mock-data");
-      return MOCK_VEHICLES;
+      // TODO: GET /v1/vehicles → replace with API call
+      const { FLEET_VEHICLES } = await import("@/lib/fleet-data");
+      return FLEET_VEHICLES;
     },
     get: async (id: number): Promise<import("@/types").Vehicle | null> => {
-      // TODO: GET /v1/vehicles/:id → replace mock
-      const { MOCK_VEHICLES } = await import("@/lib/mock-data");
-      return MOCK_VEHICLES.find((v) => v.id === id) ?? null;
+      // TODO: GET /v1/vehicles/:id → replace with API call
+      const { FLEET_VEHICLES } = await import("@/lib/fleet-data");
+      return FLEET_VEHICLES.find((v) => v.id === id) ?? null;
     },
   },
   tasks: {
     list: async (): Promise<TaskInfo[]> => {
-      // TODO: GET /v1/tasks → replace mock
-      const { MOCK_TASKS } = await import("@/lib/mock-data");
-      return Object.values(MOCK_TASKS);
+      // TODO: GET /v1/tasks → replace with API call
+      const { FLEET_TASKS } = await import("@/lib/fleet-data");
+      return Object.values(FLEET_TASKS);
     },
     get: async (vehicleId: number): Promise<TaskInfo | null> => {
-      // TODO: GET /v1/tasks?vehicle_id=:id → replace mock
-      const { MOCK_TASKS } = await import("@/lib/mock-data");
-      return MOCK_TASKS[vehicleId] ?? null;
+      // TODO: GET /v1/tasks?vehicle_id=:id → replace with API call
+      const { FLEET_TASKS } = await import("@/lib/fleet-data");
+      return FLEET_TASKS[vehicleId] ?? null;
     },
   },
   alerts: {

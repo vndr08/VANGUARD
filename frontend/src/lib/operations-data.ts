@@ -1,4 +1,4 @@
-import { MOCK_VEHICLES } from "@/lib/mock-data";
+import { FLEET_VEHICLES } from "@/lib/fleet-data";
 
 export type OperationalTaskStatus =
   | "waiting"
@@ -185,7 +185,7 @@ export function assertOperationsIntegrity(dataset: OperationsDataset): void {
   assertUniqueIds(dataset.events, "Event");
   assertUniqueIds([...dataset.tasks, ...dataset.trips, ...dataset.events], "Entity");
 
-  const vehicleIds = new Set(MOCK_VEHICLES.map((vehicle) => vehicle.id));
+  const vehicleIds = new Set(FLEET_VEHICLES.map((vehicle) => vehicle.id));
   const taskById = new Map(dataset.tasks.map((task) => [task.id, task]));
   const tripById = new Map(dataset.trips.map((trip) => [trip.id, trip]));
 

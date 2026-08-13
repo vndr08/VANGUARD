@@ -15,7 +15,7 @@ import {
   Truck,
   X,
 } from "lucide-react";
-import { MOCK_VEHICLES, toMapVehicle } from "@/lib/mock-data";
+import { FLEET_VEHICLES, toMapVehicle } from "@/lib/fleet-data";
 import type { Vehicle } from "@/types";
 import { useToast } from "@/components/ui/Toast";
 import { StatusPill } from "@/components/ui/Badge";
@@ -101,22 +101,22 @@ export default function LocatePage() {
 
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
-  const [selected, setSelected] = useState<Vehicle | null>(MOCK_VEHICLES[0]);
+  const [selected, setSelected] = useState<Vehicle | null>(FLEET_VEHICLES[0]);
   // Store map imperative commands (fitAll) — populated via onMapReady callback
   const [mapCommands, setMapCommands] = useState<{ fitAll: () => void } | null>(null);
 
   // KPI counts
   const counts = useMemo(() => ({
-    total: MOCK_VEHICLES.length,
-    online: MOCK_VEHICLES.filter((v) => v.status !== "offline").length,
-    moving: MOCK_VEHICLES.filter((v) => v.status === "driving").length,
-    offline: MOCK_VEHICLES.filter((v) => v.status === "offline").length,
+    total: FLEET_VEHICLES.length,
+    online: FLEET_VEHICLES.filter((v) => v.status !== "offline").length,
+    moving: FLEET_VEHICLES.filter((v) => v.status === "driving").length,
+    offline: FLEET_VEHICLES.filter((v) => v.status === "offline").length,
   }), []);
 
   // Filtered list
   const rows = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return MOCK_VEHICLES.filter((v) => {
+    return FLEET_VEHICLES.filter((v) => {
       if (q && !v.plate_number.toLowerCase().includes(q)
         && !(v.driver_name ?? "").toLowerCase().includes(q)
         && !v.brand.toLowerCase().includes(q)
@@ -127,7 +127,7 @@ export default function LocatePage() {
   }, [search, filterStatus]);
 
   // Map vehicles
-  const mapVehicles = useMemo(() => MOCK_VEHICLES.map(toMapVehicle), []);
+  const mapVehicles = useMemo(() => FLEET_VEHICLES.map(toMapVehicle), []);
 
   function handleSelect(v: Vehicle) {
     setSelected(v);

@@ -20,7 +20,7 @@ import {
   SortDesc,
   ChevronRight,
 } from "lucide-react";
-import { MOCK_VEHICLES, toMapVehicle } from "@/lib/mock-data";
+import { FLEET_VEHICLES, toMapVehicle } from "@/lib/fleet-data";
 import type { Vehicle } from "@/types";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
 import { useToast } from "@/components/ui/Toast";
@@ -150,7 +150,7 @@ export default function TrackingPage() {
   );
 
   /* ── State ──────────────────────────────────────────────────────────────── */
-  const [vehicles, setVehicles] = useState<Vehicle[]>(MOCK_VEHICLES);
+  const [vehicles, setVehicles] = useState<Vehicle[]>(FLEET_VEHICLES);
   const [loading, setLoading] = useState(false);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [search, setSearch] = useState("");

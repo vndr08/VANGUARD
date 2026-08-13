@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAppContext } from "@/components/context/AppContext";
 import { useToast } from "@/components/ui/Toast";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
-import { MOCK_VEHICLES } from "@/lib/mock-data";
+import { FLEET_VEHICLES } from "@/lib/fleet-data";
 
 function randomBetween(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -33,7 +33,7 @@ export function useSpeedingMonitor() {
   const intervalRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fire = useCallback(() => {
-    const driving = MOCK_VEHICLES.filter(v => v.status === "driving");
+    const driving = FLEET_VEHICLES.filter(v => v.status === "driving");
     if (driving.length === 0) return;
 
     const vehicle = driving[randomBetween(0, driving.length - 1)];

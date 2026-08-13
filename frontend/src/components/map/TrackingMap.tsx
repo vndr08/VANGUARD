@@ -5,7 +5,7 @@ import MapView, { type MapViewRef } from "./MapView";
 import { LayerControlPanel } from "./LayerControlPanel";
 import { DetailPanel } from "./DetailPanel";
 import type { Vehicle } from "@/types";
-import { toMapVehicle } from "@/lib/mock-data";
+import { toMapVehicle } from "@/lib/fleet-data";
 import type { LayerVisibility } from "./types";
 
 /* ─── TrackingMap ─────────────────────────────────────────────────────── */

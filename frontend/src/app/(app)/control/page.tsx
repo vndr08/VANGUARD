@@ -31,7 +31,7 @@ import { StatusPill } from "@/components/ui/Badge";
 import { Button, IconButton } from "@/components/ui/Button";
 import { Card, EmptyState } from "@/components/ui/Card";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
-import { MOCK_VEHICLES } from "@/lib/mock-data";
+import { FLEET_VEHICLES } from "@/lib/fleet-data";
 import type { Vehicle } from "@/types";
 
 /* ─── Types ─────────────────────────────────────────────────────────────────── */
@@ -259,7 +259,7 @@ export default function ControlPage() {
 
   // KPI counts
   const counts = useMemo(() => ({
-    unitOnline: MOCK_VEHICLES.filter((v) => v.status !== "offline").length,
+    unitOnline: FLEET_VEHICLES.filter((v) => v.status !== "offline").length,
     sent: commandLog.filter((l) => l.status === "sent" || l.status === "pending").length,
     waiting: commandLog.filter((l) => l.status === "pending").length,
     failed: commandLog.filter((l) => l.status === "failed").length,
@@ -267,15 +267,15 @@ export default function ControlPage() {
 
   // Vehicle lookup
   const vehicleMap = useMemo(() => {
-    const m = new Map<number, typeof MOCK_VEHICLES[0]>();
-    MOCK_VEHICLES.forEach((v) => m.set(v.id, v));
+    const m = new Map<number, typeof FLEET_VEHICLES[0]>();
+    FLEET_VEHICLES.forEach((v) => m.set(v.id, v));
     return m;
   }, []);
 
   // Filtered vehicles
   const rows = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return MOCK_VEHICLES.filter((v) => {
+    return FLEET_VEHICLES.filter((v) => {
       if (q && !v.plate_number.toLowerCase().includes(q) && !(v.driver_name ?? "").toLowerCase().includes(q)) return false;
       if (filterStatus !== "all" && v.status !== filterStatus) return false;
       return true;

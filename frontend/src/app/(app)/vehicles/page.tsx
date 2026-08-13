@@ -11,7 +11,7 @@ import {
   Truck,
   X,
 } from "lucide-react";
-import { MOCK_VEHICLES } from "@/lib/mock-data";
+import { FLEET_VEHICLES } from "@/lib/fleet-data";
 import type { Vehicle } from "@/types";
 import { useToast } from "@/components/ui/Toast";
 import { StatusPill } from "@/components/ui/Badge";
@@ -325,7 +325,7 @@ export default function VehiclesPage() {
   const reducedMotion = useReducedMotion();
 
   // Vehicle list state
-  const [vehicles, setVehicles] = useState<Vehicle[]>(MOCK_VEHICLES);
+  const [vehicles, setVehicles] = useState<Vehicle[]>(FLEET_VEHICLES);
 
   // UI state
   const [search, setSearch] = useState("");

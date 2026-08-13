@@ -18,7 +18,7 @@ import { StatusPill } from "@/components/ui/Badge";
 import { Button, IconButton } from "@/components/ui/Button";
 import { Card, EmptyState } from "@/components/ui/Card";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
-import { MOCK_VEHICLES } from "@/lib/mock-data";
+import { FLEET_VEHICLES } from "@/lib/fleet-data";
 import type { Vehicle } from "@/types";
 
 /* ─── Types ─────────────────────────────────────────────────────────────────── */
@@ -38,9 +38,9 @@ function toBadgeStatus(s: Vehicle["status"]): "driving" | "idle" | "stop" | "off
   return s === "stopped" ? "stop" : (s as "driving" | "idle" | "offline");
 }
 
-/* ─── Build camera units from MOCK_VEHICLES ──────────────────────────────────── */
+/* ─── Build camera units from FLEET_VEHICLES ──────────────────────────────────── */
 
-const CAMERA_UNIT_LIST: CameraUnit[] = MOCK_VEHICLES.slice(0, 15).map((v) => ({
+const CAMERA_UNIT_LIST: CameraUnit[] = FLEET_VEHICLES.slice(0, 15).map((v) => ({
   vehicle: v,
   cameras: {
     Depan: true,

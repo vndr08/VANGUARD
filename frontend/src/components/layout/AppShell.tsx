@@ -14,7 +14,7 @@ import { UserMenuDropdown } from "@/components/ui/UserMenuDropdown";
 import { useNotifications } from "@/hooks/useNotifications";
 import { AppContextProvider, useAppContext } from "@/components/context/AppContext";
 import { useSpeedingMonitor } from "@/hooks/useSpeedingMonitor";
-import { MOCK_STATS, MOCK_VEHICLES } from "@/lib/mock-data";
+import { FLEET_STATS, FLEET_VEHICLES } from "@/lib/fleet-data";
 import { MAP_AUTO_COLLAPSE_BREAKPOINT, W_EXPANDED, W_RAIL } from "@/lib/layout-constants";
 
 /* ─── Telemetri Refresh Bus ──────────────────────────────────────────────── */
@@ -46,16 +46,16 @@ function SpeedingMonitor() {
 const PAGE_TITLES: Record<string, { title: string; summary: string }> = {
   "/dashboard": {
     title: "Dashboard",
-    summary: `Overview · ${MOCK_STATS.total_vehicles} unit`,
+    summary: `Overview · ${FLEET_STATS.total_vehicles} unit`,
   },
   "/tracking": {
     title: "Realtime Monitor",
     summary:
-      `${MOCK_STATS.total_vehicles} unit · ` +
-      `${MOCK_STATS.driving} berkendara · ` +
-      `${MOCK_STATS.idle} diam · ` +
-      `${MOCK_STATS.stopped} berhenti · ` +
-      `${MOCK_STATS.offline} offline`,
+      `${FLEET_STATS.total_vehicles} unit · ` +
+      `${FLEET_STATS.driving} berkendara · ` +
+      `${FLEET_STATS.idle} diam · ` +
+      `${FLEET_STATS.stopped} berhenti · ` +
+      `${FLEET_STATS.offline} offline`,
   },
   "/locate": { title: "Lacak Unit", summary: "Cari dan pantau kendaraan" },
   "/geofences": { title: "Geofence", summary: "Virtual zones" },
@@ -87,7 +87,7 @@ interface MockUser {
   initials: string;
 }
 
-const MOCK_USER: MockUser = {
+const CURRENT_USER: MockUser = {
   name: "Ahmad Wijaya",
   role: "Manajer Armada",
   initials: "AW",
@@ -192,7 +192,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
       {/* ── Sidebar (state managed here, passed as prop) ─────── */}
       <Sidebar
         collapsed={sidebarCollapsed}
-        fleetTotal={MOCK_STATS.total_vehicles}
+        fleetTotal={FLEET_STATS.total_vehicles}
         onToggle={handleSidebarToggle}
       />
 
@@ -241,7 +241,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
           {/* Kanan: data context + notifikasi + avatar */}
           <div className="flex shrink-0 items-center gap-3">
             <FreshnessIndicator
-              vehicles={MOCK_VEHICLES}
+              vehicles={FLEET_VEHICLES}
               suppressSourcePlate={
                 selectedTrackingSlug
               }
@@ -295,18 +295,18 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
                 aria-haspopup="dialog"
               >
                 <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand text-white text-xs font-bold shrink-0">
-                  {MOCK_USER.initials}
+                  {CURRENT_USER.initials}
                 </div>
                 <div className="hidden lg:flex flex-col items-start">
-                  <span className="text-sm font-medium text-foreground leading-tight">{MOCK_USER.name}</span>
-                  <span className="text-[10px] text-muted leading-tight">{MOCK_USER.role}</span>
+                  <span className="text-sm font-medium text-foreground leading-tight">{CURRENT_USER.name}</span>
+                  <span className="text-[10px] text-muted leading-tight">{CURRENT_USER.role}</span>
                 </div>
               </button>
               {userMenuOpen && (
                 <UserMenuDropdown
-                  userName={MOCK_USER.name}
-                  userRole={MOCK_USER.role}
-                  userInitials={MOCK_USER.initials}
+                  userName={CURRENT_USER.name}
+                  userRole={CURRENT_USER.role}
+                  userInitials={CURRENT_USER.initials}
                   onClose={() => setUserMenuOpen(false)}
                 />
               )}

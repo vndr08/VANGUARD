@@ -35,7 +35,9 @@ import {
   TableCell,
 } from "@/components/ui";
 import { Card, EmptyState } from "@/components/ui";
-import { MOCK_VEHICLES } from "@/lib/mock-data";
+import { FLEET_VEHICLES } from "@/lib/fleet-data";
+import type { Vehicle } from "@/types";
+
 interface Incident {
   id: number;
   vehicleId: number;
@@ -50,7 +52,7 @@ interface Incident {
   estimatedLoss: number;
 }
 
-const MOCK_INCIDENTS: Incident[] = [
+const INCIDENTS: Incident[] = [
   {
     id: 1,
     vehicleId: 1,
@@ -306,7 +308,7 @@ function KpiDivider() {
 // Incident Form Component
 interface IncidentFormProps {
   incident?: Incident | null;
-  vehicleMap: Map<number, typeof MOCK_VEHICLES[0]>;
+  vehicleMap: Map<number, typeof FLEET_VEHICLES[0]>;
   onSave: (data: Omit<Incident, "id">) => void;
   onDelete?: () => void;
   onStatusChange?: (status: Incident["status"]) => void;
@@ -368,7 +370,7 @@ function IncidentForm({ incident, vehicleMap, onSave, onDelete, onStatusChange, 
           aria-label="Pilih Unit Kendaraan"
         >
           <option value={0}>-- Pilih Unit --</option>
-          {MOCK_VEHICLES.map((v) => (
+          {FLEET_VEHICLES.map((v: Vehicle) => (
             <option key={v.id} value={v.id}>
               {v.plate_number} - {v.driver_name ?? "Tanpa driver"}
             </option>
@@ -587,7 +589,7 @@ function StatusTimeline({ currentStatus, createdAt, useReducedMotion }: StatusTi
 
 // Main Page Component
 export default function AccidentsPage() {
-  const [incidents, setIncidents] = useState<Incident[]>(MOCK_INCIDENTS);
+  const [incidents, setIncidents] = useState<Incident[]>(INCIDENTS);
   const [searchQuery, setSearchQuery] = useState("");
   const [severityFilter, setSeverityFilter] = useState<Incident["severity"] | "Semua">("Semua");
   const [statusFilter, setStatusFilter] = useState<Incident["status"] | "Semua">("Semua");
@@ -597,8 +599,8 @@ export default function AccidentsPage() {
   const toast = useToast();
   const reducedMotion = useReducedMotion();
 
-  const vehicleMap = useMemo(() => {
-    return new Map(MOCK_VEHICLES.map((v) => [v.id, v]));
+  const vehicleMap = useMemo((): Map<number, Vehicle> => {
+    return new Map(FLEET_VEHICLES.map((v: Vehicle) => [v.id, v]));
   }, []);
 
   const filteredIncidents = useMemo(() => {

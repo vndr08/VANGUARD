@@ -12,7 +12,7 @@ import {
   User,
   X,
 } from "lucide-react";
-import { MOCK_VEHICLES } from "@/lib/mock-data";
+import { FLEET_VEHICLES } from "@/lib/fleet-data";
 import { useToast } from "@/components/ui/Toast";
 import { Badge } from "@/components/ui/Badge";
 import {
@@ -296,7 +296,7 @@ function DriverForm({
                 className="form-input"
               >
                 <option value="">— Belum Ditugaskan —</option>
-                {MOCK_VEHICLES.map((v) => (
+                {FLEET_VEHICLES.map((v) => (
                   <option key={v.id} value={v.id}>
                     {v.plate_number} — {v.brand} {v.model}
                   </option>
@@ -490,7 +490,7 @@ export default function DriversPage() {
   // Map driver vehicle_id → plate_number for display
   const vehicleMap = useMemo(() => {
     const m = new Map<number, string>();
-    MOCK_VEHICLES.forEach((v) => m.set(v.id, v.plate_number));
+    FLEET_VEHICLES.forEach((v) => m.set(v.id, v.plate_number));
     return m;
   }, []);
 

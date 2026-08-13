@@ -37,7 +37,7 @@ import { Button, IconButton } from "@/components/ui/Button";
 import { Panel, PanelSection, PanelDivider } from "@/components/ui/Panel";
 import { Card, EmptyState } from "@/components/ui/Card";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
-import { MOCK_VEHICLES } from "@/lib/mock-data";
+import { FLEET_VEHICLES } from "@/lib/fleet-data";
 
 /* ─── Types ─────────────────────────────────────────────────────────────────── */
 
@@ -301,7 +301,7 @@ function ReportForm({
                 className="form-input"
               >
                 <option value="">Semua Kendaraan</option>
-                {MOCK_VEHICLES.slice(0, 10).map((v) => (
+                {FLEET_VEHICLES.slice(0, 10).map((v) => (
                   <option key={v.id} value={String(v.id)}>
                     {v.plate_number} — {v.brand}
                   </option>

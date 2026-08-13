@@ -22,7 +22,7 @@ import { StatusPill } from "@/components/ui/Badge";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
 import { lerp, lerpAngle } from "@/lib/motion";
 import { GRAPHITE_DARK_RASTER } from "@/components/map/types";
-import { MOCK_VEHICLES } from "@/lib/mock-data";
+import { FLEET_VEHICLES } from "@/lib/fleet-data";
 import {
   OPERATIONS_DATASET,
   type OperationalEvent,
@@ -120,7 +120,7 @@ type LngLat = { lng: number; lat: number };
 
 /* ─── Replay Vehicles ────────────────────────────────────────────────────────── */
 
-const vehicleById = new Map(MOCK_VEHICLES.map((vehicle) => [vehicle.id, vehicle]));
+const vehicleById = new Map(FLEET_VEHICLES.map((vehicle) => [vehicle.id, vehicle]));
 const REPLAY_VEHICLES: ReplayVehicle[] = OPERATIONS_DATASET.trips
   .filter((trip) => trip.track.length > 0)
   .map((trip) => {

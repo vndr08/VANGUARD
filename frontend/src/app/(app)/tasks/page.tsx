@@ -12,7 +12,7 @@ import { Skeleton, EmptyState } from "@/components/ui/Card";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
 import { useAnimatedNumber } from "@/lib/motion";
 import type { TaskRouteData } from "@/components/map/TaskRouteMap";
-import { MOCK_VEHICLES } from "@/lib/mock-data";
+import { FLEET_VEHICLES } from "@/lib/fleet-data";
 import {
   OPERATIONS_DATASET,
   type OperationalTaskStatus,
@@ -42,7 +42,7 @@ interface Task {
   eta: string; schedule: string; startAt: string;
 }
 
-const vehicleById = new Map(MOCK_VEHICLES.map((vehicle) => [vehicle.id, vehicle]));
+const vehicleById = new Map(FLEET_VEHICLES.map((vehicle) => [vehicle.id, vehicle]));
 const tripById = new Map(OPERATIONS_DATASET.trips.map((trip) => [trip.id, trip]));
 const dateTime = new Intl.DateTimeFormat("id-ID", {
   timeZone: "Asia/Jakarta", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit",

@@ -15,7 +15,7 @@ import {
   type FleetStateSummary,
 } from "@/lib/dashboard-data";
 import { formatFreshnessAge } from "@/lib/freshness";
-import { MOCK_VEHICLES, toMapVehicle } from "@/lib/mock-data";
+import { FLEET_VEHICLES, toMapVehicle } from "@/lib/fleet-data";
 import { OPERATIONS_DATASET } from "@/lib/operations-data";
 import { selectOperationsPulse } from "@/lib/operations-selectors";
 
@@ -108,12 +108,12 @@ function FleetSummaryStrip({ fleet }: { fleet: FleetStateSummary }) {
 }
 
 function AttentionList({ nowMs }: { nowMs: number | null }) {
-  const driver = useMemo(() => selectDriverAssignment(MOCK_VEHICLES), []);
+  const driver = useMemo(() => selectDriverAssignment(FLEET_VEHICLES), []);
   const rows = useMemo(
     () =>
       nowMs === null
         ? null
-        : selectNeedsAttention(MOCK_VEHICLES, nowMs, MOCK_VEHICLES.length)
+        : selectNeedsAttention(FLEET_VEHICLES, nowMs, FLEET_VEHICLES.length)
             .filter((row) => row.issue !== "unassigned-driver")
             .slice(0, 3),
     [nowMs]
@@ -251,7 +251,7 @@ function ConditionDistribution({ fleet }: { fleet: FleetStateSummary }) {
 
 function TelemetryHealth({ nowMs }: { nowMs: number | null }) {
   const health = useMemo(
-    () => (nowMs === null ? null : selectTelemetryHealth(MOCK_VEHICLES, nowMs)),
+    () => (nowMs === null ? null : selectTelemetryHealth(FLEET_VEHICLES, nowMs)),
     [nowMs]
   );
   const states = health
@@ -286,7 +286,7 @@ function TelemetryHealth({ nowMs }: { nowMs: number | null }) {
 }
 
 function DriverCoverage() {
-  const driver = useMemo(() => selectDriverAssignment(MOCK_VEHICLES), []);
+  const driver = useMemo(() => selectDriverAssignment(FLEET_VEHICLES), []);
   const coverage = driver.total ? Math.round((driver.assigned / driver.total) * 100) : 0;
 
   return (
@@ -335,7 +335,7 @@ const operationDate = new Intl.DateTimeFormat("id-ID", {
 
 function OperationsOverview() {
   const vehicleById = useMemo(
-    () => new Map(MOCK_VEHICLES.map((vehicle) => [vehicle.id, vehicle])),
+    () => new Map(FLEET_VEHICLES.map((vehicle) => [vehicle.id, vehicle])),
     []
   );
 
@@ -392,9 +392,9 @@ function OperationsOverview() {
 export default function DashboardPage() {
   const [nowMs, setNowMs] = useState<number | null>(null);
   const [mapVehicles, setMapVehicles] = useState(() =>
-    MOCK_VEHICLES.map(toMapVehicle)
+    FLEET_VEHICLES.map(toMapVehicle)
   );
-  const fleet = useMemo(() => selectFleetState(MOCK_VEHICLES), []);
+  const fleet = useMemo(() => selectFleetState(FLEET_VEHICLES), []);
 
   useEffect(() => {
     const updateNow = () => setNowMs(new Date().valueOf());
@@ -427,7 +427,7 @@ export default function DashboardPage() {
               pitch={0}
               visibility={OVERVIEW_MAP_VISIBILITY}
               overviewMode
-              onMapReady={() => setMapVehicles(MOCK_VEHICLES.map(toMapVehicle))}
+              onMapReady={() => setMapVehicles(FLEET_VEHICLES.map(toMapVehicle))}
             />
           </div>
         </section>
