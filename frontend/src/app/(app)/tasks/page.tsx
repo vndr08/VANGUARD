@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "motion/react";
 import {
   Search, Filter, Navigation, MapPin, Truck, Clock, Route, X,
@@ -125,6 +125,7 @@ const STATUS_META: Record<TaskStatus, { label: string; colorVar: string; dotColo
 type SortKey = "time" | "vehicle" | "status" | "distance";
 
 export default function TasksPage() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const reducedMotion = useReducedMotion();
   const tasks = TASK_ROWS;
@@ -134,6 +135,9 @@ export default function TasksPage() {
   const [sortKey, setSortKey] = useState<SortKey>("time");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
+  // Mutual exclusion: inspector open when task selected
+  const inspectorOpen = selectedId !== null;
+
   useEffect(() => {
     const requestedTaskId = searchParams.get("task");
     if (requestedTaskId && tasks.some((task) => task.id === requestedTaskId)) {
@@ -142,6 +146,34 @@ export default function TasksPage() {
       setSearch("");
     }
   }, [searchParams, tasks]);
+
+  // URL state: sync selection to URL
+  useEffect(() => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (selectedId) {
+      params.set("task", selectedId);
+    } else {
+      params.delete("task");
+    }
+    const query = params.toString();
+    router.replace(query ? `/tasks?${query}` : "/tasks", { scroll: false });
+  }, [selectedId, router, searchParams]);
+
+  // Keyboard shortcuts for mutual exclusion
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && inspectorOpen) {
+        setSelectedId(null);
+      }
+      if (e.key === "l" || e.key === "L") {
+        if (inspectorOpen) {
+          setSelectedId(null);
+        }
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [inspectorOpen]);
 
   /* ── KPI count-up (Geist Mono tabular-nums) ─────────────────────────────── */
   const total = useAnimatedNumber(tasks.length, 900);
@@ -258,10 +290,13 @@ export default function TasksPage() {
         ))}
       </div>
 
-      {/* ── CONTENT: 2-column ──────────────────────────────────────────────── */}
-      <div className="grid flex-1 grid-cols-[380px_1fr] overflow-hidden">
+      {/* ── CONTENT: Mutual exclusion: list XOR inspector ───────────────────────── */}
+      <div className="grid flex-1 overflow-hidden" style={{
+        gridTemplateColumns: inspectorOpen ? "360px 1fr" : "320px 1fr"
+      }}>
 
-        {/* ── KIRI: Task List ───────────────────────────────────────────────── */}
+        {/* ── KIRI: Task List (mutual exclusion) ─────────────────────────────── */}
+        {!inspectorOpen ? (
         <aside className="flex flex-col border-r border-border overflow-hidden bg-surface-1">
 
           {/* Search */}
@@ -349,8 +384,91 @@ export default function TasksPage() {
             )}
           </div>
         </aside>
+        ) : (
+        /* ── INSPECTOR: Task Inspector (mutual exclusion) ─────────────────────── */
+        <aside className="flex flex-col border-r border-border overflow-hidden bg-surface-1">
+          <div className="shrink-0 border-b border-border bg-surface-2 px-4 py-3">
+            <p className="text-xs font-semibold text-foreground">Detail Tugas</p>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4">
+            {selectedTask && (
+              <div className="space-y-4">
+                {/* Identity */}
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="font-mono text-sm font-semibold text-foreground">{selectedTask.vehicle}</span>
+                    <TaskStatusBadge status={selectedTask.status} />
+                  </div>
+                  <p className="text-xs text-muted">{selectedTask.task}</p>
+                  <p className="text-[11px] text-faint mt-1">{selectedTask.taskRef}</p>
+                </div>
 
-        {/* ── KANAN: Map + Detail ───────────────────────────────────────────── */}
+                <div className="border-t border-border" />
+
+                {/* State */}
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-muted mb-2">Rute</p>
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="text-foreground">{selectedTask.origin}</span>
+                    <span className="text-muted">→</span>
+                    <span className="text-foreground">{selectedTask.destination}</span>
+                  </div>
+                </div>
+
+                <div className="border-t border-border" />
+
+                {/* Timing */}
+                <div className="space-y-2">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted">Target tiba</span>
+                    <span className="font-mono text-foreground">{selectedTask.eta ?? "—"}</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted">Jarak</span>
+                    <span className="font-mono text-foreground">{selectedTask.distance} km</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted">Tempuh</span>
+                    <span className="font-mono text-foreground">{selectedTask.traveled} km</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted">Kecep. Rata</span>
+                    <span className="font-mono text-foreground">{selectedTask.avgSpeed} km/j</span>
+                  </div>
+                </div>
+
+                <div className="border-t border-border" />
+
+                {/* Driver */}
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-muted mb-2">Pengemudi</p>
+                  <p className="text-sm text-foreground">{selectedTask.driver || "Belum ditugaskan"}</p>
+                </div>
+
+                <div className="border-t border-border" />
+
+                {/* Actions */}
+                <div className="space-y-2">
+                  <button
+                    onClick={() => router.push(`/tasks/${selectedTask.id}`)}
+                    className="w-full h-9 px-4 rounded-lg bg-foreground text-background text-xs font-semibold hover:opacity-90 transition-opacity"
+                  >
+                    Buka tugas lengkap
+                  </button>
+                  <button
+                    onClick={() => setSelectedId(null)}
+                    className="w-full h-9 px-4 rounded-lg border border-border text-xs font-semibold text-foreground hover:bg-surface-2 transition-colors"
+                  >
+                    Tutup
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </aside>
+        )}
+
+        {/* ── KANAN: Map ──────────────────────────────────────────────────────────── */}
         <main className="relative flex flex-col overflow-hidden">
           {routeData ? (
             <>
