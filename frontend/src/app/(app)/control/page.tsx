@@ -445,7 +445,7 @@ export default function ControlPage() {
                 <button
                   key={f.key}
                   onClick={() => setFilterStatus(f.key)}
-                  className={`px-2 py-0.5 rounded-md text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-brand ${
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-brand ${
                     filterStatus === f.key
                       ? "bg-brand text-white"
                       : "bg-surface-2 text-muted hover:bg-surface-3 hover:text-foreground border border-border"
@@ -459,7 +459,7 @@ export default function ControlPage() {
 
           {/* Selection info */}
           <div className="shrink-0 px-4 py-2 border-b border-border flex items-center justify-between">
-            <p className="text-xs text-muted">{selectedVehicles.size} unit dipilih</p>
+            <p className="text-sm text-muted">{selectedVehicles.size} unit dipilih</p>
             {selectedVehicles.size > 0 && (
               <button
                 onClick={() => setSelectedVehicles(new Set())}
@@ -505,17 +505,17 @@ export default function ControlPage() {
                           }`}>
                             {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
                           </span>
-                          <span className={`font-mono font-bold text-sm tabular-nums truncate ${
+                          <span className={`font-mono font-bold text-base tabular-nums truncate ${
                             isCutOff ? "text-st-offline" : isSelected ? "text-brand" : "text-foreground"
                           }`}>
                             {v.plate_number}
                           </span>
                         </div>
                         {isCutOff && (
-                          <AlertTriangle className="w-3.5 h-3.5 text-st-offline shrink-0" />
+                          <AlertTriangle className="w-4 h-4 text-st-offline shrink-0" />
                         )}
                       </div>
-                      <p className={`mt-0.5 text-xs ${isSelected ? "text-brand/70" : "text-muted"}`}>
+                      <p className={`mt-1 text-sm ${isSelected ? "text-brand/70" : "text-muted"}`}>
                         {v.driver_name || "—"}
                       </p>
                       <div className="mt-1">
@@ -769,17 +769,17 @@ export default function ControlPage() {
                           className="flex items-center gap-3 px-4 py-3 rounded-lg bg-surface-2 border border-border"
                         >
                           <div className="flex items-center gap-2 min-w-0 flex-1">
-                            <span className="font-mono text-xs font-semibold text-foreground">{entry.plate_number}</span>
-                            <span className="text-muted text-xs">—</span>
-                            <span className="text-sm font-medium text-foreground truncate">{entry.command}</span>
+                            <span className="font-mono text-sm font-semibold text-foreground">{entry.plate_number}</span>
+                            <span className="text-muted text-sm">—</span>
+                            <span className="text-base font-medium text-foreground truncate">{entry.command}</span>
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
-                            <span className="font-mono text-[10px] text-muted tabular-nums">
+                            <span className="font-mono text-xs text-muted tabular-nums">
                               {new Date(entry.timestamp).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
                             </span>
                             <CommandStatusBadge status={entry.status} />
                             {isPending && (
-                              <RefreshCw className="w-3.5 h-3.5 text-st-idle animate-spin" />
+                              <RefreshCw className="w-4 h-4 text-st-idle animate-spin" />
                             )}
                           </div>
                         </div>

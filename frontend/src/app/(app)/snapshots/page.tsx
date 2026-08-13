@@ -527,12 +527,12 @@ export default function SnapshotsPage() {
 
           {/* Camera filter */}
           <div className="flex items-center gap-1">
-            <span className="text-xs text-muted mr-1">Kamera:</span>
+            <span className="text-sm text-muted mr-2">Kamera:</span>
             {(["all", "Depan", "Kabin", "Belakang"] as (CameraPos | "all")[]).map((f) => (
               <button
                 key={f}
                 onClick={() => setFilterCamera(f)}
-                className={"px-2.5 py-1 rounded-md text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-brand " +
+                className={"px-3 py-1.5 rounded-md text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-brand " +
                   (filterCamera === f
                     ? "bg-brand text-white"
                     : "bg-surface-2 text-muted hover:bg-surface-3 hover:text-foreground border border-border")}
@@ -546,8 +546,8 @@ export default function SnapshotsPage() {
           <select
             value={filterVehicle}
             onChange={(e) => setFilterVehicle(e.target.value)}
-            className="text-xs bg-surface-2 border border-border rounded-md px-2.5 py-1.5
-                       text-foreground focus-visible:outline-2 focus-visible:outline-brand cursor-pointer"
+            className="text-sm bg-surface-2 border border-border rounded-lg px-3 py-1.5
+                       text-foreground focus-visible:outline-2 focus-visible:outline-brand cursor-pointer font-medium"
             aria-label="Filter unit"
           >
             <option value="all">Semua Unit</option>
@@ -559,12 +559,12 @@ export default function SnapshotsPage() {
           {isFiltered && (
             <button
               onClick={resetFilters}
-              className="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium
                          bg-surface-2 border border-border text-muted
                          hover:bg-surface-3 hover:text-foreground
                          focus-visible:outline-2 focus-visible:outline-brand transition-colors"
             >
-              <X className="w-3 h-3" />Reset
+              <X className="w-4 h-4" />Reset
             </button>
           )}
         </div>
@@ -611,31 +611,31 @@ export default function SnapshotsPage() {
                   <div className="p-3 space-y-2">
                     {/* Plat + Status */}
                     <div className="flex items-center justify-between gap-2">
-                      <span className="font-mono font-bold text-sm text-foreground truncate">
+                      <span className="font-mono font-bold text-base text-foreground truncate">
                         {v?.plate_number ?? "Unit #" + s.vehicleId}
                       </span>
-                      <Badge variant={STATUS_BADGE[s.status]} className="shrink-0">
+                      <Badge variant={STATUS_BADGE[s.status]} className="shrink-0 text-sm font-semibold">
                         {s.status}
                       </Badge>
                     </div>
 
                     {/* Camera + Event */}
-                    <p className="text-xs text-muted truncate">
+                    <p className="text-sm font-medium text-foreground truncate">
                       Kamera {s.camera} &middot; {s.event}
                     </p>
 
                     {/* Driver */}
-                    <p className="text-xs text-faint truncate">
+                    <p className="text-sm text-muted truncate">
                       {v?.driver_name || "—"}
                     </p>
 
                     {/* Timestamp */}
-                    <p className="text-xs font-mono tabular-nums text-faint">
+                    <p className="text-sm font-mono tabular-nums font-medium text-muted">
                       {dateStr} {hourStr}
                     </p>
 
                     {/* Actions */}
-                    <div className="flex items-center gap-1.5 pt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex items-center gap-2 pt-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       {isDeleteConfirming ? (
                         <DeleteConfirm
                           snapshotId={s.id}
@@ -647,7 +647,7 @@ export default function SnapshotsPage() {
                           <Button
                             size="sm"
                             variant="secondary"
-                            icon={<Camera className="w-3.5 h-3.5" />}
+                            icon={<Camera className="w-4 h-4" />}
                             onClick={() => setLightbox(s)}
                             aria-label={"Lihat snapshot " + (v?.plate_number ?? "")}
                             className="flex-1"
@@ -655,7 +655,7 @@ export default function SnapshotsPage() {
                             Lihat
                           </Button>
                           <IconButton
-                            icon={<Download className="w-3.5 h-3.5" />}
+                            icon={<Download className="w-4 h-4" />}
                             onClick={() => handleDownload(s)}
                             variant="ghost"
                             size="sm"
@@ -663,7 +663,7 @@ export default function SnapshotsPage() {
                             disabled={s.status !== "Tersedia"}
                           />
                           <IconButton
-                            icon={<Trash2 className="w-3.5 h-3.5" />}
+                            icon={<Trash2 className="w-4 h-4" />}
                             onClick={() => setDeleteConfirm(s.id)}
                             variant="ghost"
                             size="sm"

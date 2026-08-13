@@ -126,7 +126,7 @@ function DeleteConfirm({
       transition={reducedMotion ? { duration: 0 } : { duration: 0.15 }}
       className="flex items-center gap-2 p-2 bg-surface-2 border border-border rounded-lg"
     >
-      <span className="text-xs text-foreground flex-1 truncate">
+      <span className="text-sm text-foreground flex-1 truncate">
         Hapus <strong>{zoneName}</strong>?
       </span>
       <Button size="sm" variant="danger" onClick={onConfirm} aria-label="Konfirmasi hapus">
@@ -465,10 +465,10 @@ export default function GeofencesPage() {
 
           {/* Type filter */}
           <div className="flex items-center gap-1">
-            <span className="text-xs text-muted mr-1">Tipe:</span>
+            <span className="text-sm text-muted mr-2">Tipe:</span>
             {(["all", "Depot", "Customer", "Port", "Checkpoint"] as (ZoneType | "all")[]).map((f) => (
               <button key={f} onClick={() => setFilterType(f)}
-                className={"px-2.5 py-1 rounded-md text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-brand " + (filterType === f ? "bg-brand text-white" : "bg-surface-2 text-muted hover:bg-surface-3 hover:text-foreground border border-border")}>
+                className={"px-3 py-1.5 rounded-md text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-brand " + (filterType === f ? "bg-brand text-white" : "bg-surface-2 text-muted hover:bg-surface-3 hover:text-foreground border border-border")}>
                 {f === "all" ? "Semua" : f}
               </button>
             ))}
@@ -476,10 +476,10 @@ export default function GeofencesPage() {
 
           {/* Status filter */}
           <div className="flex items-center gap-1">
-            <span className="text-xs text-muted mr-1">Status:</span>
+            <span className="text-sm text-muted mr-2">Status:</span>
             {(["all", "active", "inactive"] as (ZoneStatus | "all")[]).map((f) => (
               <button key={f} onClick={() => setFilterStatus(f)}
-                className={"px-2.5 py-1 rounded-md text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-brand " + (filterStatus === f ? "bg-brand text-white" : "bg-surface-2 text-muted hover:bg-surface-3 hover:text-foreground border border-border")}>
+                className={"px-3 py-1.5 rounded-md text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-brand " + (filterStatus === f ? "bg-brand text-white" : "bg-surface-2 text-muted hover:bg-surface-3 hover:text-foreground border border-border")}>
                 {f === "all" ? "Semua" : f === "active" ? "Aktif" : "Nonaktif"}
               </button>
             ))}
@@ -487,8 +487,8 @@ export default function GeofencesPage() {
 
           {isFiltered && (
             <button onClick={resetFilters}
-              className="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium bg-surface-2 border border-border text-muted hover:bg-surface-3 hover:text-foreground focus-visible:outline-2 focus-visible:outline-brand transition-colors">
-              <X className="w-3 h-3" />Reset
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium bg-surface-2 border border-border text-muted hover:bg-surface-3 hover:text-foreground focus-visible:outline-2 focus-visible:outline-brand transition-colors">
+              <X className="w-4 h-4" />Reset
             </button>
           )}
         </div>
@@ -513,7 +513,7 @@ export default function GeofencesPage() {
             </div>
           ) : (
             <div className="flex-1 overflow-y-auto">
-              <TableContainer scrollable={false}>
+              <TableContainer scrollable={false} className="[&_td]:!py-4 [&_th]:!py-4">
                 <TableHead>
                   <tr>
                     <TableHeadCell width={160}>Nama Zona</TableHeadCell>
@@ -539,8 +539,8 @@ export default function GeofencesPage() {
                           <div className="flex items-center gap-2">
                             <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: z.color }} />
                             <div className="min-w-0">
-                              <p className="text-sm font-semibold text-foreground truncate">{z.name}</p>
-                              <p className="text-xs font-mono tabular-nums text-faint">
+                              <p className="text-base font-bold text-foreground truncate">{z.name}</p>
+                              <p className="text-sm font-mono tabular-nums text-muted">
                                 {z.lat.toFixed(4)}, {z.lng.toFixed(4)}
                               </p>
                             </div>
@@ -548,21 +548,21 @@ export default function GeofencesPage() {
                         </TableCell>
                         {/* Tipe */}
                         <TableCell>
-                          <Badge variant={TYPE_COLORS[z.type].replace("bg-", "") as "brand" | "success" | "warning" | "default"}>
+                          <Badge variant={TYPE_COLORS[z.type].replace("bg-", "") as "brand" | "success" | "warning" | "default"} className="text-sm font-medium">
                             {z.type}
                           </Badge>
                         </TableCell>
                         {/* Radius */}
                         <TableCell>
-                          <span className="text-xs font-mono tabular-nums text-muted">{z.radius}m</span>
+                          <span className="text-sm font-mono tabular-nums font-medium text-foreground">{z.radius}m</span>
                         </TableCell>
                         {/* Units */}
                         <TableCell className="text-right">
-                          <span className="text-xs font-mono tabular-nums text-muted">{z.units}</span>
+                          <span className="text-sm font-mono tabular-nums font-semibold text-foreground">{z.units}</span>
                         </TableCell>
                         {/* Aksi */}
                         <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                             {isDeleteConfirming ? (
                               <DeleteConfirm
                                 zoneName={z.name}
@@ -572,12 +572,12 @@ export default function GeofencesPage() {
                             ) : (
                               <>
                                 <IconButton
-                                  icon={<Edit2 className="w-3.5 h-3.5" />}
+                                  icon={<Edit2 className="w-4 h-4" />}
                                   onClick={(e) => { e.stopPropagation(); openEdit(z); }}
                                   variant="ghost" size="sm" aria-label={"Edit " + z.name}
                                 />
                                 <IconButton
-                                  icon={<Trash2 className="w-3.5 h-3.5" />}
+                                  icon={<Trash2 className="w-4 h-4" />}
                                   onClick={(e) => { e.stopPropagation(); setDeleteConfirm(z.id); }}
                                   variant="ghost" size="sm" aria-label={"Hapus " + z.name}
                                   className="hover:text-st-offline focus-visible:outline-st-offline"

@@ -370,7 +370,7 @@ export default function DashcamPage() {
                 <button
                   key={f.key}
                   onClick={() => setFilterStatus(f.key)}
-                  className={"px-2 py-0.5 rounded-md text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-brand " +
+                  className={"px-3 py-1.5 rounded-lg text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-brand " +
                     (filterStatus === f.key
                       ? "bg-brand text-white"
                       : "bg-surface-2 text-muted hover:bg-surface-3 hover:text-foreground border border-border")}
@@ -383,7 +383,7 @@ export default function DashcamPage() {
 
           {/* Count */}
           <div className="shrink-0 px-4 py-2 border-b border-border">
-            <p className="text-xs text-muted">
+            <p className="text-sm text-muted">
               {rows.length} unit
               {isFiltered && (
                 <button onClick={resetFilters} className="ml-2 text-brand hover:underline focus-visible:outline-2 focus-visible:outline-brand">
@@ -433,19 +433,19 @@ export default function DashcamPage() {
                     >
                       {/* Plat + REC */}
                       <div className="flex items-center justify-between">
-                        <span className={"font-mono font-bold text-sm tabular-nums " + (isSelected ? "text-brand" : "text-foreground")}>
+                        <span className={"font-mono font-bold text-base tabular-nums " + (isSelected ? "text-brand" : "text-foreground")}>
                           {unit.vehicle.plate_number}
                         </span>
                         {isRec && (
                           <span className="flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-st-offline animate-pulse" />
-                            <span className="text-[9px] font-bold text-st-offline uppercase tracking-widest">REC</span>
+                            <span className="w-2 h-2 rounded-full bg-st-offline animate-pulse" />
+                            <span className="text-xs font-bold text-st-offline uppercase tracking-widest">REC</span>
                           </span>
                         )}
                       </div>
 
                       {/* Driver */}
-                      <p className={"mt-0.5 text-xs " + (isSelected ? "text-brand/70" : "text-muted")}>
+                      <p className={"mt-1 text-sm " + (isSelected ? "text-brand/70" : "text-muted")}>
                         {unit.vehicle.driver_name || "— belum ditugaskan"}
                       </p>
 
@@ -456,9 +456,9 @@ export default function DashcamPage() {
                           showIcon={false}
                           showDot={true}
                           live={unit.vehicle.status === "driving"}
-                          className={"text-[10px] px-1.5 py-0.5 " + (isSelected ? "bg-brand/20 text-brand" : "")}
+                          className={"text-xs px-2 py-0.5 " + (isSelected ? "bg-brand/20 text-brand" : "")}
                         />
-                        <span className={"text-[10px] " + (isSelected ? "text-brand/60" : "text-faint")}>
+                        <span className={"text-xs " + (isSelected ? "text-brand/60" : "text-muted")}>
                           {camCount} kamera
                         </span>
                       </div>
@@ -485,9 +485,9 @@ export default function DashcamPage() {
               {/* Wall toolbar */}
               <div className="shrink-0 px-4 py-2 border-b border-border bg-surface-1 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="font-mono font-semibold text-sm text-foreground">{selectedUnit.vehicle.plate_number}</span>
-                  <span className="text-xs text-muted">&middot;</span>
-                  <span className="text-xs text-muted">
+                  <span className="font-mono font-semibold text-base text-foreground">{selectedUnit.vehicle.plate_number}</span>
+                  <span className="text-sm text-muted">&middot;</span>
+                  <span className="text-sm text-muted">
                     {selectedUnit.vehicle.driver_name || "Belum ditugaskan"}
                   </span>
                 </div>

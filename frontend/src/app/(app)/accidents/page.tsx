@@ -294,7 +294,7 @@ function KpiStat({ label, value, icon, useReducedMotion, delay = 0 }: KpiStatPro
         >
           {value}
         </motion.span>
-        <p className="text-xs text-muted-foreground">{label}</p>
+        <p className="text-sm text-muted-foreground">{label}</p>
       </div>
     </div>
   );
@@ -756,7 +756,7 @@ export default function AccidentsPage() {
             <select
               value={severityFilter}
               onChange={(e) => setSeverityFilter(e.target.value as Incident["severity"] | "Semua")}
-              className="px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus-visible:outline-2 focus-visible:outline-brand"
+              className="px-3 py-2 rounded-lg border border-border bg-background text-sm font-medium focus:outline-none focus-visible:outline-2 focus-visible:outline-brand"
               aria-label="Filter Severity"
             >
               <option value="Semua">Semua Severity</option>
@@ -767,7 +767,7 @@ export default function AccidentsPage() {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as Incident["status"] | "Semua")}
-              className="px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus-visible:outline-2 focus-visible:outline-brand"
+              className="px-3 py-2 rounded-lg border border-border bg-background text-sm font-medium focus:outline-none focus-visible:outline-2 focus-visible:outline-brand"
               aria-label="Filter Status"
             >
               <option value="Semua">Semua Status</option>
@@ -795,7 +795,7 @@ export default function AccidentsPage() {
               description="Tidak ada insiden yang sesuai dengan filter atau belum ada data insiden."
             />
           ) : (
-            <TableContainer>
+            <TableContainer className="[&_td]:!py-4 [&_th]:!py-4">
               <TableHead>
                 <tr>
                   <TableHeadCell>Tanggal</TableHeadCell>
@@ -816,31 +816,28 @@ export default function AccidentsPage() {
                       key={incident.id}
                       onClick={() => handleRowClick(incident)}
                       className="cursor-pointer hover:bg-muted/50 transition-colors">
-                      <TableCell className="font-mono text-sm whitespace-nowrap">
+                      <TableCell className="font-mono text-sm font-medium text-foreground whitespace-nowrap">
                         {formatDate(incident.dateTime)}
                       </TableCell>
-                      <TableCell className="font-mono font-medium">
+                      <TableCell className="font-mono text-sm font-semibold text-foreground">
                         {vehicle?.plate_number ?? "-"}
                       </TableCell>
-                      <TableCell>{incident.driverName}</TableCell>
-                      <TableCell>
-                        <Badge variant="default">{incident.type}</Badge>
+                      <TableCell className="text-sm font-medium text-foreground">
+                        {incident.driverName}
                       </TableCell>
                       <TableCell>
-                        <Badge variant={getSeverityVariant(incident.severity)}>
-                          {incident.severity}
-                        </Badge>
+                        <Badge variant="default" className="text-sm font-medium">{incident.type}</Badge>
                       </TableCell>
-                      <TableCell className="max-w-[150px] truncate">
+                      <TableCell className="text-sm font-medium text-foreground max-w-[150px] truncate">
                         {incident.location}
                       </TableCell>
                       <TableCell>
-                        <Badge variant={getStatusVariant(incident.status)}>
+                        <Badge variant={getStatusVariant(incident.status)} className="text-sm font-semibold">
                           {incident.status}
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                           <IconButton
                             size="sm"
                             variant="ghost"

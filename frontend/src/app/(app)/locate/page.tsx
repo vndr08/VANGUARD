@@ -227,7 +227,7 @@ export default function LocatePage() {
 
             {/* Status filter */}
             <div className="flex items-center gap-1 mt-2.5">
-              <span className="text-xs text-muted mr-1">Status:</span>
+              <span className="text-sm text-muted mr-2">Status:</span>
               {([
                 { key: "all" as FilterStatus, label: "Semua" },
                 { key: "driving" as FilterStatus, label: "Driving" },
@@ -238,7 +238,7 @@ export default function LocatePage() {
                 <button
                   key={f.key}
                   onClick={() => setFilterStatus(f.key)}
-                  className={"px-2 py-0.5 rounded-md text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-brand " +
+                  className={"px-3 py-1.5 rounded-md text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-brand " +
                     (filterStatus === f.key
                       ? "bg-brand text-white"
                       : "bg-surface-2 text-muted hover:bg-surface-3 hover:text-foreground border border-border")}
@@ -251,7 +251,7 @@ export default function LocatePage() {
 
           {/* Results count */}
           <div className="shrink-0 px-4 py-2 border-b border-border">
-            <p className="text-xs text-muted">
+            <p className="text-sm text-muted">
               {rows.length} unit ditemukan
               {isFiltered && (
                 <button onClick={resetFilters} className="ml-2 text-brand hover:underline focus-visible:outline-2 focus-visible:outline-brand">
@@ -294,15 +294,15 @@ export default function LocatePage() {
                     >
                       {/* Plat + speed */}
                       <div className="flex items-center justify-between">
-                        <span className={"font-mono font-bold text-sm tabular-nums " + (isSelected ? "text-white" : "text-foreground")}>
+                        <span className={"font-mono font-bold text-base tabular-nums " + (isSelected ? "text-white" : "text-foreground")}>
                           {v.plate_number}
                         </span>
-                        <span className={"text-xs font-semibold tabular-nums " + (isSelected ? "text-white/70" : "text-muted")}>
+                        <span className={"text-sm font-semibold tabular-nums " + (isSelected ? "text-white/70" : "text-muted")}>
                           {v.speed > 0 ? Math.round(v.speed) + " km/h" : "— km/h"}
                         </span>
                       </div>
                       {/* Driver */}
-                      <p className={"mt-0.5 text-xs " + (isSelected ? "text-white/70" : "text-muted")}>
+                      <p className={"mt-1 text-sm " + (isSelected ? "text-white/70" : "text-muted")}>
                         {v.driver_name || "— belum ditugaskan"}
                       </p>
                       {/* Status + heading + update */}
@@ -316,19 +316,19 @@ export default function LocatePage() {
                             className="bg-white/20 text-white text-xs px-2 py-0.5"
                           />
                         ) : (
-                          <span className={"inline-flex items-center gap-1 text-xs font-medium " +
+                          <span className={"inline-flex items-center gap-1 text-sm font-medium " +
                             (v.status === "driving" ? "text-st-driving" :
                              v.status === "idle" ? "text-st-idle" :
                              v.status === "offline" ? "text-st-offline" : "text-muted")}>
-                            <Radio className="w-3 h-3" />
+                            <Radio className="w-4 h-4" />
                             {v.status.charAt(0).toUpperCase() + v.status.slice(1)}
                           </span>
                         )}
-                        <span className={"flex items-center gap-1 text-xs " + (isSelected ? "text-white/60" : "text-faint")}>
-                          <Navigation className="w-3 h-3" />
+                        <span className={"flex items-center gap-1.5 text-sm " + (isSelected ? "text-white/60" : "text-muted")}>
+                          <Navigation className="w-4 h-4" />
                           {Math.round(v.heading)}&deg;
                         </span>
-                        <span className={"ml-auto text-xs " + (isSelected ? "text-white/50" : "text-faint")}>
+                        <span className={"ml-auto text-sm " + (isSelected ? "text-white/50" : "text-muted")}>
                           {formatLastUpdate(v.last_update)}
                         </span>
                       </div>
@@ -355,14 +355,14 @@ export default function LocatePage() {
           <div className="absolute top-4 left-4 z-dock">
             <Card padding="sm">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-brand flex items-center justify-center">
-                  <Truck className="w-4 h-4 text-white" />
+                <div className="w-10 h-10 rounded-lg bg-brand flex items-center justify-center">
+                  <Truck className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-foreground">
+                  <p className="text-base font-bold text-foreground">
                     {selected ? selected.plate_number : "Pilih unit"}
                   </p>
-                  <p className="text-xs text-muted">
+                  <p className="text-sm text-muted">
                     {selected ? `${selected.brand} ${selected.model}` : "Klik unit di daftar"}
                   </p>
                 </div>
@@ -392,7 +392,7 @@ export default function LocatePage() {
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="font-mono font-bold text-foreground">{selected.plate_number}</span>
+                        <span className="font-mono font-bold text-lg text-foreground">{selected.plate_number}</span>
                         <StatusPill
                           status={toBadgeStatus(selected.status as VehicleStatus)}
                           showIcon={false}
@@ -401,7 +401,7 @@ export default function LocatePage() {
                           className="text-xs px-1.5 py-0.5"
                         />
                       </div>
-                      <p className="text-xs text-muted mt-0.5">
+                      <p className="text-sm text-muted mt-1">
                         {selected.driver_name || "Belum ditugaskan"} &middot; {selected.brand} {selected.model}
                       </p>
                     </div>
@@ -449,11 +449,11 @@ export default function LocatePage() {
 
                 {/* Coordinates */}
                 <div className="mt-2 rounded bg-surface-2 border border-border px-3 py-2 flex items-center gap-2">
-                  <MapPin className="w-3.5 h-3.5 text-muted shrink-0" />
-                  <span className="text-xs font-mono tabular-nums text-foreground flex-1">
+                  <MapPin className="w-4 h-4 text-muted shrink-0" />
+                  <span className="text-sm font-mono tabular-nums text-foreground flex-1">
                     {selected.latitude?.toFixed(6) ?? "—"}, {selected.longitude?.toFixed(6) ?? "—"}
                   </span>
-                  <span className="text-xs text-muted truncate max-w-[160px]">
+                  <span className="text-sm text-muted truncate max-w-[160px]">
                     {getMockAddress(selected.latitude, selected.longitude)}
                   </span>
                 </div>

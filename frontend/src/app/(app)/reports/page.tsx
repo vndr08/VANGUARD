@@ -192,7 +192,7 @@ function DeleteConfirm({
       transition={reducedMotion ? { duration: 0 } : { duration: 0.15 }}
       className="flex items-center gap-2 p-2 bg-surface-2 border border-border rounded-lg"
     >
-      <span className="text-xs text-foreground flex-1 truncate">
+      <span className="text-sm text-foreground flex-1 truncate">
         Hapus <strong>{reportName}</strong>?
       </span>
       <Button size="sm" variant="danger" onClick={onConfirm} aria-label="Konfirmasi hapus">
@@ -503,10 +503,10 @@ export default function ReportsPage() {
 
           {/* Category filter */}
           <div className="flex items-center gap-1">
-            <span className="text-xs text-muted mr-1">Kategori:</span>
+            <span className="text-sm text-muted mr-2">Kategori:</span>
             <button
               onClick={() => setFilterCategory("all")}
-              className={"px-2.5 py-1 rounded-md text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-brand " + (filterCategory === "all" ? "bg-brand text-white" : "bg-surface-2 text-muted hover:bg-surface-3 hover:text-foreground border border-border")}
+              className={"px-3 py-1.5 rounded-md text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-brand " + (filterCategory === "all" ? "bg-brand text-white" : "bg-surface-2 text-muted hover:bg-surface-3 hover:text-foreground border border-border")}
             >
               Semua
             </button>
@@ -514,7 +514,7 @@ export default function ReportsPage() {
               <button
                 key={cat}
                 onClick={() => setFilterCategory(cat)}
-                className={"px-2.5 py-1 rounded-md text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-brand " + (filterCategory === cat ? "bg-brand text-white" : "bg-surface-2 text-muted hover:bg-surface-3 hover:text-foreground border border-border")}
+                className={"px-3 py-1.5 rounded-md text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-brand " + (filterCategory === cat ? "bg-brand text-white" : "bg-surface-2 text-muted hover:bg-surface-3 hover:text-foreground border border-border")}
               >
                 {CATEGORY_LABELS[cat]}
               </button>
@@ -524,9 +524,9 @@ export default function ReportsPage() {
           {isFiltered && (
             <button
               onClick={resetFilters}
-              className="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium bg-surface-2 border border-border text-muted hover:bg-surface-3 hover:text-foreground focus-visible:outline-2 focus-visible:outline-brand transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium bg-surface-2 border border-border text-muted hover:bg-surface-3 hover:text-foreground focus-visible:outline-2 focus-visible:outline-brand transition-colors"
             >
-              <X className="w-3 h-3" />Reset
+              <X className="w-4 h-4" />Reset
             </button>
           )}
         </div>
@@ -579,8 +579,8 @@ export default function ReportsPage() {
                                   <Star className={"w-4 h-4 " + (isFav ? "fill-current" : "")} />
                                 </button>
                               </div>
-                              <h3 className="mt-3 text-sm font-semibold text-foreground">{r.name}</h3>
-                              <p className="mt-1 text-xs text-muted leading-relaxed line-clamp-2">{r.description}</p>
+                              <h3 className="mt-3 text-base font-semibold text-foreground">{r.name}</h3>
+                              <p className="mt-1 text-sm text-muted leading-relaxed line-clamp-2">{r.description}</p>
                               <Button
                                 variant="secondary"
                                 size="sm"
@@ -622,7 +622,7 @@ export default function ReportsPage() {
                 />
               </Card>
             ) : (
-              <TableContainer>
+              <TableContainer className="[&_td]:!py-4 [&_th]:!py-4">
                 <TableHead>
                   <tr>
                     <TableHeadCell width={200}>Nama Laporan</TableHeadCell>
@@ -642,25 +642,25 @@ export default function ReportsPage() {
                       <TableRow key={h.id} className="group">
                         {/* Nama */}
                         <TableCell>
-                          <span className="text-sm font-medium text-foreground">{h.typeName}</span>
+                          <span className="text-base font-semibold text-foreground">{h.typeName}</span>
                         </TableCell>
                         {/* Kategori */}
                         <TableCell>
-                          <Badge variant={CATEGORY_BADGE[h.category]}>{CATEGORY_LABELS[h.category]}</Badge>
+                          <Badge variant={CATEGORY_BADGE[h.category]} className="text-sm font-medium">{CATEGORY_LABELS[h.category]}</Badge>
                         </TableCell>
                         {/* Rentang */}
                         <TableCell>
-                          <span className="text-xs font-mono tabular-nums text-muted">
+                          <span className="text-sm font-mono tabular-nums font-medium text-foreground">
                             {new Date(h.startDate).toLocaleDateString("id-ID", { day: "2-digit", month: "short" })} – {new Date(h.endDate).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "2-digit" })}
                           </span>
                         </TableCell>
                         {/* Format */}
                         <TableCell>
-                          <span className="text-xs font-mono text-muted">{FORMAT_LABELS[h.format]}</span>
+                          <span className="text-sm font-mono font-medium text-foreground">{FORMAT_LABELS[h.format]}</span>
                         </TableCell>
                         {/* Dibuat */}
                         <TableCell>
-                          <span className="text-xs font-mono tabular-nums text-muted">
+                          <span className="text-sm font-mono tabular-nums font-medium text-foreground">
                             {new Date(h.createdAt).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "2-digit", hour: "2-digit", minute: "2-digit" })}
                           </span>
                         </TableCell>
@@ -670,13 +670,13 @@ export default function ReportsPage() {
                             h.status === "done" ? "success" :
                             h.status === "running" ? "warning" :
                             h.status === "error" ? "danger" : "default"
-                          }>
+                          } className="text-sm font-semibold">
                             {STATUS_LABELS[h.status]}
                           </Badge>
                         </TableCell>
                         {/* Aksi */}
                         <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                             {isDeleteConfirming ? (
                               <DeleteConfirm
                                 reportName={h.typeName}
@@ -686,7 +686,7 @@ export default function ReportsPage() {
                             ) : (
                               <>
                                 <IconButton
-                                  icon={<Download className="w-3.5 h-3.5" />}
+                                  icon={<Download className="w-4 h-4" />}
                                   onClick={() => handleDownload(h)}
                                   variant="ghost"
                                   size="sm"
@@ -694,7 +694,7 @@ export default function ReportsPage() {
                                   disabled={isPending}
                                 />
                                 <IconButton
-                                  icon={<Trash2 className="w-3.5 h-3.5" />}
+                                  icon={<Trash2 className="w-4 h-4" />}
                                   onClick={() => setDeleteConfirm(h.id)}
                                   variant="ghost"
                                   size="sm"

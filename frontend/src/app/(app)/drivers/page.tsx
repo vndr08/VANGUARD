@@ -546,8 +546,8 @@ export default function DriversPage() {
           </div>
 
           {/* Status filter */}
-          <div className="flex items-center gap-1">
-            <span className="text-xs text-muted mr-1">Status:</span>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-muted">Status:</span>
             {([
               { key: "all", label: "Semua" },
               { key: "active", label: "Aktif" },
@@ -558,11 +558,11 @@ export default function DriversPage() {
               <button
                 key={f.key}
                 onClick={() => setFilterStatus(f.key as DriverStatus | "all")}
-                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors
                   focus-visible:outline-2 focus-visible:outline-brand
                   ${filterStatus === f.key
                     ? "bg-brand text-white"
-                    : "bg-surface-2 text-muted hover:bg-surface-3 hover:text-foreground border border-border"}`}
+                    : "bg-surface-2 text-foreground hover:bg-surface-3 border border-border"}`}
               >
                 {f.label}
               </button>
@@ -572,12 +572,12 @@ export default function DriversPage() {
           {isFiltered && (
             <button
               onClick={resetFilters}
-              className="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium
-                         bg-surface-2 border border-border text-muted
-                         hover:bg-surface-3 hover:text-foreground
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium
+                         bg-surface-2 border border-border text-foreground
+                         hover:bg-surface-3
                          focus-visible:outline-2 focus-visible:outline-brand transition-colors"
             >
-              <X className="w-3 h-3" />
+              <X className="w-4 h-4" />
               Reset
             </button>
           )}
@@ -610,18 +610,18 @@ export default function DriversPage() {
             />
           </Card>
         ) : (
-          <TableContainer>
+          <TableContainer className="[&_td]:!py-4 [&_th]:!py-4">
             <TableHead>
               <tr>
-                <TableHeadCell width={200}
+                <TableHeadCell width={220}
                   sortable sorted={sortField === "name" ? sortDir !== "none" ? sortDir : false : false}
                   onClick={() => handleSort("name")}
                 >
                   Nama
                 </TableHeadCell>
-                <TableHeadCell width={180}>No SIM</TableHeadCell>
-                <TableHeadCell width={140}>Telepon</TableHeadCell>
-                <TableHeadCell width={130}>Kendaraan</TableHeadCell>
+                <TableHeadCell width={200}>No SIM</TableHeadCell>
+                <TableHeadCell width={160}>Telepon</TableHeadCell>
+                <TableHeadCell width={150}>Kendaraan</TableHeadCell>
                 <TableHeadCell width={100}
                   sortable sorted={sortField === "status" ? sortDir !== "none" ? sortDir : false : false}
                   onClick={() => handleSort("status")}
@@ -654,33 +654,33 @@ export default function DriversPage() {
                       <div className="flex items-center gap-3">
                         <Avatar name={d.name} />
                         <div className="min-w-0">
-                          <p className="text-sm font-semibold text-foreground truncate">{d.name}</p>
-                          <p className="text-xs text-muted font-mono">{d.id}</p>
+                          <p className="text-base font-bold text-foreground truncate">{d.name}</p>
+                          <p className="text-sm text-muted font-mono">{d.id}</p>
                         </div>
                       </div>
                     </TableCell>
                     {/* No SIM */}
                     <TableCell>
-                      <span className="font-mono text-xs text-muted">{d.sim_number}</span>
+                      <span className="font-mono text-sm font-medium text-foreground">{d.sim_number}</span>
                     </TableCell>
                     {/* Telepon */}
                     <TableCell>
-                      <span className="text-sm text-muted">{d.phone || "—"}</span>
+                      <span className="text-sm font-medium text-foreground">{d.phone || "—"}</span>
                     </TableCell>
                     {/* Kendaraan */}
                     <TableCell>
                       {assignedVehicle ? (
-                        <span className="inline-flex items-center gap-1.5 text-xs font-mono font-medium text-foreground">
-                          <Truck className="w-3 h-3 text-muted shrink-0" />
+                        <span className="inline-flex items-center gap-2 text-sm font-semibold font-mono text-foreground">
+                          <Truck className="w-4 h-4 text-muted shrink-0" />
                           {assignedVehicle}
                         </span>
                       ) : (
-                        <span className="text-xs text-faint">—</span>
+                        <span className="text-sm text-muted">—</span>
                       )}
                     </TableCell>
                     {/* Status badge */}
                     <TableCell>
-                      <Badge variant={toBadgeVariant(d.status)}>
+                      <Badge variant={toBadgeVariant(d.status)} className="text-sm font-semibold px-3 py-1">
                         {statusLabel(d.status)}
                       </Badge>
                     </TableCell>
@@ -690,7 +690,7 @@ export default function DriversPage() {
                     </TableCell>
                     {/* Bergabung */}
                     <TableCell>
-                      <span className="text-xs tabular-nums font-mono text-muted">
+                      <span className="text-sm tabular-nums font-mono font-medium text-foreground">
                         {d.join_date ? new Date(d.join_date).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "2-digit" }) : "—"}
                       </span>
                     </TableCell>
@@ -706,14 +706,14 @@ export default function DriversPage() {
                         ) : (
                           <>
                             <IconButton
-                              icon={<Edit2 className="w-3.5 h-3.5" />}
+                              icon={<Edit2 className="w-4 h-4" />}
                               onClick={(e) => { e.stopPropagation(); openEdit(d); }}
                               variant="ghost"
                               size="sm"
                               aria-label={`Edit ${d.name}`}
                             />
                             <IconButton
-                              icon={<Trash2 className="w-3.5 h-3.5" />}
+                              icon={<Trash2 className="w-4 h-4" />}
                               onClick={(e) => { e.stopPropagation(); setDeleteConfirm(d.id); }}
                               variant="ghost"
                               size="sm"
