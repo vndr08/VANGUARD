@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "motion/react";
 import {
-  Search, Filter, Navigation, MapPin, Truck, Clock, Route, X,
+  Search, Filter, Navigation, MapPin, Truck, Clock, Route, X, Plus,
 } from "lucide-react";
 import { TaskStatusBadge } from "@/components/ui/Badge";
 import { Skeleton, EmptyState } from "@/components/ui/Card";
@@ -262,6 +262,17 @@ export default function TasksPage() {
           </div>
         </div>
 
+        {/* ── ACTIONS ──────────────────────────────────────────────────────────── */}
+        <div className="flex items-center gap-2">
+          <button
+            disabled
+            className="flex items-center gap-1.5 h-8 px-3 rounded-lg border border-border bg-surface-1 text-xs font-medium text-muted cursor-not-allowed opacity-60"
+            title="Fitur pembuatan tugas belum tersedia"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Tambah Tugas
+          </button>
+        </div>
       </header>
 
       {/* ── FILTER BAR ──────────────────────────────────────────────────────── */}
