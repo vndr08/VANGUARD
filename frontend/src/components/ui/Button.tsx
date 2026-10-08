@@ -49,10 +49,10 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     ref
   ) => {
     const baseStyles =
-      "inline-flex items-center justify-center gap-2 font-semibold rounded-lg transition-all duration-100 focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed select-none";
+      "v2-button inline-flex items-center justify-center gap-2 font-semibold transition-all duration-100 focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed select-none";
 
     const variantStyles: Record<ButtonVariant, string> = {
-      primary: "bg-foreground text-bg hover:opacity-90",
+      primary: "bg-brand text-slate-950 hover:bg-brand-hover",
       secondary:
         "bg-surface-2 text-foreground border border-border hover:bg-surface-3 hover:border-border-strong",
       ghost:

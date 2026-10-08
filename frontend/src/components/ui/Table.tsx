@@ -28,7 +28,7 @@ export function TableContainer({
   return (
     <div
       className={cx(
-        "bg-surface-1 border border-border rounded-xl overflow-hidden",
+        "v2-ledger bg-surface-1 border border-border overflow-hidden",
         scrollable && "overflow-auto",
         className
       )}
@@ -74,7 +74,7 @@ export function TableHeadCell({
   return (
     <th
       className={cx(
-        "px-4 py-3 text-left text-label font-semibold uppercase tracking-wide text-muted",
+        "px-4 py-3 text-left text-label font-semibold uppercase text-muted",
         sortable && "sortable cursor-pointer select-none hover:text-foreground",
         className
       )}
@@ -144,7 +144,7 @@ export function TableRow({
   return (
     <tr
       className={cx(
-        "transition-colors duration-100",
+        "v2-ledger-row transition-colors duration-100",
         "hover:bg-surface-2",
         selected && "bg-brand-soft",
         selectable && "cursor-pointer",

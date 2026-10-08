@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "motion/react";
 import {
-  Search, Filter, Navigation, MapPin, Truck, Clock, Route, X, Plus,
+  Search, Filter, Navigation, MapPin, Truck, Clock, Route, X,
 } from "lucide-react";
 import { TaskStatusBadge } from "@/components/ui/Badge";
 import { Skeleton, EmptyState } from "@/components/ui/Card";
@@ -239,10 +239,10 @@ export default function TasksPage() {
 
   /* ───────────────────────────────────────────────────────────────────────── */
   return (
-    <div className="flex h-[calc(100vh-4rem)] flex-col overflow-hidden">
+    <div className="flex h-[calc(100dvh-3.625rem)] max-h-[calc(100dvh-3.625rem)] min-h-0 flex-col overflow-hidden">
 
       {/* ── HEADER: KPI count-up ───────────────────────────────────────────── */}
-      <header className="flex items-center justify-between gap-4 border-b border-border bg-surface-1 px-4 py-2.5 shrink-0">
+      <header className="flex items-center gap-4 border-b border-border bg-surface-1 px-4 py-2.5 shrink-0">
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand text-white">
@@ -263,25 +263,15 @@ export default function TasksPage() {
         </div>
 
         {/* ── ACTIONS ──────────────────────────────────────────────────────────── */}
-        <div className="flex items-center gap-2">
-          <button
-            disabled
-            className="flex items-center gap-1.5 h-8 px-3 rounded-lg border border-border bg-surface-1 text-xs font-medium text-muted cursor-not-allowed opacity-60"
-            title="Fitur pembuatan tugas belum tersedia"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            Tambah Tugas
-          </button>
-        </div>
       </header>
 
       {/* ── FILTER BAR ──────────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-2 border-b border-border bg-surface-1 px-4 py-2 shrink-0">
+      <div className="flex min-w-0 shrink-0 items-center gap-2 overflow-x-auto border-b border-border bg-surface-1 px-4 py-2">
         <Filter className="h-3.5 w-3.5 text-muted shrink-0" />
         <span className="text-[10px] font-semibold uppercase tracking-widest text-muted mr-1">Status:</span>
         <button
           onClick={() => { setFilter("all"); }}
-          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-all duration-100 focus-visible:outline-2 focus-visible:outline-brand ${
+          className={`inline-flex shrink-0 items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-all duration-100 focus-visible:outline-2 focus-visible:outline-brand ${
             filter === "all" ? "bg-foreground text-background" : "bg-surface-2 text-muted hover:bg-surface-3 hover:text-foreground"
           }`}
         >
@@ -291,7 +281,7 @@ export default function TasksPage() {
           <button
             key={s}
             onClick={() => { setFilter(s); }}
-            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-all duration-100 focus-visible:outline-2 focus-visible:outline-brand ${
+            className={`inline-flex shrink-0 items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-all duration-100 focus-visible:outline-2 focus-visible:outline-brand ${
               filter === s ? "bg-foreground text-background" : "bg-surface-2 text-muted hover:bg-surface-3 hover:text-foreground"
             }`}
           >

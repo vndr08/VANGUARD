@@ -23,6 +23,7 @@ import { useReducedMotion } from "@/hooks/useReducedMotion";
 import { lerp, lerpAngle } from "@/lib/motion";
 import { GRAPHITE_DARK_RASTER } from "@/components/map/types";
 import { FLEET_VEHICLES } from "@/lib/fleet-data";
+import { useAppContext } from "@/components/context/AppContext";
 import {
   OPERATIONS_DATASET,
   type OperationalEvent,

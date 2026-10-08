@@ -10,5 +10,7 @@ docs/_backup/
 .env.local
 .env.*.local
 frontend/.env.local
+frontend/tsconfig.tsbuildinfo
+/index.html
 explore-*.js
 tramos-login.js

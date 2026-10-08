@@ -13,6 +13,7 @@ import {
   X,
 } from "lucide-react";
 import { FLEET_VEHICLES } from "@/lib/fleet-data";
+import { useAppContext } from "@/components/context/AppContext";
 import { useToast } from "@/components/ui/Toast";
 import { Badge } from "@/components/ui/Badge";
 import {
@@ -204,10 +205,12 @@ function DriverForm({
   initial,
   onSubmit,
   onCancel,
+  vehicles,
 }: {
   initial?: DriverFormData;
   onSubmit: (data: DriverFormData) => void;
   onCancel: () => void;
+  vehicles: typeof FLEET_VEHICLES;
 }) {
   const [form, setForm] = useState<DriverFormData>(initial ?? EMPTY_FORM);
 
@@ -296,7 +299,7 @@ function DriverForm({
                 className="form-input"
               >
                 <option value="">— Belum Ditugaskan —</option>
-                {FLEET_VEHICLES.map((v) => (
+                {vehicles.map((v) => (
                   <option key={v.id} value={v.id}>
                     {v.plate_number} — {v.brand} {v.model}
                   </option>
@@ -357,6 +360,8 @@ function FormField({
 export default function DriversPage() {
   const { success, error } = useToast();
   const reducedMotion = useReducedMotion();
+  const { vehicles: contextVehicles } = useAppContext();
+  const vehicles = contextVehicles.length > 0 ? contextVehicles : FLEET_VEHICLES;
 
   const [drivers, setDrivers] = useState<Driver[]>(INITIAL_DRIVERS);
   const [search, setSearch] = useState("");
@@ -490,9 +495,9 @@ export default function DriversPage() {
   // Map driver vehicle_id → plate_number for display
   const vehicleMap = useMemo(() => {
     const m = new Map<number, string>();
-    FLEET_VEHICLES.forEach((v) => m.set(v.id, v.plate_number));
+    vehicles.forEach((v) => m.set(v.id, v.plate_number));
     return m;
-  }, []);
+  }, [vehicles]);
 
   return (
     <div className="h-[calc(100vh-4rem)] flex flex-col overflow-hidden">
@@ -757,6 +762,7 @@ export default function DriversPage() {
           }
           onSubmit={handleSubmitForm}
           onCancel={closeDrawer}
+          vehicles={vehicles}
         />
       </Panel>
     </div>

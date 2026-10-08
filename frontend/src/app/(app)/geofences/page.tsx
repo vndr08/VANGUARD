@@ -305,7 +305,7 @@ const GeofenceMapPreview = dynamic(() => import("@/components/map/MapView").then
         vehicles={vehicles}
         selectedId={selectedId ? parseInt(selectedId) : null}
         className="w-full h-full"
-        zoom={10}
+        zoom={8}
         pitch={30}
       />
     );
@@ -319,7 +319,7 @@ export default function GeofencesPage() {
   const reducedMotion = useReducedMotion();
 
   const [zones, setZones] = useState<Geofence[]>(INITIAL_ZONES);
-  const [selected, setSelected] = useState<Geofence | null>(null);
+  const [selected, setSelected] = useState<Geofence | null>(INITIAL_ZONES[0] ?? null);
   const [search, setSearch] = useState("");
   const [filterType, setFilterType] = useState<ZoneType | "all">("all");
   const [filterStatus, setFilterStatus] = useState<ZoneStatus | "all">("all");

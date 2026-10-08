@@ -7,7 +7,7 @@ export function createFleetVehicles(
   const lastUpdate = (minutesAgo = 0) =>
     new Date(referenceTimeMs - minutesAgo * 60_000).toISOString();
 
-  return [
+  const vehicles: Vehicle[] = [
   { id: 1, plate_number: "B 1234 KJT", vehicle_type: "truck", brand: "Hino", model: "Ranger FL 235 JW", year: 2022, status: "driving", speed: 67.2, latitude: -6.2088, longitude: 106.8456, heading: 45, engine_on: true, fuel_level: 72.5, odometer: 145230, last_update: lastUpdate(), driver_name: "Ahmad Sudirman" },
   { id: 2, plate_number: "B 5678 TGP", vehicle_type: "truck", brand: "Mitsubishi", model: "Colt Diesel FE 74 HD", year: 2021, status: "driving", speed: 82.1, latitude: -6.3020, longitude: 107.1514, heading: 120, engine_on: true, fuel_level: 58.3, odometer: 203100, last_update: lastUpdate(), driver_name: "Budi Santoso" },
   { id: 3, plate_number: "B 9012 XYZ", vehicle_type: "truck", brand: "Isuzu", model: "Giga FVZ 34 P", year: 2023, status: "stopped", speed: 0, latitude: -6.9175, longitude: 107.6191, heading: 200, engine_on: false, fuel_level: 45.0, odometer: 89450, last_update: lastUpdate(), driver_name: "Cahyo Wibowo" },
@@ -34,6 +34,12 @@ export function createFleetVehicles(
   { id: 24, plate_number: "H 1010 IJK", vehicle_type: "truck", brand: "Isuzu", model: "Giga FVR 34 P", year: 2021, status: "stopped", speed: 0, latitude: -6.9900, longitude: 110.4800, heading: 270, engine_on: false, fuel_level: 38.4, odometer: 267800, last_update: lastUpdate(), driver_name: null },
   { id: 25, plate_number: "B 2020 LMN", vehicle_type: "truck", brand: "Mercedes-Benz", model: "Axor 2528 R", year: 2022, status: "idle", speed: 0, latitude: -6.3200, longitude: 107.1200, heading: 180, engine_on: true, fuel_level: 47.1, odometer: 112400, last_update: lastUpdate(), driver_name: null },
   ];
+
+  const visibleFleetIds = new Set([
+    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 20,
+  ]);
+
+  return vehicles.filter((vehicle) => visibleFleetIds.has(vehicle.id));
 }
 
 export const FLEET_VEHICLES: Vehicle[] = createFleetVehicles();
@@ -44,9 +50,11 @@ export const FLEET_STATS = {
   idle: FLEET_VEHICLES.filter((v) => v.status === "idle").length,
   stopped: FLEET_VEHICLES.filter((v) => v.status === "stopped").length,
   offline: FLEET_VEHICLES.filter((v) => v.status === "offline").length,
-  total_drivers: 20,
+  total_drivers: FLEET_VEHICLES.filter(
+    (vehicle) => vehicle.driver_name?.trim()
+  ).length,
   avg_speed: Math.round(FLEET_VEHICLES.filter((v) => v.status === "driving").reduce((sum, v) => sum + v.speed, 0) / FLEET_VEHICLES.filter((v) => v.status === "driving").length * 10) / 10,
-  alerts: 3,
+  alerts: 0,
 };
 
 /* ─── Extended mock: MapVehicle (with interpolated positions) ─────────────── */

@@ -14,17 +14,18 @@ import { useState, useEffect, useRef, useCallback } from "react";
 
 // Durations (ms)
 export const DURATION = {
-  micro: 120,    // micro interactions (hover, press)
-  normal: 200,   // standard transitions
-  panel: 280,     // panel/drawer slides
-  route: 600,     // route draw animations
-  slow: 900,      // slow cinematic
+  micro: 120,
+  normal: 180,
+  panel: 180,
+  route: 320,
+  slow: 400,
 } as const;
 
 // Easing curves
 export const EASE = {
-  outQuint: "cubic-bezier(0.22, 1, 0.36, 1)",   // ease-out-quint
-  spring: "cubic-bezier(0.34, 1.56, 0.64, 1)",   // spring for panel/marker
+  standard: "cubic-bezier(0.2, 0, 0, 1)",
+  outQuint: "cubic-bezier(0.2, 0, 0, 1)",
+  spring: "cubic-bezier(0.2, 0, 0, 1)",
   linear: "linear",
 } as const;
 
@@ -141,7 +142,7 @@ export const livePulse = {
  * Respects prefers-reduced-motion (instant jump if reduced)
  *
  * @param target - Target number to animate to
- * @param duration - Animation duration in ms (default: 900ms)
+ * @param duration - Animation duration in ms (default: 400ms)
  * @returns current animated value
  */
 export function useAnimatedNumber(target: number, duration: number = DURATION.slow): number {
@@ -214,10 +215,10 @@ export function lerpAngle(start: number, end: number, t: number): number {
   return (start + diff * t + 360) % 360;
 }
 
-/* ─── Stagger Utilities ─────────────────────────────────────────────────────── */
+/* ─── Compatibility Utilities ──────────────────────────────────────────────── */
 
 /**
- * Calculate stagger delay for list items
+ * Legacy list delay helper. New page and card stagger should not use this.
  * @param index - Item index in list
  * @param baseDelay - Base delay in ms
  * @param staggerMs - Additional delay per item in ms
@@ -225,7 +226,7 @@ export function lerpAngle(start: number, end: number, t: number): number {
 export function getStaggerDelay(
   index: number,
   baseDelay: number = 0,
-  staggerMs: number = 50
+  staggerMs: number = 0
 ): number {
   return baseDelay + index * staggerMs;
 }
@@ -236,7 +237,7 @@ export function getStaggerDelay(
 export function staggerDelays(
   count: number,
   baseDelay: number = 0,
-  staggerMs: number = 50
+  staggerMs: number = 0
 ): number[] {
   return Array.from({ length: count }, (_, i) =>
     getStaggerDelay(i, baseDelay, staggerMs)
@@ -246,29 +247,15 @@ export function staggerDelays(
 /* ─── useEnterAnimation ────────────────────────────────────────────────────── */
 
 /**
- * Hook for enter animations with optional stagger
- * Returns style and animation class
+ * Compatibility hook. Foundation intentionally avoids automatic page entry motion.
  */
 export function useEnterAnimation(options: {
   delay?: number;
   stagger?: number;
   reducedMotion?: boolean;
 } = {}): { style: React.CSSProperties; className: string } {
-  const { delay = 0, stagger = 0, reducedMotion: globalReduced } = options;
-  const { reducedMotion } = useTheme();
-  const effectiveReduced = globalReduced ?? reducedMotion;
-
-  if (effectiveReduced) {
-    return {
-      style: {},
-      className: "",
-    };
-  }
-
   return {
-    style: {
-      animationDelay: `${delay + stagger}ms`,
-    },
-    className: "animate-fade-in",
+    style: {},
+    className: "",
   };
 }

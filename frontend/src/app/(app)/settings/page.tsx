@@ -65,6 +65,44 @@ function SettingSection({ title, description, children }: { title: string; descr
   );
 }
 
+/* ─── Accent Color Picker ──────────────────────────────── */
+
+const ACCENT_COLORS = [
+  { id: "yellow" as const, label: "Signal Yellow", color: "#FFC500" },
+  { id: "orange" as const, label: "Safety Orange", color: "#FF5A1F" },
+  { id: "steel" as const, label: "Steel Mono", color: "#C7D0D9" },
+];
+
+function AccentColorPicker() {
+  const { accent, setAccent } = useTheme();
+
+  return (
+    <div className="flex gap-2">
+      {ACCENT_COLORS.map((item) => (
+        <button
+          key={item.id}
+          onClick={() => setAccent(item.id)}
+          aria-label={item.label}
+          aria-pressed={accent === item.id}
+          className="relative w-8 h-8 rounded-sm border-2 transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+          style={{
+            background: item.color,
+            borderColor: accent === item.id ? "var(--ink)" : "var(--line-strong)",
+            transform: accent === item.id ? "scale(1.1)" : "scale(1)",
+          }}
+          title={item.label}
+        >
+          {accent === item.id && (
+            <span className="absolute inset-0 flex items-center justify-center">
+              <span className="w-2 h-2 rounded-full bg-white shadow" />
+            </span>
+          )}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 /* ─── Nav Items ──────────────────────────────────────── */
 
 const NAV_SECTIONS = [
@@ -81,9 +119,8 @@ type Section = typeof NAV_SECTIONS[number]["id"];
 
 export default function SettingsPage() {
   const [activeSection, setActiveSection] = useState<Section>("profil");
-  const { theme, toggleTheme } = useTheme();
+  const { theme, toggleTheme, density, setDensity } = useTheme();
   const { success, error } = useToast();
-  const reducedMotion = useReducedMotion();
   const { setSpeedingAlertEnabled, setTelemetriInterval } = useAppContext();
 
   // ── Profil state
@@ -94,9 +131,6 @@ export default function SettingsPage() {
 
   // ── Notifikasi toggles
   const [notif, setNotif] = useState({ speeding: true, geofence: true, engineCut: false, insiden: true, laporanHarian: false });
-
-  // ── Tampilan state
-  const [display, setDisplay] = useState({ density: "compact" as "compact"|"normal", animation: true, bahasa: "id" });
 
   // ── Integrasi state
   const [integrations, setIntegrations] = useState([
@@ -385,55 +419,47 @@ export default function SettingsPage() {
                     <button
                       onClick={toggleTheme}
                       aria-label={`Ganti ke tema ${theme === "dark" ? "Terang" : "Gelap"}`}
-                      className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface-2 border border-border text-sm text-foreground hover:bg-surface-3 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                      className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                      style={{
+                        background: "var(--surface-2)",
+                        border: "1px solid var(--line-strong)",
+                        color: "var(--ink)",
+                        clipPath: "polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%)",
+                      }}
                     >
-                      {theme === "dark" ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+                      {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
                       {theme === "dark" ? "Gelap" : "Terang"}
                     </button>
+                  </SettingRow>
+                  <SettingRow
+                    label="Accent Color"
+                    description="Warna aksen untuk elemen UI"
+                  >
+                    <AccentColorPicker />
                   </SettingRow>
                 </div>
               </SettingSection>
               <SettingSection title="Density">
                 <div className="px-4">
                   <SettingRow label="Density Antarmuka" description="Atur kepadatan informasi di layar">
-                    <div className="flex rounded-lg border border-border overflow-hidden">
-                      {(["compact", "normal"] as const).map(d => (
+                    <div className="flex gap-1">
+                      {(["compact", "comfortable"] as const).map(d => (
                         <button
                           key={d}
-                          onClick={() => setDisplay(dis => ({ ...dis, density: d }))}
-                          aria-pressed={display.density === d}
-                          className={`px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand ${
-                            display.density === d
-                              ? "bg-brand text-white"
-                              : "bg-surface-2 text-muted hover:bg-surface-3"
-                          }`}
+                          onClick={() => setDensity(d)}
+                          aria-pressed={density === d}
+                          className="px-3 py-1.5 text-xs font-semibold font-sign uppercase tracking-wider transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                          style={{
+                            background: density === d ? "var(--signal)" : "var(--surface-2)",
+                            color: density === d ? "var(--signal-ink)" : "var(--muted)",
+                            border: "1px solid var(--line-strong)",
+                            clipPath: "polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%)",
+                          }}
                         >
-                          {d === "compact" ? "Compact" : "Normal"}
+                          {d === "compact" ? "Compact" : "Comfort"}
                         </button>
                       ))}
                     </div>
-                  </SettingRow>
-                </div>
-              </SettingSection>
-              <SettingSection title="Animasi">
-                <div className="px-4">
-                  <SettingRow label="Aktifkan Animasi" description="Animasi transisi dan efek visual">
-                    <Toggle checked={display.animation} onChange={v => setDisplay(dis => ({ ...dis, animation: v }))} />
-                  </SettingRow>
-                </div>
-              </SettingSection>
-              <SettingSection title="Bahasa">
-                <div className="px-4">
-                  <SettingRow label="Bahasa Antarmuka" description="Pilih bahasa yang digunakan">
-                    <select
-                      value={display.bahasa}
-                      onChange={e => setDisplay(dis => ({ ...dis, bahasa: e.target.value }))}
-                      className="px-3 py-1.5 rounded-lg bg-surface-2 border border-border text-sm text-foreground focus-visible:outline-2 focus-visible:outline-brand"
-                      aria-label="Bahasa"
-                    >
-                      <option value="id">Indonesia</option>
-                      <option value="en">English</option>
-                    </select>
                   </SettingRow>
                 </div>
               </SettingSection>

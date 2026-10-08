@@ -6,9 +6,7 @@ import { useRouter } from "next/navigation";
 import { motion } from "motion/react";
 import {
   Crosshair,
-  History,
   MapPin,
-  MessageSquare,
   Navigation,
   Radio,
   Search,
@@ -16,6 +14,7 @@ import {
   X,
 } from "lucide-react";
 import { FLEET_VEHICLES, toMapVehicle } from "@/lib/fleet-data";
+import { useAppContext } from "@/components/context/AppContext";
 import type { Vehicle } from "@/types";
 import { useToast } from "@/components/ui/Toast";
 import { StatusPill } from "@/components/ui/Badge";
@@ -98,25 +97,34 @@ function formatLastUpdate(iso: string): string {
 
 export default function LocatePage() {
   const { success } = useToast();
+  const { vehicles: contextVehicles } = useAppContext();
+  const vehicles = contextVehicles.length > 0 ? contextVehicles : FLEET_VEHICLES;
 
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
-  const [selected, setSelected] = useState<Vehicle | null>(FLEET_VEHICLES[0]);
+  const [selected, setSelected] = useState<Vehicle | null>(null);
   // Store map imperative commands (fitAll) — populated via onMapReady callback
   const [mapCommands, setMapCommands] = useState<{ fitAll: () => void } | null>(null);
 
+  // Set initial selected when vehicles load
+  useState(() => {
+    if (!selected && vehicles.length > 0) {
+      setSelected(vehicles[0]);
+    }
+  });
+
   // KPI counts
   const counts = useMemo(() => ({
-    total: FLEET_VEHICLES.length,
-    online: FLEET_VEHICLES.filter((v) => v.status !== "offline").length,
-    moving: FLEET_VEHICLES.filter((v) => v.status === "driving").length,
-    offline: FLEET_VEHICLES.filter((v) => v.status === "offline").length,
-  }), []);
+    total: vehicles.length,
+    online: vehicles.filter((v) => v.status !== "offline").length,
+    moving: vehicles.filter((v) => v.status === "driving").length,
+    offline: vehicles.filter((v) => v.status === "offline").length,
+  }), [vehicles]);
 
   // Filtered list
   const rows = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return FLEET_VEHICLES.filter((v) => {
+    return vehicles.filter((v) => {
       if (q && !v.plate_number.toLowerCase().includes(q)
         && !(v.driver_name ?? "").toLowerCase().includes(q)
         && !v.brand.toLowerCase().includes(q)
@@ -124,10 +132,10 @@ export default function LocatePage() {
       if (filterStatus !== "all" && v.status !== filterStatus) return false;
       return true;
     });
-  }, [search, filterStatus]);
+  }, [vehicles, search, filterStatus]);
 
   // Map vehicles
-  const mapVehicles = useMemo(() => FLEET_VEHICLES.map(toMapVehicle), []);
+  const mapVehicles = useMemo(() => vehicles.map(toMapVehicle), [vehicles]);
 
   function handleSelect(v: Vehicle) {
     setSelected(v);
@@ -142,14 +150,6 @@ export default function LocatePage() {
   function handleRealtime() {
     if (!selected) return;
     router.push(`/tracking?vehicle=${selected.plate_number.toLowerCase().replace(/\s+/g, "")}`);
-  }
-
-  function handleHistory() {
-    // Riwayat dapat diakses dari tracking
-  }
-
-  function handleMessage() {
-    // Fitur pesan dalam pengembangan
   }
 
   function handleCopyCoords() {
@@ -347,7 +347,7 @@ export default function LocatePage() {
             selectedId={selected?.id ?? null}
             onMapReady={setMapCommands}
             className="w-full h-full"
-            zoom={9}
+            zoom={7.2}
             pitch={45}
           />
 
@@ -469,24 +469,6 @@ export default function LocatePage() {
                     className="flex-1"
                   >
                     Lacak Realtime
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    icon={<History className="w-3.5 h-3.5" />}
-                    onClick={handleHistory}
-                    aria-label="Lihat riwayat unit"
-                  >
-                    Riwayat
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    icon={<MessageSquare className="w-3.5 h-3.5" />}
-                    onClick={handleMessage}
-                    aria-label="Kirim pesan ke driver"
-                  >
-                    Pesan
                   </Button>
                   <IconButton
                     icon={<MapPin className="w-3.5 h-3.5" />}

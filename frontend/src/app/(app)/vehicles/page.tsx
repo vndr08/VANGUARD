@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { motion } from "motion/react";
 import {
   Download,
@@ -11,7 +11,9 @@ import {
   Truck,
   X,
 } from "lucide-react";
-import { FLEET_VEHICLES } from "@/lib/fleet-data";
+import { FLEET_VEHICLES, createFleetVehicles } from "@/lib/fleet-data";
+import { getVehicles } from "@/hooks/useTelemetry";
+import { useAppContext } from "@/components/context/AppContext";
 import type { Vehicle } from "@/types";
 import { useToast } from "@/components/ui/Toast";
 import { StatusPill } from "@/components/ui/Badge";
@@ -323,9 +325,25 @@ function FormField({
 export default function VehiclesPage() {
   const { success, error } = useToast();
   const reducedMotion = useReducedMotion();
+  const { vehicles: contextVehicles } = useAppContext();
 
-  // Vehicle list state
-  const [vehicles, setVehicles] = useState<Vehicle[]>(FLEET_VEHICLES);
+  // Local state for vehicle list (allows add/edit/delete)
+  const [localVehicles, setLocalVehicles] = useState<Vehicle[]>([]);
+  const [initialized, setInitialized] = useState(false);
+
+  // Initialize local vehicles from context or fallback
+  useEffect(() => {
+    if (!initialized && contextVehicles.length > 0) {
+      setLocalVehicles(contextVehicles);
+      setInitialized(true);
+    } else if (!initialized && contextVehicles.length === 0) {
+      setLocalVehicles(FLEET_VEHICLES);
+      setInitialized(true);
+    }
+  }, [contextVehicles, initialized]);
+
+  // Use local vehicles if initialized, otherwise fallback
+  const vehicles = localVehicles;
 
   // UI state
   const [search, setSearch] = useState("");
@@ -438,11 +456,11 @@ export default function VehiclesPage() {
         odometer: data.odometer,
         last_update: new Date().toISOString(),
       };
-      setVehicles((prev) => [...prev, newVehicle]);
+      setLocalVehicles((prev) => [...prev, newVehicle]);
       success(`Kendaraan ${newVehicle.plate_number} ditambahkan`);
       closeDrawer();
     } else if (editVehicle) {
-      setVehicles((prev) =>
+      setLocalVehicles((prev) =>
         prev.map((v) =>
           v.id === editVehicle.id
             ? {
@@ -469,7 +487,7 @@ export default function VehiclesPage() {
 
   // ─── Delete vehicle
   function handleDelete(v: Vehicle) {
-    setVehicles((prev) => prev.filter((x) => x.id !== v.id));
+    setLocalVehicles((prev) => prev.filter((x) => x.id !== v.id));
     setDeleteConfirm(null);
     success(`Kendaraan ${v.plate_number} dihapus`);
   }

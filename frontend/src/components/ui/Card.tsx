@@ -47,7 +47,7 @@ export function Card({
   return (
     <div
       className={cx(
-        "rounded-xl",
+        "v2-frame",
         variantStyles[variant],
         hoverable && "transition-all duration-100 hover:border-border-strong hover:shadow-elev-2",
         className
@@ -55,7 +55,7 @@ export function Card({
       {...props}
     >
       {header && (
-        <div className="px-4 py-3 border-b border-border">
+        <div className="px-4 py-3 border-b border-dashed border-border-strong">
           {header}
         </div>
       )}
@@ -63,7 +63,7 @@ export function Card({
         {children}
       </div>
       {footer && (
-        <div className="px-4 py-3 border-t border-border bg-surface-2 rounded-b-xl">
+        <div className="px-4 py-3 border-t border-border bg-surface-2">
           {footer}
         </div>
       )}

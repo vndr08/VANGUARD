@@ -12,7 +12,6 @@ import { isValidLngLat, clampLngLat } from "@/lib/geo";
  */
 export function useMapInterpolation(vehicles: MapVehicle[]): (InterpolatedVehicle & { lng: number; lat: number })[] {
   const reduceMotion = useReducedMotion();
-  const prevRef = useRef<Map<number, { lng: number; lat: number; heading: number }>>(new Map());
 
   /** Safe conversion from Vehicle.latitude/longitude → {lng, lat} with clamping */
   function safeVehicleCoords(v: MapVehicle): { lng: number; lat: number } {
@@ -39,6 +38,11 @@ export function useMapInterpolation(vehicles: MapVehicle[]): (InterpolatedVehicl
       };
     })
   );
+  const currentRef = useRef(interpolated);
+
+  useEffect(() => {
+    currentRef.current = interpolated;
+  }, [interpolated]);
 
   useEffect(() => {
     if (reduceMotion) {
@@ -65,17 +69,12 @@ export function useMapInterpolation(vehicles: MapVehicle[]): (InterpolatedVehicl
     let rafId: number;
     let startTime: number | null = null;
     const LERP_DURATION = 600; // ms
-
-    /**
-     * KEY FIX: when vehicles reference changes (new render), update prevRef.current
-     * BEFORE starting the new animation so the animation starts from correct positions.
-     * Previously prevRef was stale (from the previous animation run), causing a visible
-     * "snap" to old positions before smooth animation resumed — the marker jitter.
-     */
-    vehicles.forEach((v) => {
-      const { lng, lat } = safeVehicleCoords(v);
-      prevRef.current.set(v.id, { lng, lat, heading: v.heading });
-    });
+    const startById = new Map(
+      currentRef.current.map((vehicle) => [
+        vehicle.id,
+        { lng: vehicle.lng, lat: vehicle.lat, heading: vehicle.heading },
+      ])
+    );
 
     function animate(timestamp: number) {
       if (!startTime) startTime = timestamp;
@@ -84,14 +83,13 @@ export function useMapInterpolation(vehicles: MapVehicle[]): (InterpolatedVehicl
       // ease-out cubic
       const ease = 1 - Math.pow(1 - t, 3);
 
-      setInterpolated((prev) => {
-        return vehicles.map((v) => {
-          const prevPos = prevRef.current.get(v.id);
+      setInterpolated(() => {
+        const next = vehicles.map((v) => {
+          const prevPos = startById.get(v.id);
           const { lng: targetLng, lat: targetLat } = safeVehicleCoords(v);
           const targetHeading = v.heading;
 
           if (!prevPos) {
-            prevRef.current.set(v.id, { lng: targetLng, lat: targetLat, heading: targetHeading });
             return {
               id: v.id,
               lng: targetLng,
@@ -111,12 +109,6 @@ export function useMapInterpolation(vehicles: MapVehicle[]): (InterpolatedVehicl
           // Lerp heading (shortest path)
           const heading = lerpAngle(prevPos.heading, targetHeading, ease);
 
-          if (t >= 1) {
-            prevRef.current.set(v.id, { lng: targetLng, lat: targetLat, heading: targetHeading });
-          } else {
-            prevRef.current.set(v.id, { lng, lat, heading });
-          }
-
           return {
             id: v.id,
             lng,
@@ -129,21 +121,12 @@ export function useMapInterpolation(vehicles: MapVehicle[]): (InterpolatedVehicl
             isMoving: v.status === "driving",
           };
         });
+        currentRef.current = next;
+        return next;
       });
-
-      if (vehicles.every((v) => {
-        const { lng: targetLng, lat: targetLat } = safeVehicleCoords(v);
-        const p = prevRef.current.get(v.id);
-        return p && Math.abs(p.lng - targetLng) < 0.00001 && Math.abs(p.lat - targetLat) < 0.00001;
-      })) {
-        startTime = null;
-        return;
-      }
 
       if (t < 1) {
         rafId = requestAnimationFrame(animate);
-      } else {
-        startTime = null;
       }
     }
 

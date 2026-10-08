@@ -14,6 +14,18 @@ import {
 
 type Theme = "light" | "dark";
 type Density = "compact" | "comfortable";
+type Accent = "yellow" | "orange" | "steel";
+
+const THEMES: readonly Theme[] = ["light", "dark"];
+const DENSITIES: readonly Density[] = ["compact", "comfortable"];
+const ACCENTS: readonly Accent[] = ["yellow", "orange", "steel"];
+
+function isStoredValue<T extends string>(
+  value: string | null,
+  allowed: readonly T[]
+): value is T {
+  return value !== null && allowed.includes(value as T);
+}
 
 interface ThemeContextValue {
   theme: Theme;
@@ -21,6 +33,8 @@ interface ThemeContextValue {
   setTheme: (theme: Theme) => void;
   density: Density;
   setDensity: (density: Density) => void;
+  accent: Accent;
+  setAccent: (accent: Accent) => void;
   reducedMotion: boolean;
 }
 
@@ -43,34 +57,32 @@ export function useTheme(): ThemeContextValue {
 /* ─── Provider ─────────────────────────────────────────────────────────────── */
 
 export function ThemeProvider({ children }: ThemeProviderProps) {
-  const [theme, setThemeState] = useState<Theme>("light");
-  const [density, setDensityState] = useState<Density>("compact");
+  const [theme, setThemeState] = useState<Theme>("dark");
+  const [density, setDensityState] = useState<Density>("comfortable");
+  const [accent, setAccentState] = useState<Accent>("yellow");
   const [reducedMotion, setReducedMotion] = useState(false);
   const [mounted, setMounted] = useState(false);
 
   // Initialize from localStorage + system preference
   useEffect(() => {
-    const savedTheme = localStorage.getItem("vanguard-theme") as Theme | null;
-    const savedDensity = localStorage.getItem("vanguard-density") as Density | null;
+    const savedTheme = localStorage.getItem("vanguard:theme");
+    const savedDensity = localStorage.getItem("vanguard:density");
+    const savedAccent = localStorage.getItem("vanguard:accent");
 
-    // Light-first baseline. A valid saved preference remains respected.
-    const initialTheme: Theme = savedTheme === "dark" ? "dark" : "light";
-    setThemeState(initialTheme);
-
-    // Density: saved > default (compact for cockpit)
-    setDensityState(savedDensity ?? "compact");
+    // Dark-first baseline (v2 default)
+    setThemeState(isStoredValue(savedTheme, THEMES) ? savedTheme : "dark");
+    setDensityState(isStoredValue(savedDensity, DENSITIES) ? savedDensity : "comfortable");
+    setAccentState(isStoredValue(savedAccent, ACCENTS) ? savedAccent : "yellow");
 
     // Check reduced motion preference
     const motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
     setReducedMotion(motionQuery.matches);
 
-    // Listen for changes
     const handleMotionChange = (e: MediaQueryListEvent) => {
       setReducedMotion(e.matches);
     };
 
     motionQuery.addEventListener("change", handleMotionChange);
-
     setMounted(true);
 
     return () => {
@@ -78,25 +90,37 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     };
   }, []);
 
-  // Apply theme to DOM
+  // Apply theme to DOM via data-theme attribute
   useEffect(() => {
     if (!mounted) return;
 
     const root = document.documentElement;
-    root.classList.remove("light", "dark");
-    root.classList.add(theme);
-    localStorage.setItem("vanguard-theme", theme);
+    root.setAttribute("data-theme", theme);
+    root.classList.toggle("dark", theme === "dark");
+    localStorage.setItem("vanguard:theme", theme);
   }, [theme, mounted]);
 
-  // Apply density to DOM
+  // Apply density to DOM via data-density attribute
   useEffect(() => {
     if (!mounted) return;
 
     const root = document.documentElement;
-    root.classList.remove("density-compact", "density-normal");
-    root.classList.add(`density-${density}`);
-    localStorage.setItem("vanguard-density", density);
+    root.setAttribute("data-density", density);
+    localStorage.setItem("vanguard:density", density);
   }, [density, mounted]);
+
+  // Apply accent to DOM via data-accent attribute
+  useEffect(() => {
+    if (!mounted) return;
+
+    const root = document.documentElement;
+    if (accent === "yellow") {
+      root.removeAttribute("data-accent");
+    } else {
+      root.setAttribute("data-accent", accent);
+    }
+    localStorage.setItem("vanguard:accent", accent);
+  }, [accent, mounted]);
 
   // Setters
   const toggleTheme = useCallback(() => {
@@ -111,6 +135,10 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     setDensityState(newDensity);
   }, []);
 
+  const setAccent = useCallback((newAccent: Accent) => {
+    setAccentState(newAccent);
+  }, []);
+
   const value = useMemo(
     () => ({
       theme,
@@ -118,17 +146,23 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
       setTheme,
       density,
       setDensity,
+      accent,
+      setAccent,
       reducedMotion,
     }),
-    [theme, toggleTheme, setTheme, density, setDensity, reducedMotion]
+    [theme, toggleTheme, setTheme, density, setDensity, accent, setAccent, reducedMotion]
   );
 
   // Avoid flash of wrong theme — show nothing until mounted
   if (!mounted) {
     return (
       <div
-        className="bg-background"
-        style={{ backgroundColor: "var(--bg)", minHeight: "100vh" }}
+        style={{
+          backgroundColor: "var(--road, #0E1211)",
+          minHeight: "100vh",
+          position: "fixed",
+          inset: 0,
+        }}
       />
     );
   }
@@ -138,49 +172,21 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
   );
 }
 
-/* ─── Hooks ─────────────────────────────────────────────────────────────────── */
-
-/**
- * Hook to get current theme-aware class
- * @example const cls = useThemeClass({ dark: "bg-gray-900", light: "bg-white" })
- */
-export function useThemeClass(
-  classes: Record<Theme | "mounted", string>
-): string {
-  const { theme, mounted } = useTheme2();
-  if (!mounted) return classes.mounted;
-  return classes[theme];
-}
-
-// Internal hook to avoid circular export issues
-function useTheme2() {
-  const context = useContext(ThemeContext);
-  return {
-    theme: context?.theme ?? "light",
-    density: context?.density ?? "compact",
-    reducedMotion: context?.reducedMotion ?? false,
-    mounted: true,
-  };
-}
-
 /* ─── Utility: Density Row Heights ─────────────────────────────────────────── */
 
 export const DENSITY = {
   compact: {
-    rowHeight: "2rem",    // 32px
+    rowHeight: "2rem",
     padding: "0.5rem 0.75rem",
     fontSize: "0.8125rem",
   },
   comfortable: {
-    rowHeight: "2.75rem", // 44px
+    rowHeight: "2.75rem",
     padding: "0.75rem 1rem",
     fontSize: "0.875rem",
   },
 } as const;
 
-/**
- * Get density CSS variables for inline styles
- */
 export function useDensityStyles() {
   const { density } = useTheme();
   return DENSITY[density];

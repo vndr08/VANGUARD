@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#F4F6F8",
+  themeColor: "#FFC500",
   width: "device-width",
   initialScale: 1,
 };
@@ -25,15 +25,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="id" suppressHydrationWarning>
+    <html lang="id" data-theme="dark" data-density="comfortable" suppressHydrationWarning>
       <head>
-        {/* Favicon */}
+        {/* Favicon - Signal yellow truck icon */}
         <link
           rel="icon"
-          href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%23172033'/><path d='M8 22V10l8-4 8 4v12l-8 4-8-4z' fill='none' stroke='%232563EB' stroke-width='2'/><circle cx='16' cy='16' r='3' fill='%23FFFFFF'/></svg>"
+          href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><path d='M2 6 20 2l10 8-2 14-16 6L2 22z' fill='%23FFC500'/><path d='M9 11l7 5-2 6-7-5z' fill='%23151200'/></svg>"
         />
       </head>
-      <body className="bg-background text-foreground antialiased font-sans">
+      <body className="antialiased font-sans">
         <ThemeProvider>
           <ToastProvider>
             {children}

@@ -19,7 +19,7 @@ export function Toolbar({ children, className }: ToolbarProps) {
     <div
       className={cx(
         "flex items-center gap-2 px-3 py-2",
-        "bg-surface-1 border border-border rounded-lg",
+        "bg-surface-1 border border-border rounded",
         className
       )}
     >
@@ -91,7 +91,7 @@ export function FilterPill({
       type="button"
       onClick={onClick}
       className={cx(
-        "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full",
+        "inline-flex items-center gap-1.5 px-3 py-1.5 rounded",
         "text-sm font-medium transition-all duration-100",
         "focus-visible:outline-2 focus-visible:outline-offset-2",
         colorStyles[color]
@@ -142,7 +142,7 @@ export function SearchInput({
         onChange={(e) => onChange?.(e.target.value)}
         className={cx(
           "w-full pl-9 pr-4 py-2",
-          "bg-surface-1 border border-border rounded-lg",
+          "bg-surface-1 border border-border rounded",
           "text-sm text-foreground placeholder:text-faint",
           "focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand-soft",
           "transition-colors duration-100"
@@ -164,7 +164,7 @@ interface ViewToggleProps {
 
 export function ViewToggle({ view, onChange }: ViewToggleProps) {
   return (
-    <div className="inline-flex rounded-lg bg-surface-2 p-0.5">
+    <div className="inline-flex rounded bg-surface-2 p-0.5">
       <button
         type="button"
         onClick={() => onChange("table")}

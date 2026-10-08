@@ -24,6 +24,7 @@ import { FLEET_VEHICLES, toMapVehicle } from "@/lib/fleet-data";
 import type { Vehicle } from "@/types";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
 import { useToast } from "@/components/ui/Toast";
+import { useAppContext } from "@/components/context/AppContext";
 import { StatusPill } from "@/components/ui/Badge";
 import { Skeleton, EmptyState } from "@/components/ui/Card";
 import {
@@ -150,7 +151,8 @@ export default function TrackingPage() {
   );
 
   /* ── State ──────────────────────────────────────────────────────────────── */
-  const [vehicles, setVehicles] = useState<Vehicle[]>(FLEET_VEHICLES);
+  const { vehicles: contextVehicles } = useAppContext();
+  const vehicles = contextVehicles.length > 0 ? contextVehicles : FLEET_VEHICLES;
   const [loading, setLoading] = useState(false);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [search, setSearch] = useState("");
@@ -243,14 +245,6 @@ export default function TrackingPage() {
       );
     }
   }, [router, searchParams, vehicles]);
-
-  /* ── Refresh data ──────────────────────────────────────────────────────── */
-  useEffect(() => {
-    fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/vehicles`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => Array.isArray(data) && data.length > 0 && setVehicles(data))
-      .catch(() => {});
-  }, []);
 
   /* ── Speeding detection ────────────────────────────────────────────────── */
   const speedingInitializedRef =
@@ -521,19 +515,19 @@ export default function TrackingPage() {
 
   /* ──────────────────────────────────────────────────────────────────────── */
   return (
-    <div className="flex h-[calc(100vh-4rem)] max-h-[calc(100vh-4rem)] min-h-0 flex-col overflow-hidden">
+    <div className="flex h-[calc(100dvh-3.625rem)] max-h-[calc(100dvh-3.625rem)] min-h-0 flex-col overflow-hidden">
       {/* ── TOOLBAR ────────────────────────────────────────────────────────── */}
       <header
-        className="flex shrink-0 items-center justify-between gap-3 border-b border-border bg-surface-1 px-4 py-2.5"
+        className="grid shrink-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1 border-b border-border bg-surface-1 px-2 py-1 xl:h-11 xl:grid-cols-[auto_minmax(0,1fr)_auto] xl:gap-4 xl:px-4 xl:py-0"
         role="toolbar"
         aria-label="Kontrol Realtime Monitor"
       >
         {/* Left: mode toggle */}
-        <div className="flex h-9 shrink-0 items-center gap-1 rounded-lg border border-border bg-surface-2 p-0.5">
+        <div className="flex h-8 shrink-0 items-center gap-1 border border-border bg-surface-2 p-0.5">
           <button
             id="tsb-mode-map"
             onClick={() => handleModeToggle("map")}
-            className={`flex h-8 items-center gap-2 rounded-md px-4 text-sm font-medium transition-all duration-200 focus-visible:outline-2 focus-visible:outline-brand ${
+            className={`flex h-7 items-center gap-2 px-3 text-sm font-medium transition-all duration-200 focus-visible:outline-2 focus-visible:outline-brand ${
               viewMode === "map"
                 ? "bg-brand text-white shadow-sm"
                 : "text-muted hover:text-foreground hover:bg-surface-3"
@@ -546,7 +540,7 @@ export default function TrackingPage() {
           <button
             id="tsb-mode-tbl"
             onClick={() => handleModeToggle("table")}
-            className={`flex h-8 items-center gap-2 rounded-md px-4 text-sm font-medium transition-all duration-200 focus-visible:outline-2 focus-visible:outline-brand ${
+            className={`flex h-7 items-center gap-2 px-3 text-sm font-medium transition-all duration-200 focus-visible:outline-2 focus-visible:outline-brand ${
               viewMode === "table"
                 ? "bg-brand text-white shadow-sm"
                 : "text-muted hover:text-foreground hover:bg-surface-3"
@@ -558,12 +552,47 @@ export default function TrackingPage() {
           </button>
         </div>
 
-        {/* Center/Right: toolbar buttons */}
-        <div className="flex min-w-0 items-center gap-2">
+        {/* Center: operational status filters */}
+        <div
+          id="tracking-status-filter"
+          className="order-3 col-span-2 flex min-w-0 items-center gap-0.5 overflow-x-auto xl:order-none xl:col-span-1"
+          aria-label="Filter status armada"
+        >
+          <Filter className="mr-1 h-4 w-4 shrink-0 text-muted" />
+          {(Object.keys(STATUS_META) as FilterStatus[])
+            .filter((key) => key === "all" || counts[key] > 0 || key === filter)
+            .map((key) => (
+            <button
+              key={key}
+              data-status-filter={key}
+              onClick={() => setFilter(key)}
+              className={`group inline-flex h-7 shrink-0 items-center gap-1.5 border-l border-border px-2.5 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-brand ${
+                filter === key
+                  ? "bg-brand text-slate-950"
+                  : "text-muted hover:bg-surface-2 hover:text-foreground"
+              }`}
+              aria-pressed={filter === key}
+            >
+              {key !== "all" && (
+                <span
+                  className="h-1.5 w-1.5 rounded-full"
+                  style={{ background: STATUS_META[key].colorVar }}
+                />
+              )}
+              <span>{STATUS_META[key].label}</span>
+              <span className={filter === key ? "font-mono text-xs text-slate-950/70" : "font-mono text-xs text-faint"}>
+                {counts[key]}
+              </span>
+            </button>
+            ))}
+        </div>
+
+        {/* Right: map presentation controls */}
+        <div className="flex min-w-0 items-center justify-self-end gap-1 xl:gap-2">
           {viewMode === "map" && (
             <>
               <div
-                className="flex h-9 items-center gap-1 rounded-lg border border-border bg-surface-2 p-0.5"
+                className="flex h-8 items-center gap-1 border border-border bg-surface-2 p-0.5"
                 role="group"
                 aria-label="Jenis peta"
               >
@@ -582,7 +611,7 @@ export default function TrackingPage() {
                       type="button"
                       onClick={() => handleLayerChange(layer)}
                       className={`
-                        h-8 rounded-md px-3 text-sm font-medium transition-all duration-200 focus-visible:outline-2 focus-visible:outline-brand
+                        h-7 whitespace-nowrap px-2 text-sm font-medium transition-all duration-200 focus-visible:outline-2 focus-visible:outline-brand xl:px-3
                         ${active
                           ? "bg-brand text-white shadow-sm"
                           : "text-muted hover:text-foreground hover:bg-surface-3"
@@ -647,45 +676,6 @@ export default function TrackingPage() {
           )}
         </div>
       </header>
-
-      {/* ── STATUS FILTER ───────────────────────────────────────────────────── */}
-      <div
-        id="tracking-status-filter"
-        className="flex h-12 shrink-0 items-center gap-1 overflow-x-auto border-b border-border bg-surface-1 px-4"
-        aria-label="Filter status armada"
-      >
-        <span className="mr-3 flex shrink-0 items-center gap-2 text-sm font-semibold text-foreground">
-          <Filter className="h-4 w-4 text-muted" />
-          Filter
-        </span>
-
-        {(Object.keys(STATUS_META) as FilterStatus[]).map((key) => (
-          <button
-            key={key}
-            data-status-filter={key}
-            onClick={() => setFilter(key)}
-            className={`group inline-flex h-8 shrink-0 items-center gap-2 rounded-lg px-3.5 text-sm font-medium transition-all duration-200 focus-visible:outline-2 focus-visible:outline-brand ${
-              filter === key
-                ? "bg-brand text-white shadow-sm"
-                : "text-muted hover:bg-surface-2 hover:text-foreground"
-            }`}
-            aria-pressed={filter === key}
-          >
-            {key !== "all" && (
-              <span
-                className={`h-2 w-2 rounded-full transition-all ${filter === key ? "bg-white" : "opacity-70 group-hover:opacity-100"}`}
-                style={{
-                  background: filter === key ? "currentColor" : STATUS_META[key].colorVar,
-                }}
-              />
-            )}
-            <span>{STATUS_META[key].label}</span>
-            <span className={`text-xs tabular-nums transition-all ${filter === key ? "text-white/70" : "text-faint"}`}>
-              {counts[key]}
-            </span>
-          </button>
-        ))}
-      </div>
 
       {/* ── CONTENT ────────────────────────────────────────────────────────── */}
       {viewMode === "map" ? (

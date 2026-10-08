@@ -4,16 +4,13 @@ import { useMemo, useState } from "react";
 import { motion } from "motion/react";
 import {
   Camera,
-  Circle,
   Maximize2,
   Minimize2,
   Radio,
   Search,
-  Square,
   Video,
   X,
 } from "lucide-react";
-import { useToast } from "@/components/ui/Toast";
 import { StatusPill } from "@/components/ui/Badge";
 import { Button, IconButton } from "@/components/ui/Button";
 import { Card, EmptyState } from "@/components/ui/Card";
@@ -30,7 +27,6 @@ type ViewMode = "grid" | "focus";
 interface CameraUnit {
   vehicle: Vehicle;
   cameras: Record<CameraPos, boolean>; // available
-  isRecording: boolean;
 }
 
 /** Map Vehicle.status ("stopped") → StatusPill ("stop") */
@@ -47,7 +43,6 @@ const CAMERA_UNIT_LIST: CameraUnit[] = FLEET_VEHICLES.slice(0, 15).map((v) => ({
     Kabin: v.status !== "offline",
     Belakang: v.status !== "offline",
   },
-  isRecording: v.status === "driving",
 }));
 
 /* ─── KPI Components ─────────────────────────────────────────────────────────── */
@@ -79,19 +74,13 @@ function KpiDivider() {
 function CameraFeed({
   camera,
   unit,
-  isRecording,
   isMain,
-  onSnapshot,
-  onToggleRec,
   onFullscreen,
   onSwap,
 }: {
   camera: CameraPos;
   unit: CameraUnit;
-  isRecording: boolean;
   isMain: boolean;
-  onSnapshot: () => void;
-  onToggleRec: () => void;
   onFullscreen: () => void;
   onSwap?: () => void;
 }) {
@@ -114,7 +103,7 @@ function CameraFeed({
   return (
     <div
       className={
-        "relative w-full flex flex-col bg-gradient-to-br " + CAMERA_GRADIENTS[camera] +
+        "v2-camera-feed relative w-full flex flex-col bg-gradient-to-br " + CAMERA_GRADIENTS[camera] +
         (isMain ? " aspect-[16/10]" : " aspect-video")
       }
       onClick={onSwap}
@@ -125,7 +114,7 @@ function CameraFeed({
       {/* Overlay gradient */}
       <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20 pointer-events-none" />
 
-      {/* Top overlay: unit name + REC */}
+      {/* Top overlay: unit identity */}
       <div className="absolute top-0 inset-x-0 flex items-center justify-between px-3 py-2 pointer-events-none">
         <div className="flex items-center gap-2">
           <span className="px-2 py-0.5 rounded bg-black/70 backdrop-blur-sm text-[10px] font-bold text-white uppercase tracking-wider">
@@ -135,12 +124,6 @@ function CameraFeed({
             {unit.vehicle.plate_number}
           </span>
         </div>
-        {isRecording && (
-          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-st-offline/80 backdrop-blur-sm">
-            <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
-            <span className="text-[10px] font-bold text-white uppercase tracking-widest">REC</span>
-          </div>
-        )}
       </div>
 
       {/* Center: camera icon */}
@@ -163,25 +146,6 @@ function CameraFeed({
       {/* Controls overlay (on hover) */}
       <div className="absolute inset-0 flex items-center justify-center gap-2 opacity-0 hover:opacity-100 focus-within:opacity-100 bg-black/30 transition-opacity pointer-events-auto">
         <IconButton
-          icon={<Camera className="w-4 h-4" />}
-          onClick={(e) => { e.stopPropagation(); onSnapshot(); }}
-          variant="secondary"
-          size="sm"
-          aria-label={"Snapshot " + unit.vehicle.plate_number + " " + camera}
-          className="bg-black/70 border-white/20 text-white hover:bg-black/90"
-        />
-        <IconButton
-          icon={isRecording
-            ? <Square className="w-4 h-4 fill-current" />
-            : <Circle className="w-4 h-4" />
-          }
-          onClick={(e) => { e.stopPropagation(); onToggleRec(); }}
-          variant={isRecording ? "danger" : "secondary"}
-          size="sm"
-          aria-label={isRecording ? "Stop rekam" : "Mulai rekam"}
-          className={isRecording ? "bg-st-offline/80 text-white hover:bg-st-offline" : "bg-black/70 border-white/20 text-white hover:bg-black/90"}
-        />
-        <IconButton
           icon={<Maximize2 className="w-4 h-4" />}
           onClick={(e) => { e.stopPropagation(); onFullscreen(); }}
           variant="secondary"
@@ -197,24 +161,17 @@ function CameraFeed({
 /* ─── Main Page ─────────────────────────────────────────────────────────────── */
 
 export default function DashcamPage() {
-  const { success } = useToast();
-
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<"all" | Vehicle["status"]>("all");
   const [selectedIdx, setSelectedIdx] = useState<number>(0);
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [fullscreenFeed, setFullscreenFeed] = useState<CameraPos | null>(null);
-  const [recording, setRecording] = useState<Record<string, boolean>>(
-    Object.fromEntries(CAMERA_UNIT_LIST.filter((u) => u.isRecording).map((u) => [String(u.vehicle.id), true]))
-  );
-
   // KPI counts
   const counts = useMemo(() => ({
     unitOnline: CAMERA_UNIT_LIST.filter((u) => u.vehicle.status !== "offline").length,
     kameraAktif: CAMERA_UNIT_LIST.reduce((sum, u) => sum + Object.values(u.cameras).filter(Boolean).length, 0),
-    merekam: Object.values(recording).filter(Boolean).length,
     offline: CAMERA_UNIT_LIST.filter((u) => u.vehicle.status === "offline").length,
-  }), [recording]);
+  }), []);
 
   // Filtered units
   const rows = useMemo(() => {
@@ -233,27 +190,8 @@ export default function DashcamPage() {
     setSelectedIdx(idx);
   }
 
-  function handleSnapshotAll() {
-    // Snapshot all functionality in development
-  }
-
-  function handleSnapshotFeed(camera: CameraPos) {
-    // Snapshot functionality in development
-  }
-
-  function handleToggleRec(camera: CameraPos) {
-    if (!selectedUnit) return;
-    const key = String(selectedUnit.vehicle.id);
-    const isOn = !!recording[key + camera];
-    setRecording((prev) => ({ ...prev, [key + camera]: !isOn }));
-  }
-
   function handleFullscreen(camera: CameraPos) {
     setFullscreenFeed(camera === fullscreenFeed ? null : camera);
-  }
-
-  function handleSwapFeed(camera: CameraPos) {
-    // Swap functionality in focus mode
   }
 
   function resetFilters() {
@@ -280,8 +218,6 @@ export default function DashcamPage() {
               <KpiStat label="Unit Online" value={counts.unitOnline} accent="text-st-driving" />
               <KpiDivider />
               <KpiStat label="Kamera Aktif" value={counts.kameraAktif} accent="text-brand" />
-              <KpiDivider />
-              <KpiStat label="Merekam" value={counts.merekam} accent={counts.merekam > 0 ? "text-st-offline" : undefined} />
               <KpiDivider />
               <KpiStat label="Offline" value={counts.offline} accent="text-st-offline" />
             </div>
@@ -313,16 +249,6 @@ export default function DashcamPage() {
                 Fokus
               </button>
             </div>
-            <Button
-              variant="primary"
-              size="sm"
-              icon={<Camera className="w-4 h-4" />}
-              onClick={handleSnapshotAll}
-              disabled={!selectedUnit}
-              aria-label="Snapshot semua kamera unit terpilih"
-            >
-              Snapshot Semua
-            </Button>
           </div>
         </div>
       </header>
@@ -413,9 +339,6 @@ export default function DashcamPage() {
                 {rows.map((unit, idx) => {
                   const listIdx = idx;
                   const isSelected = selectedUnit?.vehicle.id === unit.vehicle.id;
-                  const isRec = Object.entries(unit.cameras).some(
-                    ([pos, avail]) => avail && recording[String(unit.vehicle.id) + pos]
-                  );
                   const camCount = Object.values(unit.cameras).filter(Boolean).length;
 
                   return (
@@ -431,17 +354,11 @@ export default function DashcamPage() {
                       aria-pressed={isSelected}
                       aria-label={"Pilih unit " + unit.vehicle.plate_number}
                     >
-                      {/* Plat + REC */}
+                      {/* Unit identity */}
                       <div className="flex items-center justify-between">
                         <span className={"font-mono font-bold text-base tabular-nums " + (isSelected ? "text-brand" : "text-foreground")}>
                           {unit.vehicle.plate_number}
                         </span>
-                        {isRec && (
-                          <span className="flex items-center gap-1">
-                            <span className="w-2 h-2 rounded-full bg-st-offline animate-pulse" />
-                            <span className="text-xs font-bold text-st-offline uppercase tracking-widest">REC</span>
-                          </span>
-                        )}
                       </div>
 
                       {/* Driver */}
@@ -491,17 +408,6 @@ export default function DashcamPage() {
                     {selectedUnit.vehicle.driver_name || "Belum ditugaskan"}
                   </span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    icon={<Camera className="w-3.5 h-3.5" />}
-                    onClick={handleSnapshotAll}
-                    aria-label="Snapshot semua kamera"
-                  >
-                    Snapshot
-                  </Button>
-                </div>
               </div>
 
               {/* Feeds */}
@@ -511,17 +417,13 @@ export default function DashcamPage() {
                   <div className="grid grid-cols-3 gap-3 h-full">
                     {CAMERA_ORDER.map((camera) => {
                       const available = selectedUnit.cameras[camera];
-                      const isRec = !!recording[String(selectedUnit.vehicle.id) + camera];
                       if (!available) return null;
                       return (
                         <div key={camera} className="flex flex-col overflow-hidden rounded-lg border border-border">
                           <CameraFeed
                             camera={camera}
                             unit={selectedUnit}
-                            isRecording={isRec}
                             isMain={true}
-                            onSnapshot={() => handleSnapshotFeed(camera)}
-                            onToggleRec={() => handleToggleRec(camera)}
                             onFullscreen={() => handleFullscreen(camera)}
                           />
                         </div>
@@ -536,10 +438,7 @@ export default function DashcamPage() {
                       <CameraFeed
                         camera="Depan"
                         unit={selectedUnit}
-                        isRecording={!!recording[String(selectedUnit.vehicle.id) + "Depan"]}
                         isMain={true}
-                        onSnapshot={() => handleSnapshotFeed("Depan")}
-                        onToggleRec={() => handleToggleRec("Depan")}
                         onFullscreen={() => handleFullscreen("Depan")}
                       />
                     </div>
@@ -553,12 +452,8 @@ export default function DashcamPage() {
                             <CameraFeed
                               camera={cam}
                               unit={selectedUnit}
-                              isRecording={!!recording[String(selectedUnit.vehicle.id) + cam]}
                               isMain={false}
-                              onSnapshot={() => handleSnapshotFeed(cam)}
-                              onToggleRec={() => handleToggleRec(cam)}
                               onFullscreen={() => handleFullscreen(cam)}
-                              onSwap={() => handleSwapFeed(cam)}
                             />
                           </div>
                         );
@@ -584,10 +479,7 @@ export default function DashcamPage() {
             <CameraFeed
               camera={fullscreenFeed}
               unit={selectedUnit}
-              isRecording={!!recording[String(selectedUnit.vehicle.id) + fullscreenFeed]}
               isMain={true}
-              onSnapshot={() => { handleSnapshotFeed(fullscreenFeed); }}
-              onToggleRec={() => handleToggleRec(fullscreenFeed)}
               onFullscreen={() => setFullscreenFeed(null)}
             />
           </div>

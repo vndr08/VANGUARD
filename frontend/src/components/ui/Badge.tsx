@@ -101,7 +101,7 @@ export function StatusPill({
   return (
     <span
       className={cx(
-        "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-sm font-semibold",
+        "inline-flex items-center gap-1.5 border px-2.5 py-1 text-sm font-semibold",
         STATUS_PILL_STYLES[canonical],
         isLive && "animate-live-pulse",
         className
@@ -132,7 +132,7 @@ export function TaskStatusBadge({ status, className }: TaskStatusBadgeProps) {
   return (
     <span
       className={cx(
-        "inline-flex items-center px-2 py-0.5 rounded text-label font-semibold uppercase tracking-wide",
+        "inline-flex items-center border border-current/30 px-2 py-0.5 text-label font-semibold uppercase tracking-wide",
         config.bgClass,
         className
       )}
@@ -166,7 +166,7 @@ export function Badge({ variant = "default", children, className }: BadgeProps) 
   return (
     <span
       className={cx(
-        "inline-flex items-center px-2 py-0.5 rounded text-label font-semibold uppercase tracking-wide",
+        "inline-flex items-center border border-current/30 px-2 py-0.5 text-label font-semibold uppercase tracking-wide",
         BADGE_VARIANT_STYLES[variant],
         className
       )}

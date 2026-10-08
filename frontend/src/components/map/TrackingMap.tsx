@@ -172,7 +172,7 @@ export default function TrackingMap({
         onMapReady={handleMapReady}
         pitch={0}
         center={[107.0, -6.5]}
-        zoom={9}
+        zoom={6.5}
         overviewMode
       >
         {/* Layer controls — glass dock top-right */}

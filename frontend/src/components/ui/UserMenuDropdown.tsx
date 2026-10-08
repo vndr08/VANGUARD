@@ -20,9 +20,8 @@ export function UserMenuDropdown({ userName, userRole, userInitials, onClose }: 
   const reducedMotion = useReducedMotion();
 
   function handleLogout() {
-    // Clear mock session
-    localStorage.removeItem("vanguard-session");
-    localStorage.removeItem("vanguard-token");
+    sessionStorage.removeItem("vanguard:logged-in");
+    sessionStorage.removeItem("vanguard:user");
     onClose();
     router.push("/");
   }

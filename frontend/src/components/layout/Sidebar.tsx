@@ -17,15 +17,12 @@ import {
   Video,
   SlidersHorizontal,
   Settings,
-  ChevronDown,
   ChevronRight,
   Sun,
   Moon,
-  Wifi,
 } from "lucide-react";
 import { useTheme } from "@/components/ThemeProvider";
-import { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "motion/react";
+import { motion } from "motion/react";
 import { W_EXPANDED, W_RAIL } from "@/lib/layout-constants";
 
 /* ─── Navigation structure (TRAMOS §2 + DESIGN.md §8) ─────────────────────── */
@@ -89,38 +86,18 @@ export default function Sidebar({
 }: SidebarProps) {
   const pathname = usePathname();
   const { theme, toggleTheme } = useTheme();
-  const activeGroupLabel =
-    NAV_GROUPS.find((group) =>
-      group.items.some(
-        (item) =>
-          pathname === item.href ||
-          (item.href !== "/dashboard" &&
-            pathname.startsWith(`${item.href}/`))
-      )
-    )?.label ?? "RINGKASAN";
-
-  const [expandedGroup, setExpandedGroup] =
-    useState<string>(activeGroupLabel);
-
-  useEffect(() => {
-    setExpandedGroup(activeGroupLabel);
-  }, [activeGroupLabel]);
-
-  function toggleGroup(label: string) {
-    setExpandedGroup((current) => (current === label ? "" : label));
-  }
-
   const width = collapsed ? W_RAIL : W_EXPANDED;
 
   return (
     <motion.aside
       animate={{ width }}
       transition={{ duration: 0.18, ease: [0.2, 0, 0, 1] }}
-      className="fixed left-0 top-0 z-50 flex h-screen flex-col overflow-hidden border-r border-border bg-surface-1"
+      className="fixed left-0 top-0 z-50 flex h-screen flex-col overflow-hidden border-r border-border"
+      style={{ background: "var(--surface-1)" }}
       aria-label="Main navigation"
     >
       {/* ── Header: logo + collapse toggle ────────────────────── */}
-      <div className="flex h-14 shrink-0 items-center border-b border-border overflow-hidden">
+      <div className="flex h-12 shrink-0 items-center overflow-hidden border-b border-border" style={{ background: "var(--header-ink)" }}>
         <Link
           href="/dashboard"
           className={`flex h-full items-center overflow-hidden ${
@@ -130,32 +107,31 @@ export default function Sidebar({
           }`}
           aria-label="VANGUARD Home"
         >
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-foreground">
-            <Radio className="h-4 w-4 text-bg" strokeWidth={2} />
+          {/* Signal logo mark */}
+          <div
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-sm"
+            style={{
+              background: "var(--signal)",
+              clipPath: "polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%)",
+            }}
+          >
+            <Radio className="h-4 w-4" style={{ color: "var(--signal-ink)" }} strokeWidth={2.5} />
           </div>
-          <AnimatePresence>
-            {!collapsed && (
-              <motion.div
-                initial={{ opacity: 0, x: -8 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -8 }}
-                transition={{ duration: 0.15 }}
-                className="overflow-hidden"
-              >
-                <p className="text-sm font-semibold tracking-tight text-foreground leading-none">
+          {!collapsed && (
+              <motion.div animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.14 }} className="overflow-hidden">
+                <p className="sign text-sm font-bold tracking-wider text-foreground leading-none">
                   VANGUARD
                 </p>
-                <p className="text-[9px] font-semibold uppercase tracking-widest text-muted mt-0.5 leading-none">
+                <p className="mt-0.5 text-[9px] font-medium text-muted leading-none">
                   Fleet Control
                 </p>
               </motion.div>
-            )}
-          </AnimatePresence>
+          )}
         </Link>
 
         <button
           onClick={onToggle}
-          className={`flex h-14 shrink-0 items-center justify-center text-muted transition-colors hover:bg-surface-2 hover:text-foreground focus-visible:outline-2 focus-visible:outline-brand ${
+          className={`flex h-12 shrink-0 items-center justify-center text-muted transition-colors hover:bg-surface-2 hover:text-foreground focus-visible:outline-2 focus-visible:outline-brand ${
             collapsed ? "w-6" : "w-10"
           }`}
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
@@ -170,138 +146,49 @@ export default function Sidebar({
       </div>
 
       {/* ── Navigation groups ────────────────────────────────── */}
-      <nav className="flex-1 overflow-y-auto overflow-x-hidden py-3">
-        {NAV_GROUPS.map((group, gi) => {
-          const isOpen = collapsed || expandedGroup === group.label;
-          return (
-            <div key={group.label}>
-              {gi > 0 && (
-                <div
-                  className="mx-3 my-2 border-t border-border"
-                  style={{ boxShadow: "0 1px 0 rgba(255,255,255,0.03) inset" }}
-                />
-              )}
-              <button
-                onClick={() => toggleGroup(group.label)}
-                className="flex w-full items-center gap-2 px-3 py-1.5 text-left"
-                aria-expanded={isOpen}
-              >
-                {!collapsed && (
-                  <>
-                    <span className="flex-1 text-[10px] font-semibold uppercase tracking-widest text-faint">
-                      {group.label}
-                    </span>
-                    <ChevronDown
-                      className="h-3 w-3 text-faint transition-transform duration-200"
-                      style={{ transform: isOpen ? "rotate(0deg)" : "rotate(-90deg)" }}
-                    />
-                  </>
-                )}
-                {collapsed && <span className="h-px flex-1 bg-border" />}
-              </button>
-
-              <AnimatePresence>
-                {isOpen && (
-                  <motion.ul
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: "auto" }}
-                    exit={{ opacity: 0, height: 0 }}
-                    transition={{ duration: 0.18, ease: [0.2, 0, 0, 1] }}
-                    className="overflow-hidden px-2 pb-1"
-                  >
-                    {group.items.map((item) => (
-                      <li key={item.name}>
-                        <NavItem
-                          item={item}
-                          isActive={
-                            pathname === item.href ||
-                            (item.href !== "/dashboard" && pathname?.startsWith(item.href + "/"))
-                          }
-                          collapsed={collapsed}
-                        />
-                      </li>
-                    ))}
-                  </motion.ul>
-                )}
-              </AnimatePresence>
-            </div>
-          );
-        })}
+      <nav className="flex-1 overflow-y-auto overflow-x-hidden py-2">
+        {NAV_GROUPS.map((group) => (
+          <div key={group.label} className={collapsed ? "py-1" : "pb-2 pt-1"}>
+            {!collapsed && (
+              <p className="px-4 pb-1 pt-1 text-[10px] font-medium text-faint">
+                {group.label.charAt(0) + group.label.slice(1).toLowerCase()}
+              </p>
+            )}
+            <ul className={collapsed ? "px-2" : "px-2"}>
+              {group.items.map((item) => (
+                <li key={item.name}>
+                  <NavItem
+                    item={item}
+                    isActive={
+                      pathname === item.href ||
+                      (item.href !== "/dashboard" && pathname?.startsWith(item.href + "/"))
+                    }
+                    collapsed={collapsed}
+                  />
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
       </nav>
 
       {/* ── Footer ────────────────────────────────────────────── */}
-      <div className="shrink-0 border-t border-border">
-        <div className="px-3 py-3">
-          <AnimatePresence mode="wait">
-            {!collapsed ? (
-              <motion.div
-                key="expanded-status"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.12 }}
-                className="flex items-center justify-between rounded-lg border border-border bg-surface-2 px-3 py-2.5"
-              >
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-semibold uppercase tracking-widest text-muted">
-                      STATUS SISTEM
-                    </span>
-                    <span className="relative flex h-2 w-2 shrink-0" aria-label="REALTIME">
-                      <span
-                        className="absolute inline-flex h-full w-full rounded-full animate-live-pulse"
-                        style={{ background: "var(--hud)", opacity: 0.75 }}
-                      />
-                      <span
-                        className="relative inline-flex h-2 w-2 rounded-full"
-                        style={{ background: "var(--hud)" }}
-                      />
-                    </span>
-                  </div>
-                  <p className="font-mono mt-0.5 text-sm font-semibold tabular-nums text-foreground">
-                    {fleetTotal} unit dipantau
-                  </p>
-                </div>
-                <Wifi className="h-4 w-4 shrink-0 text-st-driving" />
-              </motion.div>
-            ) : (
-              <motion.div
-                key="rail-status"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.12 }}
-                className="flex flex-col items-center gap-1 rounded-lg border border-border bg-surface-2 px-2 py-2.5"
-                title={`${fleetTotal} unit dipantau`}
-              >
-                <span className="relative flex h-2 w-2" aria-label="REALTIME">
-                  <span
-                    className="absolute inline-flex h-full w-full rounded-full animate-live-pulse"
-                    style={{ background: "var(--hud)", opacity: 0.75 }}
-                  />
-                  <span
-                    className="relative inline-flex h-2 w-2 rounded-full"
-                    style={{ background: "var(--hud)" }}
-                  />
-                </span>
-                <span className="font-mono text-metadata-sm tabular-nums text-muted">
-                  {fleetTotal}
-                </span>
-              </motion.div>
-            )}
-          </AnimatePresence>
+      <div className="shrink-0 border-t border-border" style={{ background: "var(--header-ink)" }}>
+        <div className={`flex h-9 items-center text-muted ${collapsed ? "justify-center" : "justify-between px-4"}`} title={`${fleetTotal} unit dipantau`}>
+          {!collapsed && <span className="text-xs">Armada dipantau</span>}
+          <span className="font-mono text-xs tabular-nums text-foreground">{fleetTotal}</span>
         </div>
 
         <button
           onClick={toggleTheme}
-          className="flex w-full items-center gap-3 border-t border-border px-4 py-2.5 text-muted transition-colors hover:bg-surface-2 hover:text-foreground focus-visible:outline-2 focus-visible:outline-brand"
+          className={`flex h-10 w-full items-center border-t border-border text-muted transition-colors hover:bg-surface-2 hover:text-foreground focus-visible:outline-2 focus-visible:outline-brand ${collapsed ? "justify-center" : "gap-3 px-4"}`}
           aria-label={theme === "dark" ? "Switch to light mode" : "Switch to Mode Gelap"}
         >
-          <div className="flex h-6 w-6 shrink-0 items-center justify-center">
+          <div className="flex h-5 w-5 shrink-0 items-center justify-center">
             {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </div>
           {!collapsed && (
-            <span className="text-sm font-medium">
+            <span className="text-xs font-medium">
               {theme === "dark" ? "Light Mode" : "Mode Gelap"}
             </span>
           )}
@@ -325,22 +212,12 @@ function NavItem({ item, isActive, collapsed }: NavItemProps) {
     return (
       <Link
         href={item.href}
-        className="group relative flex h-11 w-full items-center justify-center rounded-lg transition-colors focus-visible:outline-2 focus-visible:outline-brand"
-        style={{
-          background: isActive ? "var(--brand-soft)" : undefined,
-        }}
+        className="group relative flex h-10 w-full items-center justify-center transition-colors hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-brand"
         title={item.name}
         aria-label={item.name}
+        aria-current={isActive ? "page" : undefined}
       >
-        {/* Left accent bar */}
-        <motion.div
-          className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-0.5 rounded-r"
-          style={{
-            background: isActive ? "var(--brand)" : "transparent",
-          }}
-          animate={{ opacity: isActive ? 1 : 0 }}
-          transition={{ duration: 0.15 }}
-        />
+        {isActive && <motion.span layoutId="sidebar-active" className="absolute inset-y-2 left-0 w-0.5 bg-brand" transition={{ duration: 0.18 }} />}
         <Icon
           className="h-[18px] w-[18px] shrink-0 transition-colors"
           style={{
@@ -354,21 +231,10 @@ function NavItem({ item, isActive, collapsed }: NavItemProps) {
   return (
     <Link
       href={item.href}
-      className="group relative flex items-center gap-3 rounded-lg px-3 py-2 transition-colors focus-visible:outline-2 focus-visible:outline-brand"
-      style={{
-        background: isActive ? "var(--brand-soft)" : undefined,
-      }}
+      className={`v2-nav-item group relative flex h-9 items-center gap-3 px-3 transition-colors hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-brand ${isActive ? "active bg-brand-soft" : ""}`}
       aria-current={isActive ? "page" : undefined}
     >
-      {/* Left accent bar */}
-      <motion.div
-        className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-0.5 rounded-r"
-        style={{
-          background: isActive ? "var(--brand)" : "transparent",
-        }}
-        animate={{ opacity: isActive ? 1 : 0 }}
-        transition={{ duration: 0.15 }}
-      />
+      {isActive && <motion.span layoutId="sidebar-active" className="absolute inset-y-2 left-0 w-0.5 bg-brand" transition={{ duration: 0.18 }} />}
 
       <Icon
         className="h-[18px] w-[18px] shrink-0 transition-colors"
@@ -380,7 +246,7 @@ function NavItem({ item, isActive, collapsed }: NavItemProps) {
       <span
         className="flex-1 text-sm font-medium truncate transition-colors"
         style={{
-          color: isActive ? "var(--brand)" : "var(--text-muted)",
+          color: isActive ? "var(--text)" : "var(--text-muted)",
         }}
       >
         {item.name}

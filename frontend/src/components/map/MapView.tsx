@@ -151,7 +151,6 @@ const MapView = forwardRef<MapViewRef, MapViewProps>(function MapView({
   children,
   onMapReady,
   visibility,
-  onToggleLayer,
   mapLayer = "basemap",
   overviewMode = false,
 }: MapViewProps, _forwardedRef) {
@@ -176,9 +175,8 @@ const MapView = forwardRef<MapViewRef, MapViewProps>(function MapView({
   // Hooks
   const interpolatedVehicles = useMapInterpolation(vehicles);
   // visibility is optionally passed from parent (TrackingMap), or from local default
-  const { visibility: localVis, toggle: localToggle } = useLayerVisibility(DEFAULT_LAYER_VISIBILITY);
+  const { visibility: localVis } = useLayerVisibility(DEFAULT_LAYER_VISIBILITY);
   const effectiveVisibility = visibility ?? localVis;
-  const effectiveToggle = onToggleLayer ?? localToggle;
   const isDark = useMapTheme();
 
   // Expose fitAll() via ref for parent components (e.g. Locate "Pusatkan semua unit")
@@ -772,28 +770,6 @@ const MapView = forwardRef<MapViewRef, MapViewProps>(function MapView({
     };
   }, [isReady]);
 
-  // Fleet overview yang terlalu jauh harus selalu diringkas.
-  // Ketika pengguna mematikan Cluster di bawah zoom 9,
-  // aktifkan kembali agar marker individual tidak memenuhi peta.
-  useEffect(() => {
-    if (
-      !isReady ||
-      !overviewMode ||
-      mapZoom >= 9 ||
-      effectiveVisibility.cluster
-    ) {
-      return;
-    }
-
-    effectiveToggle("cluster");
-  }, [
-    isReady,
-    overviewMode,
-    mapZoom,
-    effectiveVisibility.cluster,
-    effectiveToggle,
-  ]);
-
   /* ── Cluster toggle — uses effectiveVisibility.cluster (from page state) ────── */
   useEffect(() => {
     if (!isReady || !mapRef.current) return;
@@ -1150,6 +1126,7 @@ function createTruckMarkerElement(
     /* rotation applied via .marker-inner, not here */
   `;
   wrap.dataset.selected = String(isSelected);
+  wrap.dataset.moving = String(vehicle.isMoving);
 
   // Inner rotating element — rotation transform lives here, independent of MapLibre positioning.
   // NO transition here — MapLibre manages the outer transform (translate) and we must not
@@ -1167,6 +1144,13 @@ function createTruckMarkerElement(
     transform: rotate(${vehicle.heading}deg);
   `;
   wrap.appendChild(inner);
+
+  if (vehicle.isMoving) {
+    const trail = document.createElement("span");
+    trail.className = "marker-motion-trail";
+    trail.setAttribute("aria-hidden", "true");
+    inner.appendChild(trail);
+  }
 
   // Halo pulse (driving)
   if (vehicle.status === "driving" && !overviewMode) {
@@ -1218,6 +1202,7 @@ function createTruckMarkerElement(
     "data-marker-glyph",
     "truck"
   );
+  svg.classList.add("marker-truck-glyph");
   svg.style.display = "block";
   svg.style.overflow = "visible";
   svg.style.pointerEvents = "none";

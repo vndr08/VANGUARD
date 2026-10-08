@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
 import { FLEET_VEHICLES } from "@/lib/fleet-data";
+import { OPERATIONS_DATASET } from "@/lib/operations-data";
 import { StatusPill } from "@/components/ui/Badge";
 
 type SearchResult = {
@@ -40,22 +41,56 @@ const PAGES: SearchResult[] = [
 function buildResults(query: string): SearchResult[] {
   const q = query.trim().toLowerCase();
   const results: SearchResult[] = [];
+  const vehicleById = new Map(FLEET_VEHICLES.map((vehicle) => [vehicle.id, vehicle]));
+  const entityQuery = q
+    .replace(/\b(unit|kendaraan|plat|driver|pengemudi|tugas|task)\b/g, "")
+    .trim();
 
   // Vehicles
-  if (!q || "unit".includes(q) || "kendaraan".includes(q) || "plat".includes(q)) {
-    const q2 = q.replace("unit", "").replace("kendaraan", "").replace("plat", "").trim();
-    FLEET_VEHICLES.slice(0, 8).forEach(v => {
-      if (!q2 || v.plate_number.toLowerCase().includes(q2) || (v.driver_name ?? "").toLowerCase().includes(q2)) {
+  if (!q || !/\b(tugas|task)\b/.test(q)) {
+    FLEET_VEHICLES
+      .filter((vehicle) =>
+        !entityQuery ||
+        vehicle.plate_number.toLowerCase().includes(entityQuery) ||
+        (vehicle.driver_name ?? "").toLowerCase().includes(entityQuery)
+      )
+      .slice(0, 8)
+      .forEach(v => {
         results.push({
           id: `v-${v.id}`,
           type: "vehicle",
           label: v.plate_number,
           sublabel: v.driver_name ?? "Tanpa driver",
-          href: `/locate?q=${encodeURIComponent(v.plate_number)}`,
+          href: `/tracking?focus=${v.id}`,
           vehicleId: v.id,
         });
-      }
-    });
+      });
+  }
+
+  // Canonical tasks
+  if (q) {
+    OPERATIONS_DATASET.tasks
+      .filter((task) => {
+        const vehicle = vehicleById.get(task.vehicleId);
+        return (
+          !entityQuery ||
+          task.name.toLowerCase().includes(entityQuery) ||
+          task.reference.toLowerCase().includes(entityQuery) ||
+          task.group.toLowerCase().includes(entityQuery) ||
+          (vehicle?.plate_number ?? "").toLowerCase().includes(entityQuery)
+        );
+      })
+      .slice(0, 6)
+      .forEach((task) => {
+        const vehicle = vehicleById.get(task.vehicleId);
+        results.push({
+          id: task.id,
+          type: "task",
+          label: task.reference,
+          sublabel: `${vehicle?.plate_number ?? "Unit tidak diketahui"} · ${task.name}`,
+          href: `/tasks?task=${task.id}`,
+        });
+      });
   }
 
   // Pages (if query matches)
@@ -136,6 +171,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
 
   // Group results
   const vehicleResults = results.filter(r => r.type === "vehicle");
+  const taskResults = results.filter(r => r.type === "task");
   const pageResults = results.filter(r => r.type === "page");
 
   if (!open) return null;
@@ -251,9 +287,49 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
               </div>
             )}
 
-            {pageResults.length > 0 && (
+            {taskResults.length > 0 && (
               <div>
                 {vehicleResults.length > 0 && <div className="mx-4 my-2 border-t border-border" />}
+                <div className="px-4 py-1">
+                  <span className="text-[10px] font-semibold uppercase tracking-widest text-faint">Tugas</span>
+                </div>
+                {taskResults.map((result) => {
+                  const globalIdx = results.indexOf(result);
+                  const isSelected = globalIdx === selectedIndex;
+                  return (
+                    <button
+                      key={result.id}
+                      onClick={() => navigate(result)}
+                      className={`flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-brand ${
+                        isSelected ? "bg-brand-soft" : "hover:bg-surface-2"
+                      }`}
+                      id={getCommandOptionId(result)}
+                      role="option"
+                      aria-selected={isSelected}
+                    >
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-surface-2">
+                        <ClipboardList className="h-4 w-4 text-muted" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className={`font-mono text-sm font-semibold tabular-nums ${isSelected ? "text-brand" : "text-foreground"}`}>
+                          {result.label}
+                        </p>
+                        <p className="truncate text-xs text-muted">{result.sublabel}</p>
+                      </div>
+                      {isSelected ? (
+                        <ArrowRight className="h-3.5 w-3.5 shrink-0 text-brand" />
+                      ) : (
+                        <ChevronRight className="h-3.5 w-3.5 shrink-0 text-faint" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {pageResults.length > 0 && (
+              <div>
+                {(vehicleResults.length > 0 || taskResults.length > 0) && <div className="mx-4 my-2 border-t border-border" />}
                 <div className="px-4 py-1">
                   <span className="text-[10px] font-semibold uppercase tracking-widest text-faint">Halaman</span>
                 </div>

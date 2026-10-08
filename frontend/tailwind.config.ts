@@ -220,7 +220,7 @@ const config: Config = {
       },
 
       letterSpacing: {
-        tight: "-0.02em",
+        tight: "0",
         normal: "0",
         wide: "0.04em",
       },
@@ -283,14 +283,14 @@ const config: Config = {
       transitionTimingFunction: {
         standard: "var(--ease-standard)",
         "ease-out-quint": "var(--ease-out-quint)",
-        spring: "var(--ease-spring)",
+        spring: "var(--ease-standard)",
       },
 
       /* ─── Animation ────────────────────────────────────────────────────── */
       animation: {
-        "fade-in": "fade-in 200ms cubic-bezier(0.22, 1, 0.36, 1) forwards",
-        "slide-in": "slide-in 280ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards",
-        "scale-in": "scale-in 200ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards",
+        "fade-in": "fade-in 160ms cubic-bezier(0.2, 0, 0, 1) forwards",
+        "slide-in": "slide-in 180ms cubic-bezier(0.2, 0, 0, 1) forwards",
+        "scale-in": "scale-in 160ms cubic-bezier(0.2, 0, 0, 1) forwards",
         "live-pulse": "none",
         "skeleton-shimmer": "skeleton-shimmer 1.5s ease-in-out infinite",
       },

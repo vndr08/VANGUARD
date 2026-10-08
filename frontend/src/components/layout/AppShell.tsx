@@ -3,19 +3,17 @@
 import { Bell, Search } from "lucide-react";
 import {
   usePathname,
-  useSearchParams,
 } from "next/navigation";
 import { useEffect, useState } from "react";
 import Sidebar from "./Sidebar";
-import { FreshnessIndicator } from "./FreshnessIndicator";
 import { CommandPalette } from "@/components/ui/CommandPalette";
 import { NotificationDropdown } from "@/components/ui/NotificationDropdown";
 import { UserMenuDropdown } from "@/components/ui/UserMenuDropdown";
 import { useNotifications } from "@/hooks/useNotifications";
 import { AppContextProvider, useAppContext } from "@/components/context/AppContext";
-import { useSpeedingMonitor } from "@/hooks/useSpeedingMonitor";
-import { FLEET_STATS, FLEET_VEHICLES } from "@/lib/fleet-data";
+import { FLEET_VEHICLES } from "@/lib/fleet-data";
 import { MAP_AUTO_COLLAPSE_BREAKPOINT, W_EXPANDED, W_RAIL } from "@/lib/layout-constants";
+import TelemetryTicker from "@/components/v2/TelemetryTicker";
 
 /* ─── Telemetri Refresh Bus ──────────────────────────────────────────────── */
 /** Dispatches "vanguard:telemetri-refresh" CustomEvent on window at each interval. */
@@ -36,26 +34,20 @@ function TelemetriBus({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-/* ─── Speeding monitor ─────────────────────────────────────────────────── */
-function SpeedingMonitor() {
-  useSpeedingMonitor();
-  return null;
-}
-
 /* ─── Page title map (TRAMOS §2) ─────────────────────────────────────────── */
 const PAGE_TITLES: Record<string, { title: string; summary: string }> = {
   "/dashboard": {
     title: "Dashboard",
-    summary: `Overview · ${FLEET_STATS.total_vehicles} unit`,
+    summary: `Overview · ${FLEET_VEHICLES.length} unit`,
   },
   "/tracking": {
     title: "Realtime Monitor",
     summary:
-      `${FLEET_STATS.total_vehicles} unit · ` +
-      `${FLEET_STATS.driving} berkendara · ` +
-      `${FLEET_STATS.idle} diam · ` +
-      `${FLEET_STATS.stopped} berhenti · ` +
-      `${FLEET_STATS.offline} offline`,
+      `${FLEET_VEHICLES.length} unit · ` +
+      `${FLEET_VEHICLES.filter(v => v.status === "driving").length} berkendara · ` +
+      `${FLEET_VEHICLES.filter(v => v.status === "idle").length} diam · ` +
+      `${FLEET_VEHICLES.filter(v => v.status === "stopped").length} berhenti · ` +
+      `${FLEET_VEHICLES.filter(v => v.status === "offline").length} offline`,
   },
   "/locate": { title: "Lacak Unit", summary: "Cari dan pantau kendaraan" },
   "/geofences": { title: "Geofence", summary: "Virtual zones" },
@@ -80,24 +72,31 @@ const MAP_PRIMARY_ROUTES = [
 
 const SIDEBAR_PREFERENCE_KEY = "vanguard:sidebar-preference";
 
-/* ─── Mock user context (single source of truth) ─────────────────────────── */
-interface MockUser {
+function getPageInfo(pathname: string) {
+  if (pathname.startsWith("/tasks/")) {
+    return { title: "Detail Tugas", summary: "Rute dan status operasional" };
+  }
+
+  return PAGE_TITLES[pathname] ?? { title: "VANGUARD", summary: "" };
+}
+
+interface WorkspaceUser {
   name: string;
   role: string;
   initials: string;
 }
 
-const CURRENT_USER: MockUser = {
-  name: "Ahmad Wijaya",
-  role: "Manajer Armada",
-  initials: "AW",
+const CURRENT_USER: WorkspaceUser = {
+  name: "Operator Lokal",
+  role: "Workspace lokal",
+  initials: "OL",
 };
 
 function AppShellInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const [sidebarPreference, setSidebarPreference] = useState<boolean | null>(null);
   const [viewportWidth, setViewportWidth] = useState<number | null>(null);
+  const { vehicles } = useAppContext();
 
   const isMapPrimary = MAP_PRIMARY_ROUTES.some(
     (route) => pathname === route || pathname.startsWith(`${route}/`)
@@ -106,21 +105,17 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
     isMapPrimary &&
     viewportWidth !== null &&
     viewportWidth < MAP_AUTO_COLLAPSE_BREAKPOINT;
-  const sidebarCollapsed = sidebarPreference ?? isAutoCollapsed;
-  const pageInfo =
-    PAGE_TITLES[pathname] ?? {
-      title: "VANGUARD",
-      summary: "",
-    };
-
-  const selectedTrackingSlug =
-    pathname === "/tracking"
-      ? searchParams
-          .get("vehicle")
-          ?.toLowerCase()
-          .replace(/\s+/g, "") ??
-        null
-      : null;
+  const isNarrowViewport = viewportWidth !== null && viewportWidth < 1024;
+  const sidebarCollapsed = isNarrowViewport || (sidebarPreference ?? isAutoCollapsed);
+  const basePageInfo = getPageInfo(pathname);
+  const pageInfo = pathname === "/dashboard"
+    ? { ...basePageInfo, summary: `Overview · ${vehicles.length} unit` }
+    : pathname === "/tracking"
+      ? {
+          ...basePageInfo,
+          summary: `${vehicles.length} unit · ${vehicles.filter((vehicle) => vehicle.status === "driving").length} berkendara · ${vehicles.filter((vehicle) => vehicle.status === "idle").length} diam · ${vehicles.filter((vehicle) => vehicle.status === "stopped").length} berhenti · ${vehicles.filter((vehicle) => vehicle.status === "offline").length} offline`,
+        }
+      : basePageInfo;
 
   useEffect(() => {
     const storedPreference = window.sessionStorage.getItem(
@@ -146,6 +141,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
   }, []);
 
   function handleSidebarToggle() {
+    if (isNarrowViewport) return;
     const nextCollapsed = !sidebarCollapsed;
 
     setSidebarPreference(nextCollapsed);
@@ -164,6 +160,24 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
 
   // ── User menu dropdown
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [clock, setClock] = useState("--:--:--");
+
+  useEffect(() => {
+    const updateClock = () => {
+      setClock(
+        new Intl.DateTimeFormat("id-ID", {
+          timeZone: "Asia/Jakarta",
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          hour12: false,
+        }).format(new Date())
+      );
+    };
+    updateClock();
+    const id = window.setInterval(updateClock, 1000);
+    return () => window.clearInterval(id);
+  }, []);
 
   // ── Global ⌘K / Ctrl+K listener
   useEffect(() => {
@@ -188,11 +202,11 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
   const sidebarWidth = sidebarCollapsed ? W_RAIL : W_EXPANDED;
 
   return (
-    <div className="flex min-h-screen bg-bg">
+    <div className="v2-app flex min-h-screen max-w-full overflow-x-hidden bg-bg">
       {/* ── Sidebar (state managed here, passed as prop) ─────── */}
       <Sidebar
         collapsed={sidebarCollapsed}
-        fleetTotal={FLEET_STATS.total_vehicles}
+        fleetTotal={vehicles.length}
         onToggle={handleSidebarToggle}
       />
 
@@ -201,24 +215,20 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
 
       {/* ── Main content area ─────────────────────────────────── */}
       <div
-        className="flex flex-1 flex-col transition-[margin-left] duration-panel ease-standard"
+        className="flex min-w-0 max-w-full flex-1 flex-col transition-[margin-left] duration-panel ease-standard"
         style={{ marginLeft: sidebarWidth }}
       >
-        {/* ── Header: sticky solid operational surface ────────── */}
-        <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center justify-between gap-4 border-b border-border bg-surface-1 px-6">
-          {/* Kiri: judul halaman + ringkasan */}
-          <div className="flex min-w-0 flex-col">
-            <h1 className="text-h2 font-semibold tracking-tight text-foreground truncate leading-tight">
-              {pageInfo.title}
-            </h1>
-            <p className="font-mono text-xs tabular-nums text-muted truncate leading-tight mt-0.5">
-              {pageInfo.summary}
-            </p>
-          </div>
+        {/* ── Compact V2 masthead: one operational line ───────── */}
+        <header className="sticky top-0 z-40 shrink-0 border-b border-border bg-surface-1">
+          <div className="relative flex h-9 items-center gap-3 px-4 before:absolute before:inset-y-0 before:left-0 before:w-1 before:bg-brand">
+            <div className="flex min-w-0 items-baseline gap-3">
+              <h1 className="sign truncate text-base font-bold uppercase tracking-[0.05em] text-foreground leading-none">{pageInfo.title}</h1>
+              <p className="hidden border-l border-dashed border-border-strong pl-3 font-mono text-[9px] uppercase tracking-[0.08em] text-muted xl:block">{pageInfo.summary}</p>
+            </div>
 
           {/* Tengah: global search → opens command palette */}
-          <div className="relative flex-1 max-w-sm mx-auto hidden md:block">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-faint pointer-events-none" />
+          <div className="relative ml-auto hidden w-full max-w-[260px] 2xl:block">
+            <Search className="absolute left-0 top-1/2 h-4 w-4 -translate-y-1/2 text-faint pointer-events-none" />
             <button
               type="button"
               onClick={() => {
@@ -226,7 +236,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
                 setNotifOpen(false);
                 setUserMenuOpen(false);
               }}
-              className="input w-full pl-9 pr-12 h-8 text-sm text-left cursor-text"
+              className="h-6 w-full border-b border-border-strong bg-transparent pl-7 pr-12 text-left text-xs transition-colors hover:border-brand"
               aria-label="Buka pencarian (⌘K)"
             >
               <span className="text-muted">Cari unit, pengemudi, atau tugas...</span>
@@ -239,15 +249,8 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
           </div>
 
           {/* Kanan: data context + notifikasi + avatar */}
-          <div className="flex shrink-0 items-center gap-3">
-            <FreshnessIndicator
-              vehicles={FLEET_VEHICLES}
-              suppressSourcePlate={
-                selectedTrackingSlug
-              }
-            />
-
-            <div className="hidden h-5 w-px bg-border xl:block" />
+          <div className="flex shrink-0 items-center gap-1.5">
+            <span className="hidden bg-brand px-2 py-0.5 font-mono text-[9px] font-semibold tracking-[0.08em] text-slate-950 tabular-nums sm:inline">{clock}</span>
 
             {/* Bell notifikasi — opens dropdown */}
             <div className="relative">
@@ -257,12 +260,12 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
                   setNotifOpen(prev => !prev);
                   setUserMenuOpen(false);
                 }}
-                className="relative rounded-lg p-2 text-muted transition-colors hover:bg-surface-2 hover:text-foreground focus-visible:outline-2 focus-visible:outline-brand"
+                className="relative p-1.5 text-muted transition-colors hover:bg-surface-2 hover:text-foreground focus-visible:outline-2 focus-visible:outline-brand"
                 aria-label={`Notifications (${unreadCount} unread)`}
                 aria-expanded={notifOpen}
                 aria-haspopup="dialog"
               >
-                <Bell className="h-5 w-5" />
+                <Bell className="h-4 w-4" />
                 {unreadCount > 0 && (
                   <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-st-offline text-[9px] font-semibold text-white tabular-nums">
                     {unreadCount > 9 ? "9+" : unreadCount}
@@ -289,17 +292,17 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
                   setUserMenuOpen(prev => !prev);
                   setNotifOpen(false);
                 }}
-                className="flex items-center gap-2 rounded-lg p-1.5 transition-colors hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-brand"
+                className="flex items-center gap-2 transition-colors hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-brand"
                 aria-label="User menu"
                 aria-expanded={userMenuOpen}
                 aria-haspopup="dialog"
               >
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand text-white text-xs font-bold shrink-0">
+                <div className="sign flex h-6 w-6 shrink-0 items-center justify-center bg-brand text-[10px] font-bold text-slate-950 [clip-path:polygon(0_0,calc(100%_-_5px)_0,100%_5px,100%_100%,0_100%)]">
                   {CURRENT_USER.initials}
                 </div>
-                <div className="hidden lg:flex flex-col items-start">
-                  <span className="text-sm font-medium text-foreground leading-tight">{CURRENT_USER.name}</span>
-                  <span className="text-[10px] text-muted leading-tight">{CURRENT_USER.role}</span>
+                <div className="hidden 2xl:flex flex-col items-start">
+                  <span className="text-xs font-medium text-foreground leading-tight">{CURRENT_USER.name}</span>
+                  <span className="text-[9px] text-muted leading-tight">{CURRENT_USER.role}</span>
                 </div>
               </button>
               {userMenuOpen && (
@@ -312,13 +315,17 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
               )}
             </div>
           </div>
+          </div>
         </header>
 
+        {/* ── Telemetry ribbon sits directly below the masthead in V2 ── */}
+        <TelemetryTicker />
+
         {/* ── Content ─────────────────────────────────────────── */}
-        <main className="min-h-[calc(100dvh-3.5rem)]">
-          <SpeedingMonitor />
+        <main className="v2-page-stage min-w-0 max-w-full min-h-[calc(100dvh-3.625rem)]">
           {children}
         </main>
+
       </div>
     </div>
   );

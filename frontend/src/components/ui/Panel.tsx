@@ -74,7 +74,7 @@ export function Panel({
         className={cx(
           "fixed top-0 right-0 bottom-0 z-50",
           "bg-surface-1 border-l border-border",
-          "shadow-elev-3",
+          "shadow-elev-2",
           "flex flex-col",
           "animate-slide-in",
           className
@@ -207,8 +207,8 @@ export function LayerControlPanel({ children, className }: LayerControlPanelProp
     <div
       className={cx(
         "absolute top-4 right-4 z-30",
-        "glass",
-        "border border-border-strong rounded-xl",
+        "bg-surface-1/95 backdrop-blur-sm",
+        "border border-border-strong rounded",
         "p-3 min-w-[180px]",
         "shadow-elev-2",
         className

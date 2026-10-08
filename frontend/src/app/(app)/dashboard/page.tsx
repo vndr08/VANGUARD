@@ -2,8 +2,9 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { MapPin } from "lucide-react";
+import { useAppContext } from "@/components/context/AppContext";
 import type { LayerVisibility } from "@/components/map/types";
 import {
   selectDriverAssignment,
@@ -18,6 +19,8 @@ import { formatFreshnessAge } from "@/lib/freshness";
 import { FLEET_VEHICLES, toMapVehicle } from "@/lib/fleet-data";
 import { OPERATIONS_DATASET } from "@/lib/operations-data";
 import { selectOperationsPulse } from "@/lib/operations-selectors";
+import TruckIsometric from "@/components/v2/TruckIsometric";
+import { useReducedMotion } from "@/hooks/useReducedMotion";
 
 const LiveFleetMap = dynamic(
   () => import("@/components/map/MapView"),
@@ -68,6 +71,35 @@ const ATTENTION_META: Record<
   delayed: { label: "Tertunda", color: "var(--warning)" },
 };
 
+function AnimatedNumber({ value, suffix = "" }: { value: number; suffix?: string }) {
+  const reducedMotion = useReducedMotion();
+  const previous = useRef(value);
+  const [display, setDisplay] = useState(value);
+
+  useEffect(() => {
+    const from = previous.current;
+    previous.current = value;
+    if (reducedMotion || from === value) {
+      setDisplay(value);
+      return;
+    }
+
+    const startedAt = performance.now();
+    const duration = 420;
+    let frame = 0;
+    const tick = (now: number) => {
+      const progress = Math.min(1, (now - startedAt) / duration);
+      const eased = 1 - Math.pow(1 - progress, 4);
+      setDisplay(Math.round(from + (value - from) * eased));
+      if (progress < 1) frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [reducedMotion, value]);
+
+  return <>{display}{suffix}</>;
+}
+
 function attentionMetadata(row: DashboardAttentionRow): string {
   if (row.issue === "freshness-unknown") return "Waktu telemetri tidak tersedia";
   if (row.issue === "not-transmitting") {
@@ -83,17 +115,19 @@ function FleetSummaryStrip({ fleet }: { fleet: FleetStateSummary }) {
   return (
     <section
       aria-label="Ringkasan kondisi armada"
-      className="grid grid-cols-5 border-y border-border bg-surface-1"
+      className="grid grid-cols-5 border-y border-border"
+      style={{ background: "var(--surface-1)" }}
     >
       {FLEET_STRIP.map(({ key, label, color }, index) => (
         <div
           key={key}
-          className={`group flex min-w-0 items-center justify-between gap-2 px-4 py-4 transition-colors hover:bg-surface-2 ${index > 0 ? "border-l border-border" : ""}`}
+          className={`group flex min-w-0 items-center justify-between gap-2 px-4 py-4 transition-colors ${index > 0 ? "border-l" : ""}`}
+          style={{ borderColor: "var(--line)" }}
         >
           <div className="flex flex-col">
-            <span className="text-xs font-medium uppercase tracking-wide text-muted">{label}</span>
-            <span className="mt-1 font-mono text-2xl font-bold tabular-nums text-foreground">
-              {fleet[key]}
+            <span className="label">{label}</span>
+            <span className="mt-1 font-mono text-2xl font-bold tabular-nums" style={{ color: "var(--ink)" }}>
+              <AnimatedNumber value={fleet[key]} />
             </span>
           </div>
           {color && (
@@ -109,29 +143,73 @@ function FleetSummaryStrip({ fleet }: { fleet: FleetStateSummary }) {
   );
 }
 
-function AttentionList({ nowMs }: { nowMs: number | null }) {
-  const driver = useMemo(() => selectDriverAssignment(FLEET_VEHICLES), []);
+function InstrumentGauge({
+  label,
+  value,
+  color,
+  detail,
+}: {
+  label: string;
+  value: number;
+  color: string;
+  detail: string;
+}) {
+  const bounded = Math.max(0, Math.min(100, value));
+
+  return (
+    <div className="v2-frame relative flex min-h-[172px] flex-col border border-border bg-surface-1 p-4">
+      <div className="flex items-start justify-between gap-2">
+        <span className="sign text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">{label}</span>
+        <span className="font-mono text-[9px] text-muted">{detail}</span>
+      </div>
+      <svg viewBox="0 0 116 72" className="mx-auto mt-auto w-full max-w-[132px]" aria-hidden="true">
+        <path d="M 12 60 A 46 46 0 0 1 104 60" pathLength="100" fill="none" stroke="var(--surface-3)" strokeWidth="8" />
+        <path
+          className="v2-gauge-arc"
+          d="M 12 60 A 46 46 0 0 1 104 60"
+          pathLength="100"
+          fill="none"
+          stroke={color}
+          strokeWidth="8"
+          strokeDasharray={`${bounded} 100`}
+        />
+        {[0, 1, 2, 3, 4, 5, 6].map((tick) => {
+          const angle = Math.PI - (Math.PI * tick) / 6;
+          const x1 = 58 + Math.cos(angle) * 51;
+          const y1 = 60 - Math.sin(angle) * 51;
+          const x2 = 58 + Math.cos(angle) * 55;
+          const y2 = 60 - Math.sin(angle) * 55;
+          return <line key={tick} x1={x1} y1={y1} x2={x2} y2={y2} stroke="var(--faint)" strokeWidth="1" />;
+        })}
+      </svg>
+      <strong className="-mt-7 text-center font-mono text-2xl font-semibold tabular-nums text-foreground"><AnimatedNumber value={bounded} suffix="%" /></strong>
+    </div>
+  );
+}
+
+function AttentionList({ nowMs, vehicles }: { nowMs: number | null; vehicles: typeof FLEET_VEHICLES }) {
+  const driver = useMemo(() => selectDriverAssignment(vehicles), [vehicles]);
   const rows = useMemo(
     () =>
       nowMs === null
         ? null
-        : selectNeedsAttention(FLEET_VEHICLES, nowMs, FLEET_VEHICLES.length)
+        : selectNeedsAttention(vehicles, nowMs, vehicles.length)
             .filter((row) => row.issue !== "unassigned-driver")
             .slice(0, 4),
-    [nowMs]
+    [nowMs, vehicles]
   );
 
   return (
     <section className="flex min-h-0 flex-col" aria-labelledby="attention-title">
-      <header className="flex h-14 shrink-0 items-center justify-between border-b border-border px-5">
+      <header className="flex h-14 shrink-0 items-center justify-between border-b px-5" style={{ borderColor: "var(--line)" }}>
         <div>
-          <h2 id="attention-title" className="text-base font-semibold text-foreground">
+          <h2 id="attention-title" className="text-base font-semibold" style={{ color: "var(--ink)" }}>
             Perlu perhatian
           </h2>
-          <p className="text-xs text-muted">Prioritas data saat ini</p>
+          <p className="text-xs" style={{ color: "var(--muted)" }}>Prioritas data saat ini</p>
         </div>
         {rows && (
-          <span className="flex h-6 items-center rounded-full bg-surface-2 px-2.5 font-mono text-xs font-medium text-muted">
+          <span className="flex h-6 items-center rounded-full px-2.5 font-mono text-xs font-medium" style={{ background: "var(--surface-2)", color: "var(--muted)" }}>
             {rows.length + (driver.unassigned > 0 ? 1 : 0)}
           </span>
         )}
@@ -139,42 +217,41 @@ function AttentionList({ nowMs }: { nowMs: number | null }) {
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         {rows === null ? (
-          <div className="flex flex-col items-center justify-center py-8 text-muted">
-            <div className="h-6 w-6 animate-spin rounded-full border-2 border-brand border-t-transparent" />
-            <p className="mt-3 text-sm">Memeriksa kondisi...</p>
+          <div className="flex flex-col items-center justify-center py-8">
+            <div className="h-6 w-6 rounded-full border-2 animate-spin" style={{ borderColor: "var(--signal)", borderTopColor: "transparent" }} />
+            <p className="mt-3 text-sm" style={{ color: "var(--muted)" }}>Memeriksa kondisi...</p>
           </div>
         ) : rows.length === 0 && driver.unassigned === 0 ? (
           <div className="flex flex-col items-center justify-center py-8">
             <span className="text-4xl">✅</span>
-            <p className="mt-2 text-sm font-medium text-foreground">Semua berjalan normal</p>
-            <p className="text-xs text-muted">Tidak ada yang perlu diperhatikan</p>
+            <p className="mt-2 text-sm font-medium" style={{ color: "var(--ink)" }}>Semua berjalan normal</p>
+            <p className="text-xs" style={{ color: "var(--muted)" }}>Tidak ada yang perlu diperhatikan</p>
           </div>
         ) : (
-          <ul className="divide-y divide-border">
+          <ul>
             {rows.map((row) => {
               const meta = ATTENTION_META[row.issue as Exclude<DashboardAttentionIssue, "unassigned-driver">];
               return (
                 <li key={row.id}>
                   <Link
                     href={row.href}
-                    className="group flex items-center gap-3 px-5 py-3.5 transition-colors hover:bg-surface-2/50 focus-visible:outline-2 focus-visible:outline-brand"
+                    className="group flex items-center gap-3 px-5 py-3.5 transition-colors"
+                    style={{ borderBottom: "1px solid var(--line)" }}
                     aria-label={`${row.plateNumber}: ${attentionMetadata(row)}`}
                   >
                     <span
-                      className="h-2.5 w-2.5 shrink-0 rounded-full shadow-sm"
+                      className="h-2.5 w-2.5 shrink-0 rounded-full"
                       style={{ background: meta.color }}
                       aria-hidden="true"
                     />
                     <span className="min-w-0 flex-1">
                       <div className="flex items-baseline justify-between gap-2">
-                        <span className="font-mono text-sm font-bold tabular-nums text-foreground">
-                          {row.plateNumber}
-                        </span>
-                        <span className="text-xs font-medium text-muted">
+                        <span className="plate">{row.plateNumber}</span>
+                        <span className="text-xs font-medium" style={{ color: "var(--muted)" }}>
                           {meta.label}
                         </span>
                       </div>
-                      <p className="mt-0.5 text-xs text-muted">
+                      <p className="mt-0.5 text-xs" style={{ color: "var(--muted)" }}>
                         {attentionMetadata(row)}
                       </p>
                     </span>
@@ -183,16 +260,16 @@ function AttentionList({ nowMs }: { nowMs: number | null }) {
               );
             })}
             {driver.unassigned > 0 && (
-              <li className="flex items-center gap-3 px-5 py-3.5">
-                <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-blue-500 shadow-sm" aria-hidden="true" />
+              <li className="flex items-center gap-3 px-5 py-3.5" style={{ borderBottom: "1px solid var(--line)" }}>
+                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: "var(--information)" }} aria-hidden="true" />
                 <span className="min-w-0 flex-1">
                   <div className="flex items-baseline justify-between gap-2">
-                    <span className="text-sm font-semibold text-foreground">Driver belum ditugaskan</span>
-                    <span className="font-mono text-xs font-semibold tabular-nums text-foreground">
+                    <span className="text-sm font-semibold" style={{ color: "var(--ink)" }}>Driver belum ditugaskan</span>
+                    <span className="font-mono text-xs font-semibold tabular-nums" style={{ color: "var(--ink)" }}>
                       {driver.unassigned} unit
                     </span>
                   </div>
-                  <p className="mt-0.5 text-xs text-muted">Unit membutuhkan penugasan driver</p>
+                  <p className="mt-0.5 text-xs" style={{ color: "var(--muted)" }}>Unit membutuhkan penugasan driver</p>
                 </span>
               </li>
             )}
@@ -200,14 +277,15 @@ function AttentionList({ nowMs }: { nowMs: number | null }) {
         )}
       </div>
 
-      <footer className="shrink-0 border-t border-border px-5 py-3">
+      <footer className="shrink-0 border-t px-5 py-3" style={{ borderColor: "var(--line)" }}>
         <Link
           href="/tracking"
-          className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-brand hover:bg-brand/10 transition-colors focus-visible:outline-2 focus-visible:outline-brand"
+          className="group/link inline-flex items-center gap-1.5 text-sm font-medium transition-colors"
+          style={{ color: "var(--signal)" }}
         >
           Buka Realtime Monitor
-          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          <svg className="h-4 w-4 transition-transform group-hover/link:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5l7 7-7 7" />
           </svg>
         </Link>
       </footer>
@@ -228,12 +306,10 @@ function ConditionDistribution({ fleet }: { fleet: FleetStateSummary }) {
   return (
     <section aria-labelledby="condition-title" className="min-w-0 p-5">
       <div className="flex items-center justify-between">
-        <h2 id="condition-title" className="text-sm font-semibold uppercase tracking-wide text-muted">
-          Distribusi Kondisi
-        </h2>
-        <span className="font-mono text-lg font-bold text-foreground">{fleet.total}</span>
+        <h2 id="condition-title" className="label">Distribusi Kondisi</h2>
+        <span className="font-mono text-lg font-bold" style={{ color: "var(--ink)" }}>{fleet.total}</span>
       </div>
-      <div className="mt-4 flex h-2.5 overflow-hidden rounded-full bg-surface-2 shadow-inner">
+      <div className="mt-4 flex h-2.5 overflow-hidden rounded-full" style={{ background: "var(--surface-3)" }}>
         {visible.map(([key, label, color]) => (
           <span
             key={key}
@@ -248,12 +324,12 @@ function ConditionDistribution({ fleet }: { fleet: FleetStateSummary }) {
       </div>
       <dl className="mt-5 grid grid-cols-2 gap-3">
         {visible.map(([key, label, color]) => (
-          <div key={key} className="flex items-center justify-between rounded-lg bg-surface-2/50 px-3 py-2">
+          <div key={key} className="flex items-center justify-between rounded-sm px-3 py-2" style={{ background: "var(--surface-2)" }}>
             <dt className="flex items-center gap-2">
-              <span className="h-2.5 w-2.5 shrink-0 rounded-full shadow-sm" style={{ background: color }} />
-              <span className="text-sm text-muted">{label}</span>
+              <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: color }} />
+              <span className="text-sm" style={{ color: "var(--muted)" }}>{label}</span>
             </dt>
-            <dd className="font-mono text-base font-bold tabular-nums text-foreground">{fleet[key]}</dd>
+            <dd className="font-mono text-base font-bold tabular-nums" style={{ color: "var(--ink)" }}>{fleet[key]}</dd>
           </div>
         ))}
       </dl>
@@ -261,76 +337,72 @@ function ConditionDistribution({ fleet }: { fleet: FleetStateSummary }) {
   );
 }
 
-function TelemetryHealth({ nowMs }: { nowMs: number | null }) {
+function TelemetryHealth({ nowMs, vehicles }: { nowMs: number | null; vehicles: typeof FLEET_VEHICLES }) {
   const health = useMemo(
-    () => (nowMs === null ? null : selectTelemetryHealth(FLEET_VEHICLES, nowMs)),
-    [nowMs]
+    () => (nowMs === null ? null : selectTelemetryHealth(vehicles, nowMs)),
+    [nowMs, vehicles]
   );
   const states = health
     ? [
-        ["Segar", health.fresh, "var(--healthy)", "bg-green-500"],
-        ["Tertunda", health.delayed, "var(--warning)", "bg-yellow-500"],
-        ["Tidak mengirim", health.notTransmitting, "var(--critical)", "bg-red-500"],
-        ["Tidak diketahui", health.unknown, "var(--unknown)", "bg-gray-500"],
+        ["Segar", health.fresh, "var(--healthy)", "var(--healthy)"],
+        ["Tertunda", health.delayed, "var(--warning)", "var(--warning)"],
+        ["Tidak mengirim", health.notTransmitting, "var(--critical)", "var(--critical)"],
+        ["Tidak diketahui", health.unknown, "var(--unknown)", "var(--unknown)"],
       ] as const
     : [];
 
   return (
-    <section aria-labelledby="telemetry-title" className="min-w-0 border-t border-border p-5 md:border-l md:border-t-0">
-      <h2 id="telemetry-title" className="text-sm font-semibold uppercase tracking-wide text-muted">
-        Kesehatan Data
-      </h2>
+    <section aria-labelledby="telemetry-title" className="min-w-0 border-t p-5 md:border-l md:border-t-0" style={{ borderColor: "var(--line)" }}>
+      <h2 id="telemetry-title" className="label">Kesehatan Data</h2>
       {health ? (
         <dl className="mt-5 space-y-3">
-          {states.map(([label, value, color, dotClass]) => (
-            <div key={label} className="flex items-center justify-between rounded-lg bg-surface-2/50 px-3 py-2">
+          {states.map(([label, value, color]) => (
+            <div key={label} className="flex items-center justify-between rounded-sm px-3 py-2" style={{ background: "var(--surface-2)" }}>
               <dt className="flex items-center gap-2">
-                <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${dotClass}`} />
-                <span className="text-sm text-muted">{label}</span>
+                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: color }} />
+                <span className="text-sm" style={{ color: "var(--muted)" }}>{label}</span>
               </dt>
-              <dd className="font-mono text-base font-bold tabular-nums text-foreground">{value}</dd>
+              <dd className="font-mono text-base font-bold tabular-nums" style={{ color: "var(--ink)" }}>{value}</dd>
             </div>
           ))}
         </dl>
       ) : (
         <div className="mt-5 flex flex-col items-center py-4">
-          <div className="h-5 w-5 animate-spin rounded-full border-2 border-brand border-t-transparent" />
-          <p className="mt-2 text-xs text-muted">Memeriksa...</p>
+          <div className="h-5 w-5 animate-spin rounded-full" style={{ border: "2px solid var(--signal)", borderTopColor: "transparent" }} />
+          <p className="mt-2 text-xs" style={{ color: "var(--muted)" }}>Memeriksa...</p>
         </div>
       )}
     </section>
   );
 }
 
-function DriverCoverage() {
-  const driver = useMemo(() => selectDriverAssignment(FLEET_VEHICLES), []);
+function DriverCoverage({ vehicles }: { vehicles: typeof FLEET_VEHICLES }) {
+  const driver = useMemo(() => selectDriverAssignment(vehicles), [vehicles]);
   const coverage = driver.total ? Math.round((driver.assigned / driver.total) * 100) : 0;
 
   return (
-    <section aria-labelledby="driver-title" className="min-w-0 border-t border-border p-5 md:border-l md:border-t-0">
-      <h2 id="driver-title" className="text-sm font-semibold uppercase tracking-wide text-muted">
-        Cakupan Driver
-      </h2>
+    <section aria-labelledby="driver-title" className="min-w-0 border-t p-5 md:border-l md:border-t-0" style={{ borderColor: "var(--line)" }}>
+      <h2 id="driver-title" className="label">Cakupan Driver</h2>
       <div className="mt-5">
         <div className="flex items-baseline justify-between">
-          <p className="text-sm text-muted">Driver ditugaskan</p>
-          <p className="font-mono text-2xl font-bold text-foreground">{coverage}%</p>
+          <p className="text-sm" style={{ color: "var(--muted)" }}>Driver ditugaskan</p>
+          <p className="font-mono text-2xl font-bold" style={{ color: "var(--ink)" }}>{coverage}%</p>
         </div>
-        <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-surface-2 shadow-inner">
+        <div className="mt-3 h-2.5 overflow-hidden rounded-full" style={{ background: "var(--surface-3)" }}>
           <span
-            className="block h-full rounded-full bg-gradient-to-r from-brand to-green-500 transition-all duration-500"
-            style={{ width: `${coverage}%` }}
+            className="block h-full rounded-full transition-all duration-500"
+            style={{ width: `${coverage}%`, background: "linear-gradient(to right, var(--signal), var(--st-driving))" }}
           />
         </div>
       </div>
       <dl className="mt-5 grid grid-cols-2 gap-3">
-        <div className="rounded-lg bg-surface-2/50 px-3 py-3 text-center">
-          <dt className="text-xs text-muted">Ditugaskan</dt>
-          <dd className="mt-1 font-mono text-xl font-bold text-green-500">{driver.assigned}</dd>
+        <div className="rounded-sm px-3 py-3 text-center" style={{ background: "var(--surface-2)" }}>
+          <dt className="text-xs" style={{ color: "var(--muted)" }}>Ditugaskan</dt>
+          <dd className="mt-1 font-mono text-xl font-bold" style={{ color: "var(--st-driving)" }}>{driver.assigned}</dd>
         </div>
-        <div className="rounded-lg bg-surface-2/50 px-3 py-3 text-center">
-          <dt className="text-xs text-muted">Belum</dt>
-          <dd className="mt-1 font-mono text-xl font-bold text-orange-500">{driver.unassigned}</dd>
+        <div className="rounded-sm px-3 py-3 text-center" style={{ background: "var(--surface-2)" }}>
+          <dt className="text-xs" style={{ color: "var(--muted)" }}>Belum</dt>
+          <dd className="mt-1 font-mono text-xl font-bold" style={{ color: "var(--st-idle)" }}>{driver.unassigned}</dd>
         </div>
       </dl>
     </section>
@@ -363,40 +435,42 @@ const operationDate = new Intl.DateTimeFormat("id-ID", {
   year: "numeric",
 }).format(OPERATIONS_DATASET.referenceTimeMs);
 
-function OperationsOverview() {
+function OperationsOverview({ vehicles }: { vehicles: typeof FLEET_VEHICLES }) {
   const vehicleById = useMemo(
-    () => new Map(FLEET_VEHICLES.map((vehicle) => [vehicle.id, vehicle])),
-    []
+    () => new Map(vehicles.map((vehicle) => [vehicle.id, vehicle])),
+    [vehicles]
   );
 
   return (
-    <section className="overflow-hidden rounded-lg border border-border bg-surface-1" aria-labelledby="operations-title">
-      <div className="border-b border-border bg-gradient-to-r from-surface-1 to-surface-2 px-5 py-4">
+    <section className="overflow-hidden border border-border" style={{ background: "var(--surface-1)" }} aria-labelledby="operations-title">
+      <div className="border-b px-5 py-4" style={{ background: "var(--header-ink)", borderColor: "var(--line)" }}>
         <div className="flex items-center justify-between">
           <div>
-            <h2 id="operations-title" className="text-base font-semibold text-foreground">
+            <h2 id="operations-title" className="text-base font-semibold" style={{ color: "var(--ink)" }}>
               Operasi
             </h2>
-            <p className="text-xs text-muted">{operationDate} · {operationTime.format(OPERATIONS_DATASET.referenceTimeMs)}</p>
+            <p className="text-xs" style={{ color: "var(--muted)" }}>{operationDate} · {operationTime.format(OPERATIONS_DATASET.referenceTimeMs)}</p>
           </div>
           <Link
             href="/tasks"
-            className="text-sm font-medium text-brand hover:text-brand-hover transition-colors"
+            className="text-sm font-medium transition-colors"
+            style={{ color: "var(--signal)" }}
           >
             Lihat semua →
           </Link>
         </div>
       </div>
       <div className="grid lg:grid-cols-[minmax(0,3fr)_minmax(280px,2fr)]">
-        <div className="border-b border-border px-5 py-4 lg:border-b-0 lg:border-r lg:border-border">
+        <div className="border-b px-5 py-4 lg:border-b-0 lg:border-r" style={{ borderColor: "var(--line)" }}>
           <dl className="grid grid-cols-2 gap-4 sm:grid-cols-5">
             {OPERATION_METRICS.map((metric, index) => (
               <div
                 key={metric.label}
-                className={`text-center ${index > 0 ? "border-l border-border pl-4" : ""}`}
+                className={`text-center ${index > 0 ? "border-l pl-4" : ""}`}
+                style={{ borderColor: "var(--line)" }}
               >
-                <dt className="text-xs font-medium text-muted">{metric.label}</dt>
-                <dd className="mt-1 font-mono text-2xl font-bold tabular-nums text-foreground">
+                <dt className="text-xs font-medium" style={{ color: "var(--muted)" }}>{metric.label}</dt>
+                <dd className="mt-1 font-mono text-2xl font-bold tabular-nums" style={{ color: "var(--ink)" }}>
                   {metric.value}
                 </dd>
               </div>
@@ -405,24 +479,25 @@ function OperationsOverview() {
         </div>
 
         <div className="px-5 py-4">
-          <h3 className="text-sm font-semibold text-muted uppercase tracking-wide">Peristiwa Terbaru</h3>
+          <h3 className="label">Peristiwa Terbaru</h3>
           <ul className="mt-3 space-y-2">
             {OPERATIONS_PULSE.recentEvents.map((event) => (
               <li key={event.id}>
                 <Link
                   href={event.href}
-                  className="group flex items-start gap-3 rounded-lg px-3 py-2 transition-colors hover:bg-surface-2"
+                  className="group flex items-start gap-3 rounded-sm px-3 py-2 transition-colors"
+                  style={{}}
                 >
-                  <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-brand" />
+                  <span className="mt-1 h-2 w-2 shrink-0 rounded-full" style={{ background: "var(--signal)" }} />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-medium text-foreground group-hover:text-brand transition-colors">
+                    <span className="block truncate text-sm font-medium transition-colors" style={{ color: "var(--ink)" }}>
                       {event.title}
                     </span>
-                    <span className="block truncate text-xs text-muted">
+                    <span className="block truncate text-xs" style={{ color: "var(--muted)" }}>
                       {vehicleById.get(event.vehicleId)?.plate_number ?? event.tripId} · {event.metadata}
                     </span>
                   </span>
-                  <time className="shrink-0 font-mono text-xs tabular-nums text-muted" dateTime={event.occurredAt}>
+                  <time className="shrink-0 font-mono text-xs tabular-nums" style={{ color: "var(--muted)" }} dateTime={event.occurredAt}>
                     {operationTime.format(Date.parse(event.occurredAt))}
                   </time>
                 </Link>
@@ -440,7 +515,27 @@ export default function DashboardPage() {
   const [mapVehicles, setMapVehicles] = useState(() =>
     FLEET_VEHICLES.map(toMapVehicle)
   );
-  const fleet = useMemo(() => selectFleetState(FLEET_VEHICLES), []);
+  const { vehicles } = useAppContext();
+  const displayVehicles = vehicles.length > 0 ? vehicles : FLEET_VEHICLES;
+  const fleet = useMemo(() => selectFleetState(displayVehicles), [displayVehicles]);
+  const driverCoverage = useMemo(() => selectDriverAssignment(displayVehicles), [displayVehicles]);
+  const telemetryHealth = useMemo(
+    () => (nowMs === null ? null : selectTelemetryHealth(displayVehicles, nowMs)),
+    [displayVehicles, nowMs]
+  );
+  const drivingRate = fleet.total === 0 ? 0 : Math.round((fleet.driving / fleet.total) * 100);
+  const onlineRate = fleet.total === 0 ? 0 : Math.round(((fleet.total - fleet.offline) / fleet.total) * 100);
+  const assignedRate = driverCoverage.total === 0 ? 0 : Math.round((driverCoverage.assigned / driverCoverage.total) * 100);
+  const freshRate = !telemetryHealth || telemetryHealth.total === 0
+    ? 0
+    : Math.round((telemetryHealth.fresh / telemetryHealth.total) * 100);
+
+  // Update map vehicles when API data changes
+  useEffect(() => {
+    if (vehicles.length > 0) {
+      setMapVehicles(vehicles.map(toMapVehicle));
+    }
+  }, [vehicles]);
 
   useEffect(() => {
     const updateNow = () => setNowMs(new Date().valueOf());
@@ -454,49 +549,96 @@ export default function DashboardPage() {
       className="mx-auto w-full max-w-[1600px] space-y-4 p-4 sm:p-6"
       data-dashboard-command-overview
     >
+      <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-[minmax(300px,0.95fr)_minmax(390px,1.35fr)_minmax(290px,0.9fr)]">
+          <div className="v2-frame relative flex min-h-[390px] flex-col overflow-hidden border border-border-strong bg-[#0e1211] px-6 py-7 text-white after:absolute after:inset-x-0 after:bottom-0 after:h-2 after:bg-brand lg:px-7">
+            <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-brand">Control Tower · Jabodetabek</p>
+            <h2 className="sign mt-5 text-4xl font-bold uppercase leading-[1.05] text-white">Armada<br /><span className="text-brand">dalam kendali</span></h2>
+            <p className="mt-4 max-w-[36ch] text-sm leading-6 text-[#aeb8b0]">Pantau pergerakan, kesehatan telemetri, dan prioritas operasional dalam satu pandangan.</p>
+            <div className="mt-6 flex flex-wrap gap-2">
+              <Link href="/tracking" className="v2-button bg-brand px-4 py-2.5 sign text-xs font-semibold uppercase text-slate-950">Realtime Monitor</Link>
+              <Link href="/reports" className="v2-button border border-[#3e4744] px-4 py-2.5 sign text-xs font-semibold uppercase text-white">Report Center</Link>
+            </div>
+            <dl className="mt-auto grid grid-cols-3 gap-4 pt-6">
+              {[[fleet.total, "Unit aktif"], [OPERATIONS_PULSE.activeTaskCount, "Tugas berjalan"], [OPERATIONS_PULSE.lateTaskCount, "Tugas terlambat"]].map(([value, label]) => (
+                <div key={String(label)}><dd className="font-mono text-xl font-semibold">{value}</dd><dt className="sign mt-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-[#7c8880]">{label}</dt></div>
+              ))}
+            </dl>
+          </div>
+
+          <div className="dashboard-stage v2-frame relative flex min-h-[320px] items-center justify-center overflow-hidden border border-border bg-surface-2 px-6 lg:min-h-[390px]">
+            <div className="absolute left-4 top-4 z-10 flex items-center gap-2 font-mono text-[9px] uppercase tracking-[0.1em] text-muted"><span className="border border-[#0fb9bf] px-2 py-1 text-[#0fb9bf]">● Live</span>{displayVehicles[0]?.plate_number}</div>
+            <div className="dashboard-scan" aria-hidden="true" />
+            <div className="absolute inset-x-[8%] bottom-[14%] h-[34%] border-x border-t-2 border-border-strong [transform:perspective(420px)_rotateX(55deg)]">
+              <svg className="absolute inset-0 h-full w-full overflow-visible" preserveAspectRatio="none" aria-hidden="true">
+                <line className="dashboard-lane" x1="50%" y1="100%" x2="50%" y2="0" stroke="var(--brand)" strokeWidth="4" strokeDasharray="14 12" />
+              </svg>
+            </div>
+            {displayVehicles[0] && (
+              <div className="dashboard-truck relative z-10 translate-y-8">
+                <TruckIsometric
+                  plate={displayVehicles[0].plate_number}
+                  status={displayVehicles[0].status as "driving" | "idle" | "stop" | "offline"}
+                  className="h-[230px] w-auto -translate-y-24"
+                />
+              </div>
+            )}
+            <span className="absolute bottom-4 right-4 font-mono text-[9px] uppercase tracking-[0.14em] text-faint">Isometric telemetry view</span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 md:col-span-2 md:grid-cols-4 lg:col-span-1 lg:grid-cols-2">
+            <InstrumentGauge label="Armada online" value={onlineRate} color="var(--brand)" detail={`${fleet.total - fleet.offline}/${fleet.total}`} />
+            <InstrumentGauge label="Dalam perjalanan" value={drivingRate} color="var(--st-driving)" detail={`${fleet.driving} unit`} />
+            <InstrumentGauge label="Data segar" value={freshRate} color="var(--live)" detail={telemetryHealth ? `${telemetryHealth.fresh}/${telemetryHealth.total}` : "--"} />
+            <InstrumentGauge label="Driver ditugaskan" value={assignedRate} color="var(--st-idle)" detail={`${driverCoverage.assigned}/${driverCoverage.total}`} />
+          </div>
+      </section>
+
       {/* Fleet Summary Strip */}
       <FleetSummaryStrip fleet={fleet} />
 
-      {/* Map + Attention Section */}
-      <div className="grid min-h-[380px] overflow-hidden rounded-xl border border-border bg-surface-1 shadow-sm lg:grid-cols-[minmax(0,2fr)_minmax(300px,1fr)]">
-        <section className="min-w-0 border-b border-border lg:border-b-0 lg:border-r" aria-labelledby="live-map-title">
-          <header className="flex h-14 items-center justify-between border-b border-border bg-gradient-to-r from-surface-1 to-surface-2 px-5">
-            <div>
-              <h2 id="live-map-title" className="text-base font-semibold text-foreground">Armada Langsung</h2>
-              <p className="text-xs text-muted">{fleet.total} unit aktif</p>
-            </div>
-            <div className="flex items-center gap-2 rounded-full bg-surface-2 px-3 py-1.5">
-              <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
-              </span>
-              <span className="text-sm font-medium text-foreground">{fleet.driving} bergerak</span>
-            </div>
-          </header>
-          <div className="h-[320px] lg:h-[322px]">
-            <LiveFleetMap
-              vehicles={mapVehicles}
-              center={[107.0, -6.5]}
-              zoom={8}
-              pitch={0}
-              visibility={OVERVIEW_MAP_VISIBILITY}
-              overviewMode
-              onMapReady={() => setMapVehicles(FLEET_VEHICLES.map(toMapVehicle))}
-            />
+      {/* Operational ledger: priorities first, distributions alongside. */}
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(340px,1fr)]">
+        <div className="v2-frame min-h-[360px] overflow-hidden border border-border bg-surface-1">
+          <AttentionList nowMs={nowMs} vehicles={displayVehicles} />
+        </div>
+        <div className="v2-frame grid overflow-hidden border border-border bg-surface-1 md:grid-cols-2 lg:grid-cols-1">
+          <ConditionDistribution fleet={fleet} />
+          <TelemetryHealth nowMs={nowMs} vehicles={displayVehicles} />
+          <div className="border-t border-border md:col-span-2 lg:col-span-1">
+            <DriverCoverage vehicles={displayVehicles} />
           </div>
-        </section>
-        <AttentionList nowMs={nowMs} />
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid overflow-hidden rounded-xl border border-border bg-surface-1 shadow-sm md:grid-cols-3">
-        <ConditionDistribution fleet={fleet} />
-        <TelemetryHealth nowMs={nowMs} />
-        <DriverCoverage />
+        </div>
       </div>
 
       {/* Operations Overview */}
-      <OperationsOverview />
+      <OperationsOverview vehicles={displayVehicles} />
+
+      {/* V1 live-map capability retained below the command overview. */}
+      <section className="v2-frame min-w-0 overflow-hidden border border-border bg-surface-1" aria-labelledby="live-map-title">
+        <header className="flex h-14 items-center justify-between border-b border-dashed border-border-strong px-5">
+          <div>
+            <h2 id="live-map-title" className="sign text-sm font-semibold uppercase tracking-[0.08em] text-foreground">Armada Langsung</h2>
+            <p className="font-mono text-[10px] text-muted">{fleet.total} unit aktif</p>
+          </div>
+          <div className="flex items-center gap-2 font-mono text-xs text-muted">
+            <span className="h-2 w-2 rounded-full bg-st-driving" />
+            {fleet.driving} bergerak
+          </div>
+        </header>
+        <div className="h-[360px]">
+          <LiveFleetMap
+            vehicles={mapVehicles}
+            center={[107.0, -6.5]}
+            zoom={6.2}
+            pitch={0}
+            visibility={OVERVIEW_MAP_VISIBILITY}
+            overviewMode
+            onMapReady={() => {
+              if (displayVehicles.length > 0) setMapVehicles(displayVehicles.map(toMapVehicle));
+            }}
+          />
+        </div>
+      </section>
     </div>
   );
 }
