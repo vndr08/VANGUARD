@@ -695,10 +695,7 @@ export default function AccidentsPage() {
             </div>
             <h1 className="text-xl font-semibold">Log Kejadian</h1>
           </div>
-          <Button onClick={handleNewIncident} aria-label="Lapor Insiden Baru">
-            <Plus className="w-4 h-4 mr-2" />
-            Lapor Insiden
-          </Button>
+          <span className="text-xs text-muted">Mode baca</span>
         </div>
 
         {/* KPI Stats */}
@@ -828,6 +825,11 @@ export default function AccidentsPage() {
                       <TableCell>
                         <Badge variant="default" className="text-sm font-medium">{incident.type}</Badge>
                       </TableCell>
+                      <TableCell>
+                        <Badge variant={getSeverityVariant(incident.severity)} className="text-sm font-medium">
+                          {incident.severity}
+                        </Badge>
+                      </TableCell>
                       <TableCell className="text-sm font-medium text-foreground max-w-[150px] truncate">
                         {incident.location}
                       </TableCell>
@@ -848,17 +850,6 @@ export default function AccidentsPage() {
                             }}
                             aria-label="Lihat Detail"
                             icon={<Eye className="w-4 h-4" />}
-                          />
-                          <IconButton
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => {
-                              setSelectedIncident(incident);
-                              setIsFormMode(true);
-                              setIsDrawerOpen(true);
-                            }}
-                            aria-label="Edit"
-                            icon={<Pencil className="w-4 h-4" />}
                           />
                         </div>
                       </TableCell>
@@ -962,25 +953,6 @@ export default function AccidentsPage() {
               />
             </PanelSection>
 
-            <PanelDivider />
-
-            <PanelSection>
-              <div className="flex gap-3">
-                <Button
-                  variant="secondary"
-                  className="flex-1"
-                  onClick={() => setIsFormMode(true)}
-                  icon={<Pencil className="w-4 h-4" />}>
-                  Ubah
-                </Button>
-                <Button
-                  variant="danger"
-                  onClick={handleDelete}
-                  icon={<Trash2 className="w-4 h-4" />}>
-                  Hapus
-                </Button>
-              </div>
-            </PanelSection>
           </div>
         ) : null}
       </Panel>

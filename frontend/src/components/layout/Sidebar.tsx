@@ -119,10 +119,10 @@ export default function Sidebar({
           </div>
           {!collapsed && (
               <motion.div animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.14 }} className="overflow-hidden">
-                <p className="sign text-sm font-bold tracking-wider text-foreground leading-none">
+                <p className="sign text-sm font-bold tracking-wider text-[#EDF0E9] leading-none">
                   VANGUARD
                 </p>
-                <p className="mt-0.5 text-[9px] font-medium text-muted leading-none">
+                <p className="mt-0.5 text-[9px] font-medium text-[#9AA69E] leading-none">
                   Fleet Control
                 </p>
               </motion.div>
@@ -131,7 +131,7 @@ export default function Sidebar({
 
         <button
           onClick={onToggle}
-          className={`flex h-12 shrink-0 items-center justify-center text-muted transition-colors hover:bg-surface-2 hover:text-foreground focus-visible:outline-2 focus-visible:outline-brand ${
+          className={`flex h-12 shrink-0 items-center justify-center text-[#9AA69E] transition-colors hover:bg-white/5 hover:text-[#EDF0E9] focus-visible:outline-2 focus-visible:outline-brand ${
             collapsed ? "w-6" : "w-10"
           }`}
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
@@ -174,14 +174,14 @@ export default function Sidebar({
 
       {/* ── Footer ────────────────────────────────────────────── */}
       <div className="shrink-0 border-t border-border" style={{ background: "var(--header-ink)" }}>
-        <div className={`flex h-9 items-center text-muted ${collapsed ? "justify-center" : "justify-between px-4"}`} title={`${fleetTotal} unit dipantau`}>
+        <div className={`flex h-9 items-center text-[#9AA69E] ${collapsed ? "justify-center" : "justify-between px-4"}`} title={`${fleetTotal} unit dipantau`}>
           {!collapsed && <span className="text-xs">Armada dipantau</span>}
-          <span className="font-mono text-xs tabular-nums text-foreground">{fleetTotal}</span>
+          <span className="font-mono text-xs tabular-nums text-[#EDF0E9]">{fleetTotal}</span>
         </div>
 
         <button
           onClick={toggleTheme}
-          className={`flex h-10 w-full items-center border-t border-border text-muted transition-colors hover:bg-surface-2 hover:text-foreground focus-visible:outline-2 focus-visible:outline-brand ${collapsed ? "justify-center" : "gap-3 px-4"}`}
+          className={`flex h-10 w-full items-center border-t border-border text-[#9AA69E] transition-colors hover:bg-white/5 hover:text-[#EDF0E9] focus-visible:outline-2 focus-visible:outline-brand ${collapsed ? "justify-center" : "gap-3 px-4"}`}
           aria-label={theme === "dark" ? "Switch to light mode" : "Switch to Mode Gelap"}
         >
           <div className="flex h-5 w-5 shrink-0 items-center justify-center">

@@ -28,6 +28,7 @@ import { Button, IconButton } from "@/components/ui/Button";
 import { Panel, PanelSection, PanelDivider } from "@/components/ui/Panel";
 import { Card, EmptyState } from "@/components/ui/Card";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
+import { downloadCsv } from "@/lib/csv";
 
 /* ─── Types ─────────────────────────────────────────────────────────────────── */
 
@@ -56,7 +57,7 @@ function toBadgeVariant(s: DriverStatus): "success" | "brand" | "warning" | "def
 
 function statusLabel(s: DriverStatus): string {
   if (s === "active") return "Aktif";
-  if (s === "off-duty") return "Bertugas";
+  if (s === "off-duty") return "Lepas tugas";
   if (s === "on-leave") return "Cuti";
   return "Nonaktif";
 }
@@ -132,18 +133,6 @@ function Avatar({ name, size = "md" }: { name: string; size?: "sm" | "md" }) {
 }
 
 /* ─── Safety Score ──────────────────────────────────────────────────────────── */
-
-function SafetyScore({ score }: { score: number }) {
-  const color =
-    score >= 90 ? "text-st-driving" :
-    score >= 75 ? "text-st-idle" :
-    "text-st-offline";
-  return (
-    <span className={`font-mono text-sm font-semibold tabular-nums ${color}`}>
-      {score}
-    </span>
-  );
-}
 
 /* ─── Delete Confirm ─────────────────────────────────────────────────────────── */
 
@@ -314,7 +303,7 @@ function DriverForm({
                 className="form-input"
               >
                 <option value="active">Aktif</option>
-                <option value="off-duty">Bertugas</option>
+                <option value="off-duty">Lepas tugas</option>
                 <option value="on-leave">Cuti</option>
                 <option value="inactive">Nonaktif</option>
               </select>
@@ -366,7 +355,7 @@ export default function DriversPage() {
   const [drivers, setDrivers] = useState<Driver[]>(INITIAL_DRIVERS);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<DriverStatus | "all">("all");
-  const [sortField, setSortField] = useState<"name" | "status" | "score">("name");
+  const [sortField, setSortField] = useState<"name" | "status">("name");
   const [sortDir, setSortDir] = useState<"asc" | "desc" | "none">("asc");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerMode, setDrawerMode] = useState<"add" | "edit">("add");
@@ -380,16 +369,6 @@ export default function DriversPage() {
     bertugas: drivers.filter((d) => d.status === "off-duty").length,
     nonaktif: drivers.filter((d) => d.status === "on-leave" || d.status === "inactive").length,
   }), [drivers]);
-
-  // Simulate safety score from driver id
-  function getSafetyScore(id: string): number {
-    const map: Record<string, number> = {
-      D01: 94, D02: 88, D03: 72, D04: 96, D05: 91,
-      D06: 85, D07: 90, D08: 78, D09: 93, D10: 81,
-      D11: 87, D12: 95, D13: 91, D14: 88, D15: 79,
-    };
-    return map[id] ?? 80;
-  }
 
   // Filtered rows
   const rows = useMemo(() => {
@@ -411,13 +390,12 @@ export default function DriversPage() {
       let cmp = 0;
       if (sortField === "name") cmp = a.name.localeCompare(b.name);
       if (sortField === "status") cmp = a.status.localeCompare(b.status);
-      if (sortField === "score") cmp = getSafetyScore(a.id) - getSafetyScore(b.id);
       return sortDir === "asc" ? cmp : -cmp;
     });
     return arr;
   }, [rows, sortField, sortDir]);
 
-  function handleSort(field: "name" | "status" | "score") {
+  function handleSort(field: "name" | "status") {
     if (field === sortField) {
       setSortDir((p) => (p === "asc" ? "desc" : p === "desc" ? "none" : "asc"));
     } else {
@@ -482,7 +460,19 @@ export default function DriversPage() {
   }
 
   function handleExport() {
-    // Export functionality in development
+    downloadCsv(
+      "vanguard-pengemudi.csv",
+      ["id", "name", "sim_number", "phone", "vehicle_id", "status", "join_date"],
+      sorted.map((driver) => [
+        driver.id,
+        driver.name,
+        driver.sim_number,
+        driver.phone,
+        driver.vehicle_id,
+        driver.status,
+        driver.join_date,
+      ])
+    );
   }
 
   function resetFilters() {
@@ -516,17 +506,15 @@ export default function DriversPage() {
               <KpiDivider />
               <KpiStat label="Aktif" value={counts.aktif} accent="text-st-driving" />
               <KpiDivider />
-              <KpiStat label="Bertugas" value={counts.bertugas} accent="text-brand" />
+              <KpiStat label="Lepas tugas" value={counts.bertugas} accent="text-brand" />
               <KpiDivider />
               <KpiStat label="Nonaktif" value={counts.nonaktif} accent="text-muted" />
             </div>
           </div>
           <div className="flex items-center gap-2 mt-1">
+            <span className="text-xs text-muted">Mode baca</span>
             <Button variant="secondary" size="sm" icon={<Download className="w-4 h-4" />} onClick={handleExport} aria-label="Export data driver">
               Export
-            </Button>
-            <Button variant="primary" size="sm" icon={<Plus className="w-4 h-4" />} onClick={openAdd} aria-label="Tambah driver baru">
-              Tambah Driver
             </Button>
           </div>
         </div>
@@ -556,7 +544,7 @@ export default function DriversPage() {
             {([
               { key: "all", label: "Semua" },
               { key: "active", label: "Aktif" },
-              { key: "off-duty", label: "Bertugas" },
+              { key: "off-duty", label: "Lepas tugas" },
               { key: "on-leave", label: "Cuti" },
               { key: "inactive", label: "Nonaktif" },
             ] as { key: DriverStatus | "all"; label: string }[]).map((f) => (
@@ -606,11 +594,7 @@ export default function DriversPage() {
                   <Button variant="secondary" size="sm" onClick={resetFilters}>
                     Reset Filter
                   </Button>
-                ) : (
-                  <Button variant="primary" size="sm" icon={<Plus className="w-4 h-4" />} onClick={openAdd}>
-                    Tambah Driver
-                  </Button>
-                )
+                ) : undefined
               }
             />
           </Card>
@@ -633,14 +617,7 @@ export default function DriversPage() {
                 >
                   Status
                 </TableHeadCell>
-                <TableHeadCell width={90}
-                  sortable sorted={sortField === "score" ? sortDir !== "none" ? sortDir : false : false}
-                  onClick={() => handleSort("score")}
-                >
-                  Skor
-                </TableHeadCell>
                 <TableHeadCell width={110}>Bergabung</TableHeadCell>
-                <TableHeadCell width={90} className="text-right">Aksi</TableHeadCell>
               </tr>
             </TableHead>
             <TableBody>
@@ -648,12 +625,7 @@ export default function DriversPage() {
                 const isDeleteConfirming = deleteConfirm === d.id;
                 const assignedVehicle = d.vehicle_id ? vehicleMap.get(d.vehicle_id) : null;
                 return (
-                  <TableRow
-                    key={d.id}
-                    selectable
-                    onClick={() => !isDeleteConfirming && openEdit(d)}
-                    className="group"
-                  >
+                  <TableRow key={d.id}>
                     {/* Nama + avatar */}
                     <TableCell>
                       <div className="flex items-center gap-3">
@@ -689,45 +661,11 @@ export default function DriversPage() {
                         {statusLabel(d.status)}
                       </Badge>
                     </TableCell>
-                    {/* Skor */}
-                    <TableCell>
-                      <SafetyScore score={getSafetyScore(d.id)} />
-                    </TableCell>
                     {/* Bergabung */}
                     <TableCell>
                       <span className="text-sm tabular-nums font-mono font-medium text-foreground">
                         {d.join_date ? new Date(d.join_date).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "2-digit" }) : "—"}
                       </span>
-                    </TableCell>
-                    {/* Aksi */}
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        {isDeleteConfirming ? (
-                          <DeleteConfirm
-                            driverName={d.name}
-                            onConfirm={() => handleDelete(d)}
-                            onCancel={() => setDeleteConfirm(null)}
-                          />
-                        ) : (
-                          <>
-                            <IconButton
-                              icon={<Edit2 className="w-4 h-4" />}
-                              onClick={(e) => { e.stopPropagation(); openEdit(d); }}
-                              variant="ghost"
-                              size="sm"
-                              aria-label={`Edit ${d.name}`}
-                            />
-                            <IconButton
-                              icon={<Trash2 className="w-4 h-4" />}
-                              onClick={(e) => { e.stopPropagation(); setDeleteConfirm(d.id); }}
-                              variant="ghost"
-                              size="sm"
-                              aria-label={`Hapus ${d.name}`}
-                              className="hover:text-st-offline focus-visible:outline-st-offline"
-                            />
-                          </>
-                        )}
-                      </div>
                     </TableCell>
                   </TableRow>
                 );
@@ -739,7 +677,7 @@ export default function DriversPage() {
 
       {/* ─── Drawer Panel ──────────────────────────────────────────────────── */}
       <Panel
-        open={drawerOpen}
+        open={false}
         onClose={closeDrawer}
         title={drawerMode === "add" ? "Tambah Driver" : "Edit Driver"}
         subtitle={drawerMode === "edit" && editDriver ? editDriver.name : undefined}

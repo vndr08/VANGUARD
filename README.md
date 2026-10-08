@@ -39,6 +39,7 @@ Database SQLite default selalu mengarah ke `vanguard.db` di root repository, ter
 - Akses lokal belum memakai identity provider organisasi.
 - Control Panel bersifat read-only sampai transport command dan acknowledgment audit tersedia.
 - Reports dan Camera Snapshot menampilkan katalog/metadata; generate, capture, dan download belum diaktifkan.
-- Perubahan lokal pada halaman pengelolaan belum menjadi shared persistence lintas halaman kecuali dinyatakan oleh API.
+- Vehicles, Drivers, Geofence, dan Accident Log berjalan dalam mode baca sampai endpoint mutasinya tersedia; ekspor CSV pada halaman data menghasilkan file nyata.
+- Settings hanya menampilkan preferensi lokal yang benar-benar diterapkan dan disimpan oleh browser.
 
 `index.html` di root adalah referensi visual lokal V2 dan tidak menjadi runtime aplikasi.

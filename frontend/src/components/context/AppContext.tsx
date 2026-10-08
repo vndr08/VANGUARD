@@ -73,6 +73,7 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
   const [isConnected, setIsConnected] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const shouldReconnectRef = useRef(false);
 
   // Fetch vehicles from API
   const fetchVehicles = useCallback(async () => {
@@ -106,6 +107,7 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
 
   // Connect to WebSocket for real-time updates
   const connectWebSocket = useCallback(() => {
+    if (!shouldReconnectRef.current) return;
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
 
     try {
@@ -141,10 +143,12 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
 
       ws.onclose = () => {
         setIsConnected(false);
-        // Auto-reconnect after 5 seconds
-        reconnectTimeoutRef.current = setTimeout(() => {
-          connectWebSocket();
-        }, 5000);
+        wsRef.current = null;
+        if (shouldReconnectRef.current) {
+          reconnectTimeoutRef.current = setTimeout(() => {
+            connectWebSocket();
+          }, 5000);
+        }
       };
 
       ws.onerror = () => {
@@ -159,17 +163,22 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
 
   // Disconnect WebSocket
   const disconnectWebSocket = useCallback(() => {
+    shouldReconnectRef.current = false;
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
       reconnectTimeoutRef.current = null;
     }
-    wsRef.current?.close();
+    if (wsRef.current) {
+      wsRef.current.onclose = null;
+      wsRef.current.close();
+    }
     wsRef.current = null;
     setIsConnected(false);
   }, []);
 
   // Connect to WebSocket on mount
   useEffect(() => {
+    shouldReconnectRef.current = true;
     connectWebSocket();
     return () => {
       disconnectWebSocket();

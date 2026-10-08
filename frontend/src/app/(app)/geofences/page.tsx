@@ -29,6 +29,7 @@ import { Button, IconButton } from "@/components/ui/Button";
 import { Panel, PanelSection, PanelDivider } from "@/components/ui/Panel";
 import { Card, EmptyState } from "@/components/ui/Card";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
+import { downloadCsv } from "@/lib/csv";
 
 /* ─── Types ─────────────────────────────────────────────────────────────────── */
 
@@ -410,7 +411,11 @@ export default function GeofencesPage() {
   }
 
   function handleExport() {
-    // Export functionality in development
+    downloadCsv(
+      "vanguard-geofence.csv",
+      ["id", "name", "type", "shape", "latitude", "longitude", "radius_m", "status", "units", "notes"],
+      rows.map((zone) => [zone.id, zone.name, zone.type, zone.shape, zone.lat, zone.lng, zone.radius, zone.status, zone.units, zone.notes])
+    );
   }
 
   function resetFilters() {
@@ -443,11 +448,9 @@ export default function GeofencesPage() {
             </div>
           </div>
           <div className="flex items-center gap-2 mt-1">
+            <span className="text-xs text-muted">Mode baca</span>
             <Button variant="secondary" size="sm" icon={<Download className="w-4 h-4" />} onClick={handleExport} aria-label="Export data geofence">
               Export
-            </Button>
-            <Button variant="primary" size="sm" icon={<Plus className="w-4 h-4" />} onClick={openAdd} aria-label="Tambah zona baru">
-              Tambah Zona
             </Button>
           </div>
         </div>
@@ -506,9 +509,7 @@ export default function GeofencesPage() {
                 description={isFiltered ? "Tidak ada zona yang cocok dengan filter." : "Tambahkan zona pertama."}
                 action={isFiltered ? (
                   <Button variant="secondary" size="sm" onClick={resetFilters}>Reset Filter</Button>
-                ) : (
-                  <Button variant="primary" size="sm" icon={<Plus className="w-4 h-4" />} onClick={openAdd}>Tambah Zona</Button>
-                )}
+                ) : undefined}
               />
             </div>
           ) : (
@@ -520,18 +521,16 @@ export default function GeofencesPage() {
                     <TableHeadCell width={80}>Tipe</TableHeadCell>
                     <TableHeadCell width={80}>Radius</TableHeadCell>
                     <TableHeadCell width={60} className="text-right">Unit</TableHeadCell>
-                    <TableHeadCell width={50} className="text-right">Aksi</TableHeadCell>
                   </tr>
                 </TableHead>
                 <TableBody>
                   {rows.map((z) => {
-                    const isDeleteConfirming = deleteConfirm === z.id;
                     return (
                       <TableRow
                         key={z.id}
                         selectable
                         selected={selected?.id === z.id}
-                        onClick={() => setSelected(isDeleteConfirming ? null : (selected?.id === z.id ? null : z))}
+                        onClick={() => setSelected(selected?.id === z.id ? null : z)}
                         className="group"
                       >
                         {/* Nama */}
@@ -559,32 +558,6 @@ export default function GeofencesPage() {
                         {/* Units */}
                         <TableCell className="text-right">
                           <span className="text-sm font-mono tabular-nums font-semibold text-foreground">{z.units}</span>
-                        </TableCell>
-                        {/* Aksi */}
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                            {isDeleteConfirming ? (
-                              <DeleteConfirm
-                                zoneName={z.name}
-                                onConfirm={() => handleDelete(z)}
-                                onCancel={() => setDeleteConfirm(null)}
-                              />
-                            ) : (
-                              <>
-                                <IconButton
-                                  icon={<Edit2 className="w-4 h-4" />}
-                                  onClick={(e) => { e.stopPropagation(); openEdit(z); }}
-                                  variant="ghost" size="sm" aria-label={"Edit " + z.name}
-                                />
-                                <IconButton
-                                  icon={<Trash2 className="w-4 h-4" />}
-                                  onClick={(e) => { e.stopPropagation(); setDeleteConfirm(z.id); }}
-                                  variant="ghost" size="sm" aria-label={"Hapus " + z.name}
-                                  className="hover:text-st-offline focus-visible:outline-st-offline"
-                                />
-                              </>
-                            )}
-                          </div>
                         </TableCell>
                       </TableRow>
                     );
@@ -644,24 +617,6 @@ export default function GeofencesPage() {
                       <p className="text-xs text-muted mt-0.5">{selected.notes}</p>
                     </div>
                   )}
-                  <div className="mt-3 flex items-center gap-2">
-                    <Button size="sm" variant="primary" icon={<Edit2 className="w-3.5 h-3.5" />} onClick={() => openEdit(selected)} className="flex-1">
-                      Edit
-                    </Button>
-                    <IconButton
-                      icon={selected.status === "active" ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                      onClick={() => handleToggle(selected)}
-                      variant="ghost" size="sm"
-                      aria-label={selected.status === "active" ? "Nonaktifkan zona" : "Aktifkan zona"}
-                    />
-                    <IconButton
-                      icon={<Trash2 className="w-3.5 h-3.5" />}
-                      onClick={() => setDeleteConfirm(selected.id)}
-                      variant="ghost" size="sm"
-                      aria-label={"Hapus " + selected.name}
-                      className="hover:text-st-offline"
-                    />
-                  </div>
                 </Card>
               </div>
             </>
@@ -671,11 +626,6 @@ export default function GeofencesPage() {
                 icon={<MapPin className="w-8 h-8 opacity-40" />}
                 title="Pilih zona untuk pratinjau"
                 description="Klik zona di daftar untuk melihat lokasi di peta."
-                action={
-                  <Button variant="primary" size="sm" icon={<Plus className="w-4 h-4" />} onClick={openAdd}>
-                    Tambah Zona
-                  </Button>
-                }
               />
             </div>
           )}
@@ -684,7 +634,7 @@ export default function GeofencesPage() {
 
       {/* ─── Drawer Panel ──────────────────────────────────────────────────── */}
       <Panel
-        open={drawerOpen}
+        open={false}
         onClose={closeDrawer}
         title={drawerMode === "add" ? "Tambah Zona" : "Edit Zona"}
         subtitle={drawerMode === "edit" && editZone ? editZone.name : undefined}

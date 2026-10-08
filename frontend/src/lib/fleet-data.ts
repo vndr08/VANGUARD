@@ -1,4 +1,4 @@
-import type { Vehicle, TelemetryUpdate } from "@/types";
+import type { Vehicle } from "@/types";
 import type { MapVehicle, TaskInfo, RouteMarker, LngLat } from "@/components/map/types";
 
 export function createFleetVehicles(
@@ -224,21 +224,4 @@ export function getRouteMarkers(vehicleId: number): RouteMarker[] {
     { type: "start", label: task?.trips[0].origin ?? "Origin", coord: route.planned[0] },
     { type: "end", label: task?.trips[0].destination ?? "Destination", coord: route.planned[route.planned.length - 1] },
   ];
-}
-
-/* ─── Telemetry update generator (for WebSocket simulation) ──────────────── */
-export function generateTelemetryUpdate(vehicle: Vehicle): TelemetryUpdate {
-  const drift = () => (Math.random() - 0.5) * 0.001;
-  return {
-    vehicle_id: vehicle.id,
-    plate_number: vehicle.plate_number,
-    latitude: vehicle.latitude ?? 0,
-    longitude: vehicle.longitude ?? 0,
-    speed: vehicle.status === "driving" ? Math.max(30, vehicle.speed + (Math.random() - 0.5) * 10) : vehicle.speed,
-    heading: (vehicle.heading + (Math.random() - 0.5) * 5 + 360) % 360,
-    status: vehicle.status,
-    engine_on: vehicle.engine_on,
-    fuel_level: Math.max(0, vehicle.fuel_level - Math.random() * 0.1),
-    last_update: new Date().toISOString(),
-  };
 }

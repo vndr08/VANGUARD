@@ -31,6 +31,7 @@ import { Button, IconButton } from "@/components/ui/Button";
 import { Panel, PanelSection, PanelDivider } from "@/components/ui/Panel";
 import { Card, Skeleton, EmptyState } from "@/components/ui/Card";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
+import { downloadCsv } from "@/lib/csv";
 
 /* ─── Types ─────────────────────────────────────────────────────────────────── */
 
@@ -494,7 +495,22 @@ export default function VehiclesPage() {
 
   // ─── Export
   function handleExport() {
-    success("Export CSV", `Mengunduh data ${vehicles.length} kendaraan...`);
+    downloadCsv(
+      "vanguard-kendaraan.csv",
+      ["id", "plate_number", "brand", "model", "vehicle_type", "year", "driver_name", "status", "fuel_level", "odometer"],
+      sorted.map((vehicle) => [
+        vehicle.id,
+        vehicle.plate_number,
+        vehicle.brand,
+        vehicle.model,
+        vehicle.vehicle_type,
+        vehicle.year,
+        vehicle.driver_name,
+        vehicle.status,
+        vehicle.fuel_level,
+        vehicle.odometer,
+      ])
+    );
   }
 
   // ─── Reset filters
@@ -539,6 +555,7 @@ export default function VehiclesPage() {
 
           {/* CTA */}
           <div className="flex items-center gap-2 mt-1">
+            <span className="text-xs text-muted">Mode baca</span>
             <Button
               variant="secondary"
               size="sm"
@@ -547,15 +564,6 @@ export default function VehiclesPage() {
               aria-label="Export data kendaraan"
             >
               Export
-            </Button>
-            <Button
-              variant="primary"
-              size="sm"
-              icon={<Plus className="w-4 h-4" />}
-              onClick={openAdd}
-              aria-label="Tambah kendaraan baru"
-            >
-              Tambah Kendaraan
             </Button>
           </div>
         </div>
@@ -650,11 +658,7 @@ export default function VehiclesPage() {
                   <Button variant="secondary" size="sm" onClick={resetFilters}>
                     Reset Filter
                   </Button>
-                ) : (
-                  <Button variant="primary" size="sm" icon={<Plus className="w-4 h-4" />} onClick={openAdd}>
-                    Tambah Kendaraan
-                  </Button>
-                )
+                ) : undefined
               }
             />
           </Card>
@@ -698,19 +702,13 @@ export default function VehiclesPage() {
                   Odometer
                 </TableHeadCell>
                 <TableHeadCell width={90}>Tahun</TableHeadCell>
-                <TableHeadCell width={90} className="text-right">Aksi</TableHeadCell>
               </tr>
             </TableHead>
             <TableBody>
               {sorted.map((v) => {
                 const isDeleteConfirming = deleteConfirm === v.id;
                 return (
-                  <TableRow
-                    key={v.id}
-                    selectable
-                    onClick={() => !isDeleteConfirming && openEdit(v)}
-                    className="group"
-                  >
+                  <TableRow key={v.id}>
                     <PlateCell>
                       <span className="font-mono text-sm font-semibold tabular-nums text-foreground">
                         {v.plate_number}
@@ -750,35 +748,6 @@ export default function VehiclesPage() {
                         {v.year}
                       </span>
                     </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        {isDeleteConfirming ? (
-                          <DeleteConfirm
-                            vehiclePlate={v.plate_number}
-                            onConfirm={() => handleDelete(v)}
-                            onCancel={() => setDeleteConfirm(null)}
-                          />
-                        ) : (
-                          <>
-                            <IconButton
-                              icon={<Edit2 className="w-3.5 h-3.5" />}
-                              onClick={(e) => { e.stopPropagation(); openEdit(v); }}
-                              variant="ghost"
-                              size="sm"
-                              aria-label={`Edit ${v.plate_number}`}
-                            />
-                            <IconButton
-                              icon={<Trash2 className="w-3.5 h-3.5" />}
-                              onClick={(e) => { e.stopPropagation(); setDeleteConfirm(v.id); }}
-                              variant="ghost"
-                              size="sm"
-                              aria-label={`Hapus ${v.plate_number}`}
-                              className="hover:text-st-offline focus-visible:outline-st-offline"
-                            />
-                          </>
-                        )}
-                      </div>
-                    </TableCell>
                   </TableRow>
                 );
               })}
@@ -789,7 +758,7 @@ export default function VehiclesPage() {
 
       {/* ─── Drawer Panel ──────────────────────────────────────────────────── */}
       <Panel
-        open={drawerOpen}
+        open={false}
         onClose={closeDrawer}
         title={drawerMode === "add" ? "Tambah Kendaraan" : "Edit Kendaraan"}
         subtitle={drawerMode === "edit" && editVehicle ? editVehicle.plate_number : undefined}
