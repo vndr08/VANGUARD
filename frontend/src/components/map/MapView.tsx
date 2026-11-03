@@ -21,6 +21,7 @@ import {
   useMapTheme,
 } from "@/hooks/useMapHooks";
 import { toLngLat, toLngLatArray, isValidLngLat, buildFitBounds } from "@/lib/geo";
+import { GEOFENCE_ZONES } from "@/lib/safety-data";
 
 /* ─── Props ──────────────────────────────────────────────────────────────── */
 export interface MapViewProps {
@@ -133,6 +134,21 @@ function applyGraphiteOverrides(map: MLMap) {
       } catch { /* noop */ }
     }
   });
+}
+
+function circleCoordinates(latitude: number, longitude: number, radiusMeters: number): number[][] {
+  const steps = 32;
+  const latitudeDegrees = radiusMeters / 111_320;
+  const longitudeDegrees = radiusMeters / (111_320 * Math.cos((latitude * Math.PI) / 180));
+  const points = Array.from({ length: steps }, (_, index) => {
+    const angle = (index / steps) * Math.PI * 2;
+    return [
+      longitude + Math.cos(angle) * longitudeDegrees,
+      latitude + Math.sin(angle) * latitudeDegrees,
+    ];
+  });
+
+  return [...points, points[0]];
 }
 
 /* ─── MapView (forwardRef for imperative fitAll) ──────────────────────────── */
@@ -988,38 +1004,21 @@ const MapView = forwardRef<MapViewRef, MapViewProps>(function MapView({
 
     if (!effectiveVisibility.geofence) return;
 
-    // Mock geofence polygons — replace with API data in production
-    const mockGeofences: Feature<Polygon>[] = [
-      {
+    const geofenceFeatures: Feature<Polygon>[] = GEOFENCE_ZONES
+      .filter((zone) => zone.status === "active")
+      .map((zone) => ({
         type: "Feature",
-        properties: { name: "DC BEKASI", color: "#3B82F6" },
+        properties: { id: zone.id, name: zone.name, color: zone.color },
         geometry: {
           type: "Polygon",
-          coordinates: [[[106.90, -6.22], [106.96, -6.22], [106.96, -6.16], [106.90, -6.16], [106.90, -6.22]]],
+          coordinates: [circleCoordinates(zone.lat, zone.lng, zone.radius)],
         },
-      },
-      {
-        type: "Feature",
-        properties: { name: "PTT BANDUNG", color: "#10B981" },
-        geometry: {
-          type: "Polygon",
-          coordinates: [[[107.60, -6.90], [107.65, -6.90], [107.65, -6.85], [107.60, -6.85], [107.60, -6.90]]],
-        },
-      },
-      {
-        type: "Feature",
-        properties: { name: "SENTUL CITY", color: "#F97316" },
-        geometry: {
-          type: "Polygon",
-          coordinates: [[[106.80, -6.50], [106.88, -6.50], [106.88, -6.43], [106.80, -6.43], [106.80, -6.50]]],
-        },
-      },
-    ];
+      }));
 
     const sourceId = "geofence-source";
     map.addSource(sourceId, {
       type: "geojson",
-      data: { type: "FeatureCollection", features: mockGeofences },
+      data: { type: "FeatureCollection", features: geofenceFeatures },
     });
     zoneSources.current.add(sourceId);
 

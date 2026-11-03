@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import { Suspense, useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -124,6 +124,14 @@ const STATUS_META: Record<
   delayed:   { label: "Terlambat",  icon: <DelayedIcon />, colorVar: "var(--st-delayed)" },
 };
 
+const GROUP_ORDER: FilterStatus[] = [
+  "driving",
+  "idle",
+  "stop",
+  "offline",
+  "delayed",
+];
+
 /* ─── Table sort ─────────────────────────────────────────────────────────── */
 type SortKey = "plate_number" | "driver_name" | "status" | "speed" | "last_update";
 type SortDir = "asc" | "desc" | false;
@@ -136,7 +144,7 @@ interface SpeedingInfo {
 }
 
 /* ─── Main Page ──────────────────────────────────────────────────────────── */
-export default function TrackingPage() {
+function TrackingPageContent() {
   const { warning } = useToast();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -156,6 +164,11 @@ export default function TrackingPage() {
   const [loading, setLoading] = useState(false);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [search, setSearch] = useState("");
+  const [listSearchOpen, setListSearchOpen] = useState(false);
+  const listSearchInputRef = useRef<HTMLInputElement>(null);
+  const vehicleRowRefs = useRef<globalThis.Map<number, HTMLButtonElement>>(
+    new globalThis.Map()
+  );
   const [filter, setFilter] = useState<FilterStatus>("all");
   const [viewMode, setViewMode] = useState<"map" | "table">("map");
 
@@ -179,6 +192,10 @@ export default function TrackingPage() {
   const [sortKey, setSortKey] = useState<SortKey>("plate_number");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
 
+  useEffect(() => {
+    if (listSearchOpen) listSearchInputRef.current?.focus();
+  }, [listSearchOpen]);
+
   /** Track which status groups are collapsed (true = collapsed/hidden) */
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
 
@@ -196,24 +213,24 @@ export default function TrackingPage() {
 
   /* ── Vehicle selection from canonical/legacy URL ───────────────────────── */
   useEffect(() => {
-    const vehicleSlug = searchParams.get("vehicle");
     const focus = searchParams.get("focus");
+    const vehicleSlug = searchParams.get("vehicle");
 
     let selectedVehicle: Vehicle | undefined;
 
-    if (vehicleSlug) {
+    if (focus) {
+      const id = Number.parseInt(focus, 10);
+
+      if (!Number.isNaN(id)) {
+        selectedVehicle = vehicles.find((vehicle) => vehicle.id === id);
+      }
+    } else if (vehicleSlug) {
       const normalizedSlug = vehicleSlug.toLowerCase().replace(/\s+/g, "");
 
       selectedVehicle = vehicles.find(
         (vehicle) =>
           toVehicleSlug(vehicle.plate_number) === normalizedSlug
       );
-    } else if (focus) {
-      const id = Number.parseInt(focus, 10);
-
-      if (!Number.isNaN(id)) {
-        selectedVehicle = vehicles.find((vehicle) => vehicle.id === id);
-      }
     }
 
     setSelectedId(selectedVehicle?.id ?? null);
@@ -222,20 +239,15 @@ export default function TrackingPage() {
       setViewMode("map");
     }
 
-    const canonicalSlug = selectedVehicle
-      ? toVehicleSlug(selectedVehicle.plate_number)
-      : null;
-
-    // Normalisasi legacy focus, kapitalisasi, dan spasi ke satu URL canonical.
+    // Normalize the legacy plate slug to the stable numeric identity contract.
     if (
       selectedVehicle &&
-      canonicalSlug &&
-      (focus !== null || vehicleSlug !== canonicalSlug)
+      (vehicleSlug !== null || focus !== String(selectedVehicle.id))
     ) {
       const params = new URLSearchParams(searchParams.toString());
 
-      params.set("vehicle", canonicalSlug);
-      params.delete("focus");
+      params.set("focus", String(selectedVehicle.id));
+      params.delete("vehicle");
 
       const query = params.toString();
 
@@ -384,16 +396,20 @@ export default function TrackingPage() {
     return groups;
   }, [filteredVehicles]);
 
-  const GROUP_ORDER: FilterStatus[] = ["driving", "idle", "stop", "offline", "delayed"];
+  const orderedListVehicles = useMemo(
+    () =>
+      GROUP_ORDER.flatMap((status) => groupedVehicles[status] ?? []),
+    [groupedVehicles]
+  );
 
   /* ── Select handlers ────────────────────────────────────────────────────── */
   const handleSelect = useCallback((id: number | null) => {
     const params = new URLSearchParams(searchParams.toString());
 
-    params.delete("focus");
+    params.delete("vehicle");
 
     if (id === null) {
-      params.delete("vehicle");
+      params.delete("focus");
     } else {
       const selectedVehicle = vehicles.find(
         (vehicle) => vehicle.id === id
@@ -401,10 +417,7 @@ export default function TrackingPage() {
 
       if (!selectedVehicle) return;
 
-      params.set(
-        "vehicle",
-        toVehicleSlug(selectedVehicle.plate_number)
-      );
+      params.set("focus", String(selectedVehicle.id));
     }
 
     setSelectedId(id);
@@ -420,6 +433,56 @@ export default function TrackingPage() {
       { scroll: false }
     );
   }, [router, searchParams, vehicles, viewMode]);
+
+  useEffect(() => {
+    if (selectedId === null) return;
+
+    const selectedVehicle = filteredVehicles.find(
+      (vehicle) => vehicle.id === selectedId
+    );
+    if (!selectedVehicle) return;
+
+    const group = toCanonicalStatus(selectedVehicle.status);
+    if (collapsedGroups.has(group)) {
+      setCollapsedGroups((previous) => {
+        const next = new Set(previous);
+        next.delete(group);
+        return next;
+      });
+      return;
+    }
+
+    const frame = window.requestAnimationFrame(() => {
+      vehicleRowRefs.current.get(selectedId)?.scrollIntoView({
+        block: "nearest",
+        behavior: reducedMotion ? "auto" : "smooth",
+      });
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [collapsedGroups, filteredVehicles, reducedMotion, selectedId]);
+
+  function handleVehicleRowKeyDown(
+    event: React.KeyboardEvent<HTMLButtonElement>,
+    vehicleId: number
+  ) {
+    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+
+    event.preventDefault();
+    const currentIndex = orderedListVehicles.findIndex(
+      (vehicle) => vehicle.id === vehicleId
+    );
+    if (currentIndex < 0) return;
+
+    const direction = event.key === "ArrowDown" ? 1 : -1;
+    const nextVehicle = orderedListVehicles[currentIndex + direction];
+    if (!nextVehicle) return;
+
+    handleSelect(nextVehicle.id);
+    window.requestAnimationFrame(() => {
+      vehicleRowRefs.current.get(nextVehicle.id)?.focus();
+    });
+  }
 
   useEffect(() => {
     if (selectedId === null) {
@@ -686,28 +749,56 @@ export default function TrackingPage() {
             className="flex min-h-0 flex-col overflow-hidden border-r border-border bg-surface-1"
             aria-label="Daftar kendaraan"
           >
-            <div className="shrink-0 border-b border-border bg-gradient-to-r from-surface-1 to-surface-2 p-4">
-              <div className="mb-3 flex items-center justify-between">
-                <div>
-                  <p className="text-base font-bold text-foreground">Daftar Armada</p>
-                  <p className="text-xs text-muted mt-0.5">{filteredVehicles.length} unit</p>
+            <div className="flex h-14 shrink-0 items-center border-b border-border bg-surface-1 px-4">
+              {listSearchOpen ? (
+                <div className="relative flex w-full items-center gap-2">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+                  <input
+                    ref={listSearchInputRef}
+                    id="tsb-find"
+                    type="text"
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Escape") {
+                        setSearch("");
+                        setListSearchOpen(false);
+                      }
+                    }}
+                    placeholder="Cari plat atau pengemudi..."
+                    className="h-8 min-w-0 flex-1 border border-border bg-surface-1 pl-9 pr-3 text-sm text-foreground placeholder:text-faint transition-colors focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearch("");
+                      setListSearchOpen(false);
+                    }}
+                    className="flex h-8 w-8 shrink-0 items-center justify-center text-muted transition-colors hover:bg-surface-2 hover:text-foreground focus-visible:outline-2 focus-visible:outline-brand"
+                    aria-label="Tutup pencarian"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
                 </div>
-                <span className="flex h-7 items-center rounded-full bg-surface-2 px-2.5 text-xs font-medium text-muted">
-                  {Object.keys(groupedVehicles).length} grup
-                </span>
-              </div>
-
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-                <input
-                  id="tsb-find"
-                  type="search"
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Cari plat atau driver..."
-                  className="h-10 w-full rounded-lg border border-border bg-surface-1 pl-9 pr-4 text-sm text-foreground placeholder:text-faint transition-all duration-200 focus:border-brand focus:bg-surface-1 focus:outline-none focus:ring-2 focus:ring-brand/20"
-                />
-              </div>
+              ) : (
+                <>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-foreground">Daftar Armada</p>
+                    <p className="mt-0.5 text-xs text-muted">{filteredVehicles.length} unit</p>
+                  </div>
+                  <span className="mr-1 flex h-7 shrink-0 items-center bg-surface-2 px-2.5 text-xs font-medium text-muted">
+                    {Object.keys(groupedVehicles).length} grup
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setListSearchOpen(true)}
+                    className="flex h-8 w-8 shrink-0 items-center justify-center text-muted transition-colors hover:bg-surface-2 hover:text-foreground focus-visible:outline-2 focus-visible:outline-brand"
+                    aria-label="Cari armada"
+                  >
+                    <Search className="h-4 w-4" />
+                  </button>
+                </>
+              )}
             </div>
 
             <div
@@ -749,28 +840,35 @@ export default function TrackingPage() {
                           return (
                             <button
                               key={v.id}
+                              ref={(element) => {
+                                if (element) vehicleRowRefs.current.set(v.id, element);
+                                else vehicleRowRefs.current.delete(v.id);
+                              }}
                               onClick={() => handleSelect(v.id)}
-                              className={`group w-full border-b border-border/50 px-4 py-3.5 text-left transition-all duration-150 focus-visible:outline-2 focus-visible:outline-brand focus-visible:outline-inset ${
+                              onKeyDown={(event) => handleVehicleRowKeyDown(event, v.id)}
+                              className={`group w-full border-b border-border/50 px-4 py-3.5 text-left transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-brand focus-visible:outline-inset ${
                                 isSelected
-                                  ? "border-l-[3px] border-l-brand bg-brand/5"
-                                  : "border-l-[3px] border-l-transparent hover:bg-surface-2/50"
+                                  ? "bg-brand/10"
+                                  : "hover:bg-surface-2/50"
                               }`}
                               aria-pressed={isSelected}
+                              aria-label={`${v.plate_number}, ${v.driver_name?.trim() || "tanpa pengemudi"}, ${STATUS_META[canonicalStatus].label}`}
                             >
                               {/* Header row */}
                               <div className="flex items-center justify-between gap-2">
-                                <p className={`font-mono text-base font-bold tabular-nums ${isSelected ? "text-brand" : "text-foreground"}`}>
-                                  {v.plate_number}
-                                </p>
+                                <div className="flex min-w-0 flex-1 items-baseline gap-2.5">
+                                  <p className={`shrink-0 whitespace-nowrap font-mono text-base font-bold tabular-nums ${isSelected ? "text-brand" : "text-foreground"}`}>
+                                    {v.plate_number}
+                                  </p>
+                                  <p className={`min-w-0 truncate text-sm ${isSelected ? "text-brand/70" : "text-muted"}`}>
+                                    {v.driver_name || "Tanpa driver"}
+                                  </p>
+                                </div>
                                 <span
-                                  className="h-2 w-2 rounded-full shadow-sm"
+                                  className="h-2 w-2 shrink-0 rounded-full shadow-sm"
                                   style={{ background: STATUS_META[canonicalStatus].colorVar }}
                                 />
                               </div>
-                              {/* Driver */}
-                              <p className={`mt-1 text-sm ${isSelected ? "text-brand/70" : "text-muted"}`}>
-                                {v.driver_name || "Tanpa driver"}
-                              </p>
                               {/* Stats row */}
                               <div className="mt-2 flex items-center gap-4 text-xs">
                                 <span className="flex items-center gap-1.5 text-muted">
@@ -1003,5 +1101,13 @@ export default function TrackingPage() {
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+export default function TrackingPage() {
+  return (
+    <Suspense fallback={null}>
+      <TrackingPageContent />
+    </Suspense>
   );
 }

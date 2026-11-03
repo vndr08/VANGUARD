@@ -1,50 +1,37 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
+import { useSearchParams } from "next/navigation";
 import { Camera, Search, X } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card, EmptyState } from "@/components/ui/Card";
 import { FLEET_VEHICLES } from "@/lib/fleet-data";
-
-type CameraPosition = "Depan" | "Kabin" | "Belakang";
-type SnapshotStatus = "Tersedia" | "Gagal";
-
-interface SnapshotRecord {
-  id: string;
-  vehicleId: number;
-  camera: CameraPosition;
-  recordedAt: string;
-  status: SnapshotStatus;
-  event: string;
-  location: string;
-}
-
-const SNAPSHOT_RECORDS: SnapshotRecord[] = [
-  { id: "snapshot-001", vehicleId: 1, camera: "Depan", recordedAt: "2026-06-20T09:42:00+07:00", status: "Tersedia", event: "Bukti kedatangan", location: "Jababeka Gate 2, Bekasi" },
-  { id: "snapshot-002", vehicleId: 2, camera: "Depan", recordedAt: "2026-06-20T09:28:00+07:00", status: "Tersedia", event: "Peringatan kecepatan", location: "Tol Cikampek KM 32" },
-  { id: "snapshot-003", vehicleId: 10, camera: "Kabin", recordedAt: "2026-06-20T08:51:00+07:00", status: "Tersedia", event: "Berhenti bahan bakar", location: "SPBU Cikampek" },
-  { id: "snapshot-004", vehicleId: 6, camera: "Belakang", recordedAt: "2026-06-20T08:35:00+07:00", status: "Tersedia", event: "Mesin mati", location: "Rest Area KM 57" },
-  { id: "snapshot-005", vehicleId: 13, camera: "Depan", recordedAt: "2026-06-20T07:58:00+07:00", status: "Tersedia", event: "Gerbang pelanggan", location: "Bekasi Timur" },
-  { id: "snapshot-006", vehicleId: 7, camera: "Belakang", recordedAt: "2026-06-20T07:12:00+07:00", status: "Tersedia", event: "Masuk geofence", location: "Gedebage, Bandung" },
-  { id: "snapshot-007", vehicleId: 4, camera: "Kabin", recordedAt: "2026-06-20T06:45:00+07:00", status: "Tersedia", event: "Bukti kedatangan", location: "Rungkut Industrial" },
-  { id: "snapshot-008", vehicleId: 3, camera: "Depan", recordedAt: "2026-06-20T06:22:00+07:00", status: "Tersedia", event: "Masuk geofence", location: "Pelabuhan Tanjung Priok" },
-  { id: "snapshot-009", vehicleId: 8, camera: "Belakang", recordedAt: "2026-06-19T18:10:00+07:00", status: "Tersedia", event: "Keluar geofence", location: "Warehouse Cikarang" },
-  { id: "snapshot-010", vehicleId: 14, camera: "Kabin", recordedAt: "2026-06-19T17:45:00+07:00", status: "Tersedia", event: "Peringatan kecepatan", location: "Tol Cipularang KM 25" },
-  { id: "snapshot-011", vehicleId: 11, camera: "Depan", recordedAt: "2026-06-19T16:30:00+07:00", status: "Gagal", event: "Kamera offline", location: "Sentul City" },
-  { id: "snapshot-012", vehicleId: 12, camera: "Belakang", recordedAt: "2026-06-19T15:05:00+07:00", status: "Tersedia", event: "Bukti pengiriman", location: "Tangerang Logistics Hub" },
-];
+import { EVIDENCE_SNAPSHOTS, getEvidenceSnapshots, type CameraPosition } from "@/lib/evidence-data";
 
 const cameraOptions: Array<CameraPosition | "all"> = ["all", "Depan", "Kabin", "Belakang"];
 
-export default function SnapshotsPage() {
+function SnapshotsPageContent() {
+  const searchParams = useSearchParams();
   const [search, setSearch] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [camera, setCamera] = useState<CameraPosition | "all">("all");
 
+  useEffect(() => {
+    if (searchOpen) searchInputRef.current?.focus();
+  }, [searchOpen]);
+
   const vehicleById = useMemo(() => new Map(FLEET_VEHICLES.map((vehicle) => [vehicle.id, vehicle])), []);
+  const contextualRecords = useMemo(() => getEvidenceSnapshots({
+    taskId: searchParams.get("task"),
+    tripId: searchParams.get("trip"),
+    incidentId: searchParams.get("incident"),
+  }), [searchParams]);
   const records = useMemo(() => {
     const query = search.trim().toLowerCase();
-    return SNAPSHOT_RECORDS.filter((record) => {
+    return contextualRecords.filter((record) => {
       const vehicle = vehicleById.get(record.vehicleId);
       const matchesQuery = !query
         || vehicle?.plate_number.toLowerCase().includes(query)
@@ -52,9 +39,10 @@ export default function SnapshotsPage() {
         || record.location.toLowerCase().includes(query);
       return matchesQuery && (camera === "all" || record.camera === camera);
     });
-  }, [camera, search, vehicleById]);
+  }, [camera, contextualRecords, search, vehicleById]);
 
-  const availableCount = SNAPSHOT_RECORDS.filter((record) => record.status === "Tersedia").length;
+  const availableCount = contextualRecords.filter((record) => record.status === "Tersedia").length;
+  const contextLabel = searchParams.get("incident") ? "Bukti insiden" : searchParams.get("task") ? "Bukti tugas" : searchParams.get("trip") ? "Bukti perjalanan" : null;
 
   function resetFilters() {
     setSearch("");
@@ -62,38 +50,45 @@ export default function SnapshotsPage() {
   }
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] bg-bg">
-      <header className="border-b border-border bg-surface-1 px-6 py-4">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="text-label uppercase tracking-wide text-muted">Camera Evidence</p>
-            <h1 className="mt-0.5 text-h1 font-semibold text-foreground">Camera Snapshot</h1>
-            <p className="mt-0.5 text-sm text-muted">Indeks bukti visual kendaraan yang tercatat</p>
-          </div>
-          <div className="flex items-center gap-4 text-sm text-muted">
-            <span><strong className="font-mono tabular-nums text-foreground">{SNAPSHOT_RECORDS.length}</strong> catatan</span>
-            <span><strong className="font-mono tabular-nums text-foreground">{availableCount}</strong> tersedia</span>
-          </div>
+    <div className="flex h-[calc(100dvh-3.625rem)] max-h-[calc(100dvh-3.625rem)] min-h-0 flex-col overflow-hidden bg-bg">
+      <header className="flex h-12 shrink-0 items-center gap-4 overflow-x-auto border-b border-border bg-surface-1 px-4">
+        <div className="flex shrink-0 items-baseline gap-2">
+          <h1 className="text-sm font-semibold text-foreground">Snapshot Kamera</h1>
+          <span className="font-mono text-xs tabular-nums text-muted">{contextualRecords.length} catatan</span>
+          {contextLabel && <span className="border-l border-border pl-2 text-xs text-muted">{contextLabel}</span>}
+        </div>
+        <div className="flex shrink-0 items-center divide-x divide-border text-xs">
+          <div className="flex items-baseline gap-2 px-3 first:pl-0"><span className="text-[10px] font-semibold uppercase tracking-widest text-muted">Tersedia</span><span className="font-mono text-sm font-semibold tabular-nums text-st-driving">{availableCount}</span></div>
+          <div className="flex items-baseline gap-2 px-3"><span className="text-[10px] font-semibold uppercase tracking-widest text-muted">Gagal</span><span className="font-mono text-sm font-semibold tabular-nums text-st-offline">{contextualRecords.length - availableCount}</span></div>
         </div>
       </header>
 
-      <div className="border-b border-border bg-surface-1 px-6 py-3">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="relative min-w-[220px] flex-1 sm:max-w-xs">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+      <div className="flex h-11 shrink-0 min-w-0 items-center gap-2 overflow-x-auto border-b border-border bg-surface-1 px-4">
+        {searchOpen ? (
+          <div className="relative flex w-80 shrink-0 items-center gap-2">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted" />
             <input
+              ref={searchInputRef}
               value={search}
               onChange={(event) => setSearch(event.target.value)}
+              onKeyDown={(event) => { if (event.key === "Escape") { setSearch(""); setSearchOpen(false); } }}
               placeholder="Cari plat, kejadian, atau lokasi..."
-              className="w-full rounded-lg border border-border bg-surface-2 py-1.5 pl-9 pr-3 text-sm text-foreground placeholder:text-faint focus-visible:outline-2 focus-visible:outline-brand"
+              className="h-8 min-w-0 flex-1 border border-border bg-surface-1 pl-8 pr-3 text-xs text-foreground placeholder:text-faint focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
+              aria-label="Cari snapshot"
             />
+            <button type="button" onClick={() => { setSearch(""); setSearchOpen(false); }} className="flex h-8 w-8 shrink-0 items-center justify-center text-muted transition-colors hover:bg-surface-2 hover:text-foreground focus-visible:outline-2 focus-visible:outline-brand" aria-label="Tutup pencarian"><X className="h-4 w-4" /></button>
           </div>
-          <div className="flex items-center gap-1">
+        ) : (
+          <button type="button" onClick={() => setSearchOpen(true)} className="flex h-8 w-8 shrink-0 items-center justify-center text-muted transition-colors hover:bg-surface-2 hover:text-foreground focus-visible:outline-2 focus-visible:outline-brand" aria-label="Cari snapshot"><Search className="h-4 w-4" /></button>
+        )}
+          <div className="flex shrink-0 items-center gap-1">
+            {!searchOpen && <span className="mr-1 text-[10px] font-semibold uppercase tracking-widest text-muted">Kamera</span>}
             {cameraOptions.map((option) => (
               <button
                 key={option}
                 onClick={() => setCamera(option)}
-                className={`rounded-md border px-3 py-1.5 text-sm font-medium focus-visible:outline-2 focus-visible:outline-brand ${camera === option ? "border-brand bg-brand text-signal-ink" : "border-border bg-surface-2 text-muted hover:bg-surface-3"}`}
+                className={`h-7 shrink-0 border border-border px-2.5 text-xs font-medium focus-visible:outline-2 focus-visible:outline-brand ${camera === option ? "bg-brand text-slate-950" : "text-muted hover:bg-surface-2 hover:text-foreground"}`}
+                aria-pressed={camera === option}
               >
                 {option === "all" ? "Semua kamera" : option}
               </button>
@@ -102,10 +97,9 @@ export default function SnapshotsPage() {
           {(search || camera !== "all") && (
             <Button variant="ghost" size="sm" icon={<X className="h-4 w-4" />} onClick={resetFilters}>Reset</Button>
           )}
-        </div>
       </div>
 
-      <main className="px-6 py-5">
+      <main className="min-h-0 flex-1 overflow-auto px-4 py-3">
         {records.length === 0 ? (
           <Card padding="md">
             <EmptyState
@@ -116,7 +110,7 @@ export default function SnapshotsPage() {
             />
           </Card>
         ) : (
-          <div className="divide-y divide-border border-y border-border">
+          <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3" aria-label="Galeri snapshot kamera">
             {records.map((record) => {
               const vehicle = vehicleById.get(record.vehicleId);
               const timestamp = new Intl.DateTimeFormat("id-ID", {
@@ -125,29 +119,34 @@ export default function SnapshotsPage() {
                 timeZone: "Asia/Jakarta",
               }).format(new Date(record.recordedAt));
               return (
-                <article key={record.id} className="grid gap-3 py-4 sm:grid-cols-[44px_150px_minmax(0,1fr)_160px_90px] sm:items-center">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-surface-2 text-muted">
-                    <Camera className="h-5 w-5" />
+                <article key={record.id} className="overflow-hidden border border-border bg-surface-1 transition-colors hover:border-border-strong">
+                  <div className="relative aspect-[16/9] bg-surface-2">
+                    <Image src={record.imageSrc} alt={`Arsip visual ${vehicle?.plate_number ?? `unit ${record.vehicleId}`}`} fill sizes="(min-width: 1280px) 30vw, (min-width: 640px) 50vw, 100vw" className="object-cover" />
+                    <span className="absolute left-2 top-2 inline-flex items-center gap-1 border border-white/30 bg-black/70 px-1.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-white"><Camera className="h-3 w-3" aria-hidden="true" />Kamera {record.camera}</span>
+                    <Badge variant={record.status === "Tersedia" ? "success" : "danger"} className="absolute right-2 top-2 whitespace-nowrap px-2 py-0.5 text-[10px]">{record.status}</Badge>
                   </div>
-                  <div>
-                    <p className="font-mono text-sm font-semibold tabular-nums text-foreground">{vehicle?.plate_number ?? `Unit ${record.vehicleId}`}</p>
-                    <p className="mt-0.5 text-xs text-muted">Kamera {record.camera}</p>
+                  <div className="p-3">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <p className="font-mono text-xs font-semibold tabular-nums text-foreground">{vehicle?.plate_number ?? `Unit ${record.vehicleId}`}</p>
+                      <time className="shrink-0 font-mono text-[10px] tabular-nums text-muted" dateTime={record.recordedAt}>{timestamp}</time>
+                    </div>
+                    <h2 className="mt-2 text-sm font-semibold text-foreground">{record.event}</h2>
+                    <p className="mt-1 truncate text-xs text-muted">{record.location}</p>
                   </div>
-                  <div className="min-w-0">
-                    <h2 className="text-sm font-semibold text-foreground">{record.event}</h2>
-                    <p className="mt-0.5 truncate text-sm text-muted">{record.location}</p>
-                  </div>
-                  <time className="font-mono text-xs tabular-nums text-muted" dateTime={record.recordedAt}>{timestamp}</time>
-                  <Badge variant={record.status === "Tersedia" ? "success" : "danger"} className="w-fit sm:justify-self-end">{record.status}</Badge>
                 </article>
               );
             })}
-          </div>
+          </section>
         )}
-        <p className="mt-4 max-w-2xl text-sm text-muted">
-          Pengambilan dan unduhan gambar akan tersedia setelah layanan kamera terhubung. Halaman ini menampilkan metadata bukti yang tersedia.
-        </p>
       </main>
     </div>
+  );
+}
+
+export default function SnapshotsPage() {
+  return (
+    <Suspense fallback={null}>
+      <SnapshotsPageContent />
+    </Suspense>
   );
 }

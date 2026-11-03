@@ -1,5 +1,7 @@
 # VANGUARD — DESIGN.md
 
+> **Catatan implementasi:** struktur dan prinsip dalam dokumen ini tetap berlaku, tetapi token runtime di `frontend/src/app/globals.css` adalah sumber warna yang authoritative. Implementasi saat ini memakai signal yellow sebagai aksen utama, bukan cobalt lama yang masih muncul pada beberapa tabel referensi di bawah.
+
 > Design language untuk VANGUARD Fleet Control Tower.
 > Konsep inti: **"Graphite Command" — industrial operations interface (control-tower / mission-control)**.
 > Tujuan: enterprise, presisi, padat-data, dark-first, terasa "nyata/4D" lewat depth + motion — BUKAN tampilan generic-AI SaaS.

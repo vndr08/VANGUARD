@@ -5,6 +5,7 @@ import {
   type HTMLAttributes,
   type ThHTMLAttributes,
   type TdHTMLAttributes,
+  type KeyboardEvent,
 } from "react";
 import { cx } from "./utils";
 
@@ -69,16 +70,40 @@ export function TableHeadCell({
   width,
   children,
   className,
+  onClick,
+  onKeyDown,
   ...props
 }: TableHeadCellProps) {
+  const interactive = Boolean(sortable && onClick);
+  const handleKeyDown = (event: KeyboardEvent<HTMLTableCellElement>) => {
+    onKeyDown?.(event);
+    if (event.defaultPrevented || !interactive) return;
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      (onClick as () => void)();
+    }
+  };
+
   return (
     <th
       className={cx(
         "px-4 py-3 text-left text-label font-semibold uppercase text-muted",
-        sortable && "sortable cursor-pointer select-none hover:text-foreground",
+        sortable && "sortable cursor-pointer select-none hover:text-foreground focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-brand",
         className
       )}
       style={width ? { width: typeof width === "number" ? `${width}px` : width } : undefined}
+      onClick={onClick}
+      onKeyDown={handleKeyDown}
+      tabIndex={interactive ? 0 : undefined}
+      aria-sort={
+        sortable
+          ? sorted === "asc"
+            ? "ascending"
+            : sorted === "desc"
+              ? "descending"
+              : "none"
+          : undefined
+      }
       {...props}
     >
       <span className="inline-flex items-center gap-1">
@@ -139,18 +164,32 @@ export function TableRow({
   onClick,
   children,
   className,
+  onKeyDown,
   ...props
 }: TableRowProps) {
+  const interactive = Boolean(onClick);
+  const handleKeyDown = (event: KeyboardEvent<HTMLTableRowElement>) => {
+    onKeyDown?.(event);
+    if (event.defaultPrevented || !interactive) return;
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      onClick?.();
+    }
+  };
+
   return (
     <tr
       className={cx(
         "v2-ledger-row transition-colors duration-100",
         "hover:bg-surface-2",
         selected && "bg-brand-soft",
-        selectable && "cursor-pointer",
+        interactive && "cursor-pointer focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-brand",
         className
       )}
       onClick={onClick}
+      onKeyDown={handleKeyDown}
+      tabIndex={interactive ? 0 : undefined}
+      aria-selected={selectable ? selected : undefined}
       {...props}
     >
       {children}
@@ -302,10 +341,20 @@ export function TableGroupHeader({
   onToggle,
   colSpan = 1,
 }: TableGroupHeaderProps) {
+  const interactive = Boolean(onToggle);
   return (
     <tr
-      className="bg-surface-3 cursor-pointer select-none"
+      className="bg-surface-3 cursor-pointer select-none focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-brand"
       onClick={onToggle}
+      onKeyDown={(event) => {
+        if (!interactive) return;
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onToggle?.();
+        }
+      }}
+      tabIndex={interactive ? 0 : undefined}
+      aria-expanded={interactive ? !collapsed : undefined}
     >
       <td colSpan={colSpan} className="px-4 py-2">
         <div className="flex items-center gap-2">

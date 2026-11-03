@@ -5,7 +5,7 @@ import MapView, { type MapViewRef } from "./MapView";
 import { LayerControlPanel } from "./LayerControlPanel";
 import { DetailPanel } from "./DetailPanel";
 import type { Vehicle } from "@/types";
-import { toMapVehicle } from "@/lib/fleet-data";
+import { toOperationalMapVehicle } from "@/lib/operations-map";
 import type { LayerVisibility } from "./types";
 
 /* ─── TrackingMap ─────────────────────────────────────────────────────── */
@@ -58,7 +58,7 @@ export default function TrackingMap({
   // stays stable unless the vehicles array actually changes. This prevents MapView's
   // marker effects from being triggered by unrelated parent re-renders.
   const mapVehicles = useMemo(
-    () => vehicles.map((vehicle) => toMapVehicle(vehicle)),
+    () => vehicles.map((vehicle) => toOperationalMapVehicle(vehicle)),
     [vehicles]
   );
 

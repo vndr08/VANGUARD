@@ -1,9 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { motion } from "motion/react";
 import {
   Crosshair,
   MapPin,
@@ -20,7 +19,6 @@ import { useToast } from "@/components/ui/Toast";
 import { StatusPill } from "@/components/ui/Badge";
 import { Button, IconButton } from "@/components/ui/Button";
 import { Card, EmptyState } from "@/components/ui/Card";
-import { useReducedMotion } from "@/hooks/useReducedMotion";
 
 /* ─── Types ─────────────────────────────────────────────────────────────────── */
 
@@ -32,30 +30,6 @@ function toBadgeStatus(s: VehicleStatus): "driving" | "idle" | "stop" | "offline
   return s === "stopped" ? "stop" : (s as "driving" | "idle" | "offline");
 }
 
-/* ─── KPI Components ─────────────────────────────────────────────────────────── */
-
-function KpiStat({ label, value, accent }: { label: string; value: number; accent?: string }) {
-  const reducedMotion = useReducedMotion();
-  return (
-    <div className="flex flex-col items-center px-4 py-2 rounded-lg bg-surface-2 border border-border min-w-[72px]">
-      <motion.span
-        key={value}
-        initial={{ opacity: 0.6, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={reducedMotion ? { duration: 0 } : { duration: 0.2 }}
-        className={"text-xl font-bold tabular-nums " + (accent ?? "text-foreground")}
-      >
-        {value}
-      </motion.span>
-      <span className="text-label text-muted">{label}</span>
-    </div>
-  );
-}
-
-function KpiDivider() {
-  return <div className="w-px h-8 bg-border self-center" />;
-}
-
 /* ─── Lazy Map ─────────────────────────────────────────────────────────────── */
 
 const LocateMap = dynamic(() => import("@/components/map/MapView").then((m) => m.default), {
@@ -64,7 +38,7 @@ const LocateMap = dynamic(() => import("@/components/map/MapView").then((m) => m
     <div className="w-full h-full flex items-center justify-center bg-bg">
       <div className="flex flex-col items-center gap-3">
         <div className="h-8 w-8 rounded-full border-2 border-brand border-t-transparent animate-spin" />
-        <span className="text-sm text-muted">Loading map...</span>
+        <span className="text-sm text-muted">Memuat peta...</span>
       </div>
     </div>
   ),
@@ -87,10 +61,10 @@ function formatLastUpdate(iso: string): string {
   const d = new Date(iso);
   const now = Date.now();
   const diff = Math.floor((now - d.getTime()) / 1000);
-  if (diff < 60) return `${diff}d ago`;
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  return `${Math.floor(diff / 86400)}d ago`;
+  if (diff < 60) return "Baru saja";
+  if (diff < 3600) return `${Math.floor(diff / 60)}m lalu`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}j lalu`;
+  return `${Math.floor(diff / 86400)} hari lalu`;
 }
 
 /* ─── Main Page ─────────────────────────────────────────────────────────────── */
@@ -101,23 +75,23 @@ export default function LocatePage() {
   const vehicles = contextVehicles.length > 0 ? contextVehicles : FLEET_VEHICLES;
 
   const [search, setSearch] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
-  const [selected, setSelected] = useState<Vehicle | null>(null);
+  const [selected, setSelected] = useState<Vehicle | null>(() => vehicles[0] ?? null);
   // Store map imperative commands (fitAll) — populated via onMapReady callback
   const [mapCommands, setMapCommands] = useState<{ fitAll: () => void } | null>(null);
 
-  // Set initial selected when vehicles load
-  useState(() => {
-    if (!selected && vehicles.length > 0) {
-      setSelected(vehicles[0]);
-    }
-  });
+  useEffect(() => {
+    if (searchOpen) searchInputRef.current?.focus();
+  }, [searchOpen]);
 
   // KPI counts
   const counts = useMemo(() => ({
-    total: vehicles.length,
-    online: vehicles.filter((v) => v.status !== "offline").length,
-    moving: vehicles.filter((v) => v.status === "driving").length,
+    all: vehicles.length,
+    driving: vehicles.filter((v) => v.status === "driving").length,
+    idle: vehicles.filter((v) => v.status === "idle").length,
+    stopped: vehicles.filter((v) => v.status === "stopped").length,
     offline: vehicles.filter((v) => v.status === "offline").length,
   }), [vehicles]);
 
@@ -149,7 +123,7 @@ export default function LocatePage() {
 
   function handleRealtime() {
     if (!selected) return;
-    router.push(`/tracking?vehicle=${selected.plate_number.toLowerCase().replace(/\s+/g, "")}`);
+    router.push(`/tracking?focus=${selected.id}`);
   }
 
   function handleCopyCoords() {
@@ -170,95 +144,94 @@ export default function LocatePage() {
   const isFiltered = search !== "" || filterStatus !== "all";
 
   return (
-    <div className="h-[calc(100vh-4rem)] flex flex-col overflow-hidden">
-      {/* ─── Header ─────────────────────────────────────────────────────────── */}
-      <header className="shrink-0 px-6 pt-6 pb-4 border-b border-border bg-surface-1">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex items-start gap-6">
-            <div>
-              <p className="text-label uppercase tracking-wide text-muted">Fleet Management</p>
-              <h1 className="text-h1 font-semibold text-foreground mt-0.5">Cari &amp; Lacak Unit</h1>
-              <p className="text-sm text-muted mt-0.5">Ketik plat, driver, atau ID untuk menemukan unit</p>
-            </div>
-            <div className="flex items-center gap-1 mt-6">
-              <KpiStat label="Total Unit" value={counts.total} />
-              <KpiDivider />
-              <KpiStat label="Online" value={counts.online} accent="text-st-driving" />
-              <KpiDivider />
-              <KpiStat label="Bergerak" value={counts.moving} accent="text-brand" />
-              <KpiDivider />
-              <KpiStat label="Offline" value={counts.offline} accent="text-st-offline" />
-            </div>
-          </div>
-        </div>
-      </header>
-
+    <div className="flex h-[calc(100dvh-3.625rem)] max-h-[calc(100dvh-3.625rem)] min-h-0 flex-col overflow-hidden">
       {/* ─── Body: 2-column ────────────────────────────────────────────── */}
       <div className="flex-1 overflow-hidden flex">
         {/* ── LEFT: Search + List ──────────────────────────────────────── */}
-        <div className="w-[360px] shrink-0 border-r border-border flex flex-col overflow-hidden bg-surface-1">
-
-          {/* Search */}
-          <div className="shrink-0 px-4 py-3 border-b border-border">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted pointer-events-none" />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Plat, driver, atau ID..."
-                className="w-full pl-9 pr-3 py-1.5 text-sm bg-surface-2 border border-border rounded-lg
-                           placeholder:text-faint text-foreground
-                           focus-visible:outline-2 focus-visible:outline-brand focus-visible:outline-offset-0
-                           transition-colors"
-                aria-label="Cari unit"
-              />
-              {search && (
+        <div className="flex w-[340px] shrink-0 flex-col overflow-hidden border-r border-border bg-surface-1">
+          {/* Compact list header / search */}
+          <div className="flex h-14 shrink-0 items-center border-b border-border px-4">
+            {searchOpen ? (
+              <div className="relative flex w-full items-center gap-2">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") {
+                      setSearch("");
+                      setSearchOpen(false);
+                    }
+                  }}
+                  placeholder="Cari plat, pengemudi, atau ID..."
+                  className="h-8 min-w-0 flex-1 border border-border bg-surface-1 pl-9 pr-3 text-sm text-foreground placeholder:text-faint focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
+                  aria-label="Cari unit"
+                />
                 <button
-                  onClick={() => setSearch("")}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded text-muted
-                             hover:text-foreground focus-visible:outline-2 focus-visible:outline-brand"
-                  aria-label="Hapus pencarian"
+                  type="button"
+                  onClick={() => {
+                    setSearch("");
+                    setSearchOpen(false);
+                  }}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center text-muted transition-colors hover:bg-surface-2 hover:text-foreground focus-visible:outline-2 focus-visible:outline-brand"
+                  aria-label="Tutup pencarian"
                 >
-                  <X className="w-3.5 h-3.5" />
+                  <X className="h-4 w-4" />
                 </button>
-              )}
-            </div>
-
-            {/* Status filter */}
-            <div className="flex items-center gap-1 mt-2.5">
-              <span className="text-sm text-muted mr-2">Status:</span>
-              {([
-                { key: "all" as FilterStatus, label: "Semua" },
-                { key: "driving" as FilterStatus, label: "Driving" },
-                { key: "idle" as FilterStatus, label: "Idle" },
-                { key: "stopped" as FilterStatus, label: "Stop" },
-                { key: "offline" as FilterStatus, label: "Offline" },
-              ]).map((f) => (
+              </div>
+            ) : (
+              <>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-foreground">Daftar Unit</p>
+                  <p className="mt-0.5 text-xs text-muted">{rows.length} dari {vehicles.length} unit</p>
+                </div>
+                {isFiltered && (
+                  <button
+                    type="button"
+                    onClick={resetFilters}
+                    className="mr-1 h-7 px-2 text-xs font-medium text-brand hover:bg-brand/10 focus-visible:outline-2 focus-visible:outline-brand"
+                  >
+                    Reset
+                  </button>
+                )}
                 <button
-                  key={f.key}
-                  onClick={() => setFilterStatus(f.key)}
-                  className={"px-3 py-1.5 rounded-md text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-brand " +
-                    (filterStatus === f.key
-                      ? "bg-brand text-white"
-                      : "bg-surface-2 text-muted hover:bg-surface-3 hover:text-foreground border border-border")}
+                  type="button"
+                  onClick={() => setSearchOpen(true)}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center text-muted transition-colors hover:bg-surface-2 hover:text-foreground focus-visible:outline-2 focus-visible:outline-brand"
+                  aria-label="Cari unit"
                 >
-                  {f.label}
+                  <Search className="h-4 w-4" />
                 </button>
-              ))}
-            </div>
+              </>
+            )}
           </div>
 
-          {/* Results count */}
-          <div className="shrink-0 px-4 py-2 border-b border-border">
-            <p className="text-sm text-muted">
-              {rows.length} unit ditemukan
-              {isFiltered && (
-                <button onClick={resetFilters} className="ml-2 text-brand hover:underline focus-visible:outline-2 focus-visible:outline-brand">
-                  Reset
-                </button>
-              )}
-            </p>
+          {/* Status filter */}
+          <div className="flex h-10 shrink-0 items-stretch overflow-x-auto border-b border-border" aria-label="Filter status unit">
+            {([
+              { key: "all" as FilterStatus, label: "Semua" },
+              { key: "driving" as FilterStatus, label: "Jalan" },
+              { key: "idle" as FilterStatus, label: "Diam" },
+              { key: "stopped" as FilterStatus, label: "Berhenti" },
+              { key: "offline" as FilterStatus, label: "Offline" },
+            ]).map((item) => (
+              <button
+                key={item.key}
+                type="button"
+                onClick={() => setFilterStatus(item.key)}
+                className={`flex min-w-0 flex-1 items-center justify-center gap-1 border-r border-border px-1.5 text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-brand ${
+                  filterStatus === item.key
+                    ? "bg-brand text-slate-950"
+                    : "text-muted hover:bg-surface-2 hover:text-foreground"
+                }`}
+                aria-pressed={filterStatus === item.key}
+              >
+                <span>{item.label}</span>
+                <span className="font-mono text-[11px] tabular-nums opacity-70">{counts[item.key]}</span>
+              </button>
+            ))}
           </div>
 
           {/* Unit list */}
@@ -277,7 +250,7 @@ export default function LocatePage() {
                 />
               </div>
             ) : (
-              <div className="p-3 space-y-2">
+              <div>
                 {rows.map((v) => {
                   const isSelected = selected?.id === v.id;
                   return (
@@ -286,49 +259,39 @@ export default function LocatePage() {
                       onClick={() => handleSelect(v)}
                       aria-label={`Pilih unit ${v.plate_number}`}
                       className={
-                        "w-full rounded-lg border p-3 text-left transition-all focus-visible:outline-2 focus-visible:outline-brand " +
+                        "w-full border-b border-border px-4 py-3 text-left transition-colors focus-visible:outline-2 focus-visible:outline-brand focus-visible:outline-inset " +
                         (isSelected
-                          ? "bg-brand border-brand text-white"
-                          : "bg-surface-2 border-border hover:bg-surface-3 hover:border-border-strong")
+                          ? "border-l-[3px] border-l-brand bg-brand/10"
+                          : "border-l-[3px] border-l-transparent hover:bg-surface-2")
                       }
                     >
-                      {/* Plat + speed */}
-                      <div className="flex items-center justify-between">
-                        <span className={"font-mono font-bold text-base tabular-nums " + (isSelected ? "text-white" : "text-foreground")}>
+                      {/* Unit identity */}
+                      <div className="flex min-w-0 items-baseline gap-2.5">
+                        <span className={`shrink-0 whitespace-nowrap font-mono text-base font-bold tabular-nums ${isSelected ? "text-brand" : "text-foreground"}`}>
                           {v.plate_number}
                         </span>
-                        <span className={"text-sm font-semibold tabular-nums " + (isSelected ? "text-white/70" : "text-muted")}>
-                          {v.speed > 0 ? Math.round(v.speed) + " km/h" : "— km/h"}
+                        <span className="min-w-0 flex-1 truncate text-sm text-muted">
+                          {v.driver_name || "Belum ditugaskan"}
                         </span>
                       </div>
-                      {/* Driver */}
-                      <p className={"mt-1 text-sm " + (isSelected ? "text-white/70" : "text-muted")}>
-                        {v.driver_name || "— belum ditugaskan"}
-                      </p>
                       {/* Status + heading + update */}
-                      <div className="mt-1.5 flex items-center gap-3">
-                        {isSelected ? (
-                          <StatusPill
-                            status={toBadgeStatus(v.status as VehicleStatus)}
-                            showIcon={false}
-                            showDot={true}
-                            live={v.status === "driving"}
-                            className="bg-white/20 text-white text-xs px-2 py-0.5"
-                          />
-                        ) : (
-                          <span className={"inline-flex items-center gap-1 text-sm font-medium " +
-                            (v.status === "driving" ? "text-st-driving" :
-                             v.status === "idle" ? "text-st-idle" :
-                             v.status === "offline" ? "text-st-offline" : "text-muted")}>
-                            <Radio className="w-4 h-4" />
-                            {v.status.charAt(0).toUpperCase() + v.status.slice(1)}
-                          </span>
-                        )}
-                        <span className={"flex items-center gap-1.5 text-sm " + (isSelected ? "text-white/60" : "text-muted")}>
-                          <Navigation className="w-4 h-4" />
+                      <div className="mt-2 flex items-center gap-3 text-xs text-muted">
+                        <span className="inline-flex items-center gap-1 font-medium">
+                          <span className={`h-1.5 w-1.5 rounded-full ${
+                            v.status === "driving" ? "bg-st-driving" :
+                            v.status === "idle" ? "bg-st-idle" :
+                            v.status === "offline" ? "bg-st-offline" : "bg-st-stop"
+                          }`} />
+                          {v.status === "driving" ? "Berkendara" : v.status === "idle" ? "Diam" : v.status === "stopped" ? "Berhenti" : "Offline"}
+                        </span>
+                        <span className="font-mono font-medium tabular-nums">
+                          {v.speed > 0 ? `${Math.round(v.speed)} km/j` : "0 km/j"}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Navigation className="h-3.5 w-3.5" />
                           {Math.round(v.heading)}&deg;
                         </span>
-                        <span className={"ml-auto text-sm " + (isSelected ? "text-white/50" : "text-muted")}>
+                        <span className="ml-auto whitespace-nowrap">
                           {formatLastUpdate(v.last_update)}
                         </span>
                       </div>

@@ -228,9 +228,9 @@ export const BASEMAP_STYLES: Record<BasemapLayer, maplibregl.StyleSpecification 
  * Tile URLs: a/b/c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png
  * Attribution: © OpenStreetMap contributors © CARTO
  *
- * SHARED: Semua halaman (Dashboard/Realtime/Locate/History) wajib pakai style ini
- * supaya basemap konsisten. MapView pakai GRAPHITE_DARK_STYLE (vector) sebagai
- * utama; TripReplayMap dan MiniFleetMap gunakan GRAPHITE_DARK_RASTER (raster).
+ * Retained as a last-resort raster style for environments that explicitly
+ * provide compatible CARTO raster access. Product maps use the vector style
+ * above because it does not show a missing-key watermark.
  */
 export const GRAPHITE_DARK_RASTER: maplibregl.StyleSpecification = {
   version: 8,

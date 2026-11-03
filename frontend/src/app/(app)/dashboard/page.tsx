@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { MapPin } from "lucide-react";
+import { CheckCircle2, Video } from "lucide-react";
 import { useAppContext } from "@/components/context/AppContext";
 import type { LayerVisibility } from "@/components/map/types";
 import {
@@ -16,10 +16,10 @@ import {
   type FleetStateSummary,
 } from "@/lib/dashboard-data";
 import { formatFreshnessAge } from "@/lib/freshness";
-import { FLEET_VEHICLES, toMapVehicle } from "@/lib/fleet-data";
+import { FLEET_VEHICLES } from "@/lib/fleet-data";
 import { OPERATIONS_DATASET } from "@/lib/operations-data";
+import { toOperationalMapVehicle } from "@/lib/operations-map";
 import { selectOperationsPulse } from "@/lib/operations-selectors";
-import TruckIsometric from "@/components/v2/TruckIsometric";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
 
 const LiveFleetMap = dynamic(
@@ -143,47 +143,37 @@ function FleetSummaryStrip({ fleet }: { fleet: FleetStateSummary }) {
   );
 }
 
-function InstrumentGauge({
-  label,
-  value,
-  color,
-  detail,
-}: {
-  label: string;
-  value: number;
-  color: string;
-  detail: string;
-}) {
-  const bounded = Math.max(0, Math.min(100, value));
+function VisualArchivePreview() {
+  const reducedMotion = useReducedMotion();
 
   return (
-    <div className="v2-frame relative flex min-h-[172px] flex-col border border-border bg-surface-1 p-4">
-      <div className="flex items-start justify-between gap-2">
-        <span className="sign text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">{label}</span>
-        <span className="font-mono text-[9px] text-muted">{detail}</span>
+    <Link
+      href="/snapshots"
+      className="group absolute bottom-3 right-3 z-20 hidden w-56 overflow-hidden border border-border bg-surface-1 shadow-lg transition-colors hover:border-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand md:block"
+      aria-label="Buka arsip visual kamera"
+    >
+      <div className="relative aspect-video bg-surface-2">
+        <video
+          autoPlay={!reducedMotion}
+          muted
+          loop
+          playsInline
+          preload="metadata"
+          poster="/media/truck/driver-dashboard.jpg"
+          className="h-full w-full object-cover"
+        >
+          <source src="/media/truck/cabin-navigation.webm" type="video/webm" />
+        </video>
+        <span className="absolute left-2 top-2 inline-flex items-center gap-1 border border-white/30 bg-black/70 px-1.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-white">
+          <Video className="h-3 w-3" aria-hidden="true" />
+          Arsip visual
+        </span>
       </div>
-      <svg viewBox="0 0 116 72" className="mx-auto mt-auto w-full max-w-[132px]" aria-hidden="true">
-        <path d="M 12 60 A 46 46 0 0 1 104 60" pathLength="100" fill="none" stroke="var(--surface-3)" strokeWidth="8" />
-        <path
-          className="v2-gauge-arc"
-          d="M 12 60 A 46 46 0 0 1 104 60"
-          pathLength="100"
-          fill="none"
-          stroke={color}
-          strokeWidth="8"
-          strokeDasharray={`${bounded} 100`}
-        />
-        {[0, 1, 2, 3, 4, 5, 6].map((tick) => {
-          const angle = Math.PI - (Math.PI * tick) / 6;
-          const x1 = 58 + Math.cos(angle) * 51;
-          const y1 = 60 - Math.sin(angle) * 51;
-          const x2 = 58 + Math.cos(angle) * 55;
-          const y2 = 60 - Math.sin(angle) * 55;
-          return <line key={tick} x1={x1} y1={y1} x2={x2} y2={y2} stroke="var(--faint)" strokeWidth="1" />;
-        })}
-      </svg>
-      <strong className="-mt-7 text-center font-mono text-2xl font-semibold tabular-nums text-foreground"><AnimatedNumber value={bounded} suffix="%" /></strong>
-    </div>
+      <div className="flex items-center justify-between gap-2 border-t border-border px-2.5 py-2 text-xs">
+        <span className="text-muted">Rekaman kabin</span>
+        <span className="font-medium text-brand">Lihat bukti</span>
+      </div>
+    </Link>
   );
 }
 
@@ -200,7 +190,7 @@ function AttentionList({ nowMs, vehicles }: { nowMs: number | null; vehicles: ty
   );
 
   return (
-    <section className="flex min-h-0 flex-col" aria-labelledby="attention-title">
+    <section className="flex h-full min-h-0 flex-col" aria-labelledby="attention-title">
       <header className="flex h-14 shrink-0 items-center justify-between border-b px-5" style={{ borderColor: "var(--line)" }}>
         <div>
           <h2 id="attention-title" className="text-base font-semibold" style={{ color: "var(--ink)" }}>
@@ -223,7 +213,7 @@ function AttentionList({ nowMs, vehicles }: { nowMs: number | null; vehicles: ty
           </div>
         ) : rows.length === 0 && driver.unassigned === 0 ? (
           <div className="flex flex-col items-center justify-center py-8">
-            <span className="text-4xl">✅</span>
+            <CheckCircle2 className="h-8 w-8 text-st-driving" aria-hidden="true" />
             <p className="mt-2 text-sm font-medium" style={{ color: "var(--ink)" }}>Semua berjalan normal</p>
             <p className="text-xs" style={{ color: "var(--muted)" }}>Tidak ada yang perlu diperhatikan</p>
           </div>
@@ -352,7 +342,7 @@ function TelemetryHealth({ nowMs, vehicles }: { nowMs: number | null; vehicles: 
     : [];
 
   return (
-    <section aria-labelledby="telemetry-title" className="min-w-0 border-t p-5 md:border-l md:border-t-0" style={{ borderColor: "var(--line)" }}>
+    <section aria-labelledby="telemetry-title" className="min-w-0 border-t p-5 lg:border-l lg:border-t-0" style={{ borderColor: "var(--line)" }}>
       <h2 id="telemetry-title" className="label">Kesehatan Data</h2>
       {health ? (
         <dl className="mt-5 space-y-3">
@@ -381,7 +371,7 @@ function DriverCoverage({ vehicles }: { vehicles: typeof FLEET_VEHICLES }) {
   const coverage = driver.total ? Math.round((driver.assigned / driver.total) * 100) : 0;
 
   return (
-    <section aria-labelledby="driver-title" className="min-w-0 border-t p-5 md:border-l md:border-t-0" style={{ borderColor: "var(--line)" }}>
+    <section aria-labelledby="driver-title" className="min-w-0 border-t p-5 lg:border-l lg:border-t-0" style={{ borderColor: "var(--line)" }}>
       <h2 id="driver-title" className="label">Cakupan Driver</h2>
       <div className="mt-5">
         <div className="flex items-baseline justify-between">
@@ -391,7 +381,7 @@ function DriverCoverage({ vehicles }: { vehicles: typeof FLEET_VEHICLES }) {
         <div className="mt-3 h-2.5 overflow-hidden rounded-full" style={{ background: "var(--surface-3)" }}>
           <span
             className="block h-full rounded-full transition-all duration-500"
-            style={{ width: `${coverage}%`, background: "linear-gradient(to right, var(--signal), var(--st-driving))" }}
+            style={{ width: `${coverage}%`, background: "var(--st-driving)" }}
           />
         </div>
       </div>
@@ -446,10 +436,10 @@ function OperationsOverview({ vehicles }: { vehicles: typeof FLEET_VEHICLES }) {
       <div className="border-b px-5 py-4" style={{ background: "var(--header-ink)", borderColor: "var(--line)" }}>
         <div className="flex items-center justify-between">
           <div>
-            <h2 id="operations-title" className="text-base font-semibold" style={{ color: "var(--ink)" }}>
+            <h2 id="operations-title" className="text-base font-semibold text-white">
               Operasi
             </h2>
-            <p className="text-xs" style={{ color: "var(--muted)" }}>{operationDate} · {operationTime.format(OPERATIONS_DATASET.referenceTimeMs)}</p>
+            <p className="text-xs text-[#aeb8b0]">{operationDate} · {operationTime.format(OPERATIONS_DATASET.referenceTimeMs)}</p>
           </div>
           <Link
             href="/tasks"
@@ -513,27 +503,16 @@ function OperationsOverview({ vehicles }: { vehicles: typeof FLEET_VEHICLES }) {
 export default function DashboardPage() {
   const [nowMs, setNowMs] = useState<number | null>(null);
   const [mapVehicles, setMapVehicles] = useState(() =>
-    FLEET_VEHICLES.map(toMapVehicle)
+    FLEET_VEHICLES.map(toOperationalMapVehicle)
   );
   const { vehicles } = useAppContext();
   const displayVehicles = vehicles.length > 0 ? vehicles : FLEET_VEHICLES;
   const fleet = useMemo(() => selectFleetState(displayVehicles), [displayVehicles]);
-  const driverCoverage = useMemo(() => selectDriverAssignment(displayVehicles), [displayVehicles]);
-  const telemetryHealth = useMemo(
-    () => (nowMs === null ? null : selectTelemetryHealth(displayVehicles, nowMs)),
-    [displayVehicles, nowMs]
-  );
-  const drivingRate = fleet.total === 0 ? 0 : Math.round((fleet.driving / fleet.total) * 100);
-  const onlineRate = fleet.total === 0 ? 0 : Math.round(((fleet.total - fleet.offline) / fleet.total) * 100);
-  const assignedRate = driverCoverage.total === 0 ? 0 : Math.round((driverCoverage.assigned / driverCoverage.total) * 100);
-  const freshRate = !telemetryHealth || telemetryHealth.total === 0
-    ? 0
-    : Math.round((telemetryHealth.fresh / telemetryHealth.total) * 100);
 
   // Update map vehicles when API data changes
   useEffect(() => {
     if (vehicles.length > 0) {
-      setMapVehicles(vehicles.map(toMapVehicle));
+      setMapVehicles(vehicles.map(toOperationalMapVehicle));
     }
   }, [vehicles]);
 
@@ -549,96 +528,58 @@ export default function DashboardPage() {
       className="mx-auto w-full max-w-[1600px] space-y-4 p-4 sm:p-6"
       data-dashboard-command-overview
     >
-      <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-[minmax(300px,0.95fr)_minmax(390px,1.35fr)_minmax(290px,0.9fr)]">
-          <div className="v2-frame relative flex min-h-[390px] flex-col overflow-hidden border border-border-strong bg-[#0e1211] px-6 py-7 text-white after:absolute after:inset-x-0 after:bottom-0 after:h-2 after:bg-brand lg:px-7">
-            <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-brand">Control Tower · Jabodetabek</p>
-            <h2 className="sign mt-5 text-4xl font-bold uppercase leading-[1.05] text-white">Armada<br /><span className="text-brand">dalam kendali</span></h2>
-            <p className="mt-4 max-w-[36ch] text-sm leading-6 text-[#aeb8b0]">Pantau pergerakan, kesehatan telemetri, dan prioritas operasional dalam satu pandangan.</p>
-            <div className="mt-6 flex flex-wrap gap-2">
-              <Link href="/tracking" className="v2-button bg-brand px-4 py-2.5 sign text-xs font-semibold uppercase text-slate-950">Realtime Monitor</Link>
-              <Link href="/reports" className="v2-button border border-[#3e4744] px-4 py-2.5 sign text-xs font-semibold uppercase text-white">Report Center</Link>
-            </div>
-            <dl className="mt-auto grid grid-cols-3 gap-4 pt-6">
-              {[[fleet.total, "Unit aktif"], [OPERATIONS_PULSE.activeTaskCount, "Tugas berjalan"], [OPERATIONS_PULSE.lateTaskCount, "Tugas terlambat"]].map(([value, label]) => (
-                <div key={String(label)}><dd className="font-mono text-xl font-semibold">{value}</dd><dt className="sign mt-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-[#7c8880]">{label}</dt></div>
-              ))}
-            </dl>
-          </div>
-
-          <div className="dashboard-stage v2-frame relative flex min-h-[320px] items-center justify-center overflow-hidden border border-border bg-surface-2 px-6 lg:min-h-[390px]">
-            <div className="absolute left-4 top-4 z-10 flex items-center gap-2 font-mono text-[9px] uppercase tracking-[0.1em] text-muted"><span className="border border-[#0fb9bf] px-2 py-1 text-[#0fb9bf]">● Live</span>{displayVehicles[0]?.plate_number}</div>
-            <div className="dashboard-scan" aria-hidden="true" />
-            <div className="absolute inset-x-[8%] bottom-[14%] h-[34%] border-x border-t-2 border-border-strong [transform:perspective(420px)_rotateX(55deg)]">
-              <svg className="absolute inset-0 h-full w-full overflow-visible" preserveAspectRatio="none" aria-hidden="true">
-                <line className="dashboard-lane" x1="50%" y1="100%" x2="50%" y2="0" stroke="var(--brand)" strokeWidth="4" strokeDasharray="14 12" />
-              </svg>
-            </div>
-            {displayVehicles[0] && (
-              <div className="dashboard-truck relative z-10 translate-y-8">
-                <TruckIsometric
-                  plate={displayVehicles[0].plate_number}
-                  status={displayVehicles[0].status as "driving" | "idle" | "stop" | "offline"}
-                  className="h-[230px] w-auto -translate-y-24"
-                />
-              </div>
-            )}
-            <span className="absolute bottom-4 right-4 font-mono text-[9px] uppercase tracking-[0.14em] text-faint">Isometric telemetry view</span>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 md:col-span-2 md:grid-cols-4 lg:col-span-1 lg:grid-cols-2">
-            <InstrumentGauge label="Armada online" value={onlineRate} color="var(--brand)" detail={`${fleet.total - fleet.offline}/${fleet.total}`} />
-            <InstrumentGauge label="Dalam perjalanan" value={drivingRate} color="var(--st-driving)" detail={`${fleet.driving} unit`} />
-            <InstrumentGauge label="Data segar" value={freshRate} color="var(--live)" detail={telemetryHealth ? `${telemetryHealth.fresh}/${telemetryHealth.total}` : "--"} />
-            <InstrumentGauge label="Driver ditugaskan" value={assignedRate} color="var(--st-idle)" detail={`${driverCoverage.assigned}/${driverCoverage.total}`} />
-          </div>
-      </section>
-
-      {/* Fleet Summary Strip */}
       <FleetSummaryStrip fleet={fleet} />
 
-      {/* Operational ledger: priorities first, distributions alongside. */}
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(340px,1fr)]">
-        <div className="v2-frame min-h-[360px] overflow-hidden border border-border bg-surface-1">
-          <AttentionList nowMs={nowMs} vehicles={displayVehicles} />
-        </div>
-        <div className="v2-frame grid overflow-hidden border border-border bg-surface-1 md:grid-cols-2 lg:grid-cols-1">
-          <ConditionDistribution fleet={fleet} />
-          <TelemetryHealth nowMs={nowMs} vehicles={displayVehicles} />
-          <div className="border-t border-border md:col-span-2 lg:col-span-1">
-            <DriverCoverage vehicles={displayVehicles} />
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
+        <section className="v2-frame min-w-0 overflow-hidden border border-border bg-surface-1" aria-labelledby="live-map-title">
+          <header className="flex h-14 items-center justify-between border-b border-border px-5">
+            <div>
+              <h2 id="live-map-title" className="text-base font-semibold text-foreground">Armada langsung</h2>
+              <p className="text-xs text-muted">Posisi terkini · cakupan Jawa</p>
+            </div>
+            <div className="flex items-center gap-4">
+              <span className="flex items-center gap-2 font-mono text-xs text-muted">
+                <span className="h-2 w-2 rounded-full bg-st-driving" aria-hidden="true" />
+                {fleet.driving} bergerak
+              </span>
+              <Link
+                href="/tracking"
+                className="text-sm font-medium text-brand transition-colors hover:text-brand-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+              >
+                Buka monitor
+              </Link>
+            </div>
+          </header>
+          <div className="relative h-[324px]">
+            <LiveFleetMap
+              vehicles={mapVehicles}
+              center={[107.0, -6.5]}
+              zoom={6.2}
+              pitch={0}
+              visibility={OVERVIEW_MAP_VISIBILITY}
+              overviewMode
+              onMapReady={() => {
+                if (displayVehicles.length > 0) setMapVehicles(displayVehicles.map(toOperationalMapVehicle));
+              }}
+            />
+            <VisualArchivePreview />
           </div>
+        </section>
+
+        <div className="v2-frame h-[260px] overflow-hidden border border-border bg-surface-1 lg:h-[380px]">
+          <AttentionList nowMs={nowMs} vehicles={displayVehicles} />
         </div>
       </div>
 
-      {/* Operations Overview */}
-      <OperationsOverview vehicles={displayVehicles} />
-
-      {/* V1 live-map capability retained below the command overview. */}
-      <section className="v2-frame min-w-0 overflow-hidden border border-border bg-surface-1" aria-labelledby="live-map-title">
-        <header className="flex h-14 items-center justify-between border-b border-dashed border-border-strong px-5">
-          <div>
-            <h2 id="live-map-title" className="sign text-sm font-semibold uppercase tracking-[0.08em] text-foreground">Armada Langsung</h2>
-            <p className="font-mono text-[10px] text-muted">{fleet.total} unit aktif</p>
-          </div>
-          <div className="flex items-center gap-2 font-mono text-xs text-muted">
-            <span className="h-2 w-2 rounded-full bg-st-driving" />
-            {fleet.driving} bergerak
-          </div>
-        </header>
-        <div className="h-[360px]">
-          <LiveFleetMap
-            vehicles={mapVehicles}
-            center={[107.0, -6.5]}
-            zoom={6.2}
-            pitch={0}
-            visibility={OVERVIEW_MAP_VISIBILITY}
-            overviewMode
-            onMapReady={() => {
-              if (displayVehicles.length > 0) setMapVehicles(displayVehicles.map(toMapVehicle));
-            }}
-          />
+      <div className="v2-frame grid overflow-hidden border border-border bg-surface-1 lg:grid-cols-3">
+        <ConditionDistribution fleet={fleet} />
+        <TelemetryHealth nowMs={nowMs} vehicles={displayVehicles} />
+        <div className="border-t border-border lg:border-t-0">
+          <DriverCoverage vehicles={displayVehicles} />
         </div>
-      </section>
+      </div>
+
+      <OperationsOverview vehicles={displayVehicles} />
     </div>
   );
 }

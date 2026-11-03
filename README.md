@@ -30,9 +30,12 @@ npm run build
 
 ```bash
 ./venv/bin/python -m compileall -q backend
+./venv/bin/python -m unittest discover -s backend/tests -v
 ```
 
 Database SQLite default selalu mengarah ke `vanguard.db` di root repository, terlepas dari direktori saat API dijalankan.
+
+Origin frontend yang diizinkan API dapat diatur melalui `CORS_ORIGINS` sebagai daftar URL dipisahkan koma. Nilai default hanya mengizinkan frontend lokal pada port 3000.
 
 ## Batas kemampuan saat ini
 

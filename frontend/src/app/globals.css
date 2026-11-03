@@ -1114,64 +1114,97 @@ body {
   border-color: var(--line-strong);
 }
 
-.v2-gauge-arc {
-  animation: gauge-reveal 700ms cubic-bezier(.2, .8, .2, 1) both;
-  transition: stroke-dasharray 420ms cubic-bezier(.22, 1, .36, 1), stroke 160ms ease;
+.ticker {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  height: 22px;
+  overflow: hidden;
+  border-bottom: 1px solid var(--line-strong, #3e4744);
+  background: var(--header-ink, #0b0f0e);
 }
 
-@keyframes gauge-reveal {
-  from { stroke-dashoffset: 100; }
-  to { stroke-dashoffset: 0; }
-}
-
-.dashboard-stage {
-  isolation: isolate;
-}
-
-.dashboard-scan {
-  position: absolute;
-  z-index: 2;
-  top: 14%;
-  left: 8%;
-  right: 8%;
-  height: 1px;
-  background: color-mix(in srgb, var(--live) 48%, transparent);
-  opacity: 0;
-  animation: dashboard-scan 3.8s linear infinite;
-  pointer-events: none;
-}
-
-@keyframes dashboard-scan {
-  0% { transform: translateY(0); opacity: 0; }
-  10% { opacity: 0.65; }
-  88% { opacity: 0.4; }
-  100% { transform: translateY(250px); opacity: 0; }
-}
-
-.dashboard-lane {
-  animation: dashboard-lane 900ms linear infinite;
-}
-
-@keyframes dashboard-lane {
-  to { stroke-dashoffset: -26; }
-}
-
-.dashboard-truck {
-  transition: transform 220ms cubic-bezier(.22, 1, .36, 1), filter 220ms ease;
-}
-
-.dashboard-stage:hover .dashboard-truck {
-  transform: translateY(30px) scale(1.025);
-  filter: brightness(1.04);
-}
-
-.ticker-track {
-  will-change: transform;
+.ticker-tag {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 7px;
+  height: 100%;
+  padding: 0 11px;
+  clip-path: polygon(0 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
+  background: var(--signal, #ffc500);
+  color: var(--signal-ink, #171300);
+  font-family: var(--font-sign, Inter, sans-serif);
+  font-size: 0.52rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
 }
 
 .ticker .live-dot {
-  animation: live-breathe 1.8s ease-in-out infinite !important;
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--live, #0fb9bf);
+  animation: live-breathe 1.8s ease-in-out infinite;
 }
+
+.ticker-viewport {
+  position: relative;
+  width: 0;
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+}
+
+.ticker-track {
+  display: flex;
+  gap: 40px;
+  white-space: nowrap;
+  animation: ticker 46s linear infinite;
+  will-change: transform;
+}
+
+.ticker:hover .ticker-track {
+  animation-play-state: paused;
+}
+
+@keyframes ticker {
+  to { transform: translateX(-33.333%); }
+}
+
+.ticker-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink, #c9d2ca);
+  font-family: var(--font-mono, monospace);
+  font-size: 0.6rem;
+}
+
+.ticker-plate {
+  color: var(--muted, #7c8880);
+  font-weight: 700;
+}
+
+.ticker-status,
+.ticker-time {
+  color: var(--faint, #5f6b64);
+  font-size: 0.6rem;
+}
+
+.ticker-status { font-size: 0.64rem; }
+.ticker-message { color: var(--ink, #c9d2ca); }
+.ticker-item--warn { color: #ffb4ae; }
+.ticker-item--warn .ticker-plate { color: #ff8a80; }
+.ticker-item--danger { color: #ff6b6b; }
+.ticker-item--danger .ticker-plate { color: #ff5252; }
+.ticker-item--ok { color: #a7e9c6; }
+.ticker-item--ok .ticker-plate { color: #4ade80; }
 
 @keyframes live-breathe {
   0%, 100% { opacity: 0.55; }
@@ -1210,9 +1243,6 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .v2-gauge-arc,
-  .dashboard-scan,
-  .dashboard-lane,
   .ticker-track,
   .ticker .live-dot,
   .v2-camera-feed::after,
@@ -1220,7 +1250,6 @@ body {
     animation: none !important;
   }
 
-  .dashboard-truck,
   .v2-button {
     transition: none !important;
   }

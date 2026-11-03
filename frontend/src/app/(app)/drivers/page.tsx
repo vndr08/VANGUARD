@@ -1,20 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { motion } from "motion/react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import {
   Download,
-  Edit2,
-  Plus,
   Search,
-  Trash2,
   Truck,
   User,
   X,
 } from "lucide-react";
-import { FLEET_VEHICLES } from "@/lib/fleet-data";
 import { useAppContext } from "@/components/context/AppContext";
-import { useToast } from "@/components/ui/Toast";
 import { Badge } from "@/components/ui/Badge";
 import {
   TableContainer,
@@ -24,27 +19,12 @@ import {
   TableRow,
   TableCell,
 } from "@/components/ui/Table";
-import { Button, IconButton } from "@/components/ui/Button";
-import { Panel, PanelSection, PanelDivider } from "@/components/ui/Panel";
+import { Button } from "@/components/ui/Button";
 import { Card, EmptyState } from "@/components/ui/Card";
-import { useReducedMotion } from "@/hooks/useReducedMotion";
 import { downloadCsv } from "@/lib/csv";
+import { selectDrivers, type DriverStatus } from "@/lib/driver-data";
 
 /* ─── Types ─────────────────────────────────────────────────────────────────── */
-
-type DriverStatus = "active" | "off-duty" | "on-leave" | "inactive";
-
-interface Driver {
-  id: string;
-  name: string;
-  sim_number: string;
-  phone: string;
-  address: string;
-  birth_date: string;
-  vehicle_id: number | null;
-  status: DriverStatus;
-  join_date: string;
-}
 
 /* ─── Badge mapping ─────────────────────────────────────────────────────────── */
 
@@ -62,48 +42,13 @@ function statusLabel(s: DriverStatus): string {
   return "Nonaktif";
 }
 
-/* ─── Initial mock data ────────────────────────────────────────────────────── */
-
-const INITIAL_DRIVERS: Driver[] = [
-  { id: "D01", name: "Ahmad Sudirman",  sim_number: "SIM B2 1234-5678-9012", phone: "0812-3456-7890", address: "Jl. Merdeka No. 10, Jakarta",  birth_date: "1985-03-15", vehicle_id: 1,  status: "active",   join_date: "2020-01-15" },
-  { id: "D02", name: "Budi Santoso",    sim_number: "SIM B2 2345-6789-0123", phone: "0813-4567-8901", address: "Jl. Sudirman No. 22, Bandung",  birth_date: "1988-07-22", vehicle_id: 2,  status: "active",   join_date: "2021-03-08" },
-  { id: "D03", name: "Cahyo Wibowo",   sim_number: "SIM B2 3456-7890-1234", phone: "0814-5678-9012", address: "Jl. Asia Afrika No. 5, Bandung", birth_date: "1980-11-03", vehicle_id: 3,  status: "active",   join_date: "2018-06-20" },
-  { id: "D04", name: "Dedi Kurniawan", sim_number: "SIM B2 4567-8901-2345", phone: "0815-6789-0123", address: "Jl. Gatot Subroto, Semarang",   birth_date: "1992-01-30", vehicle_id: 5,  status: "active",   join_date: "2022-09-01" },
-  { id: "D05", name: "Eko Prasetyo",   sim_number: "SIM B2 5678-9012-3456", phone: "0816-7890-1234", address: "Jl. Pahlawan No. 8, Surabaya",   birth_date: "1978-05-18", vehicle_id: 6,  status: "off-duty", join_date: "2017-04-12" },
-  { id: "D06", name: "Fajar Ramadhan",  sim_number: "SIM B2 6789-0123-4567", phone: "0817-8901-2345", address: "Jl. Ahmad Yani No. 15, Bekasi",  birth_date: "1990-08-09", vehicle_id: 7,  status: "active",   join_date: "2020-11-25" },
-  { id: "D07", name: "Gunawan Hadi",   sim_number: "SIM B2 7890-1234-5678", phone: "0818-9012-3456", address: "Jl. Diponegoro No. 33, Bandung", birth_date: "1975-12-01", vehicle_id: 8,  status: "on-leave", join_date: "2015-02-14" },
-  { id: "D08", name: "Hendra Wijaya",   sim_number: "SIM B2 8901-2345-6789", phone: "0819-0123-4567", address: "Jl. Thamrin No. 12, Jakarta",   birth_date: "1995-04-25", vehicle_id: 9,  status: "active",   join_date: "2023-07-30" },
-  { id: "D09", name: "Irfan Hakim",     sim_number: "SIM B2 9012-3456-7890", phone: "0811-1234-5678", address: "Jl. Merdeka Timur, Malang",     birth_date: "1987-09-14", vehicle_id: 10, status: "active",   join_date: "2019-08-05" },
-  { id: "D10", name: "Joko Susilo",     sim_number: "SIM B1 0123-4567-8901", phone: "0822-2345-6789", address: "Jl. Asia No. 7, Bandung",       birth_date: "1993-02-28", vehicle_id: 17, status: "active",   join_date: "2022-05-17" },
-  { id: "D11", name: "Kurnia Adi",      sim_number: "SIM B2 1122-3344-5566", phone: "0823-3456-7890", address: "Jl. Boulevard, Jakarta",        birth_date: "1989-06-11", vehicle_id: 11, status: "off-duty", join_date: "2020-10-22" },
-  { id: "D12", name: "Lukman Hakim",   sim_number: "SIM B2 2233-4455-6677", phone: "0824-4567-8901", address: "Jl. Braga No. 4, Bandung",      birth_date: "1983-10-07", vehicle_id: 12, status: "inactive", join_date: "2016-03-19" },
-  { id: "D13", name: "Muhammad Rizki",  sim_number: "SIM B2 3344-5566-7788", phone: "0825-5678-9012", address: "Jl. Sudirman Barat, Jakarta",    birth_date: "1996-01-20", vehicle_id: 13, status: "active",   join_date: "2023-09-01" },
-  { id: "D14", name: "Nur Hidayat",      sim_number: "SIM B2 4455-6677-8899", phone: "0826-6789-0123", address: "Jl. Dago No. 18, Bandung",       birth_date: "1984-07-15", vehicle_id: 14, status: "inactive", join_date: "2017-12-08" },
-  { id: "D15", name: "Oscar Pranata",   sim_number: "SIM B2 5566-7788-9900", phone: "0827-7890-1234", address: "Jl. Pemuda No. 25, Semarang",   birth_date: "1981-03-03", vehicle_id: 15, status: "active",   join_date: "2019-05-14" },
-];
-
-/* ─── KPI Components ────────────────────────────────────────────────────────── */
-
-function KpiStat({ label, value, accent }: { label: string; value: number; accent?: string }) {
-  const reducedMotion = useReducedMotion();
+function SummaryItem({ label, value, color }: { label: string; value: number; color?: string }) {
   return (
-    <div className="flex flex-col items-center px-4 py-2 rounded-lg bg-surface-2 border border-border min-w-[72px]">
-      <motion.span
-        key={value}
-        initial={{ opacity: 0.6, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={reducedMotion ? { duration: 0 } : { duration: 0.2 }}
-        className={`text-xl font-bold tabular-nums ${accent ?? "text-foreground"}`}
-      >
-        {value}
-      </motion.span>
-      <span className="text-label text-muted">{label}</span>
+    <div className="flex items-baseline gap-2 px-3 first:pl-0 last:pr-0">
+      <span className="text-[10px] font-semibold uppercase tracking-widest text-muted">{label}</span>
+      <span className="font-mono text-sm font-semibold tabular-nums" style={color ? { color } : undefined}>{value}</span>
     </div>
   );
-}
-
-function KpiDivider() {
-  return <div className="w-px h-8 bg-border self-center" />;
 }
 
 /* ─── Avatar initials ───────────────────────────────────────────────────────── */
@@ -132,235 +77,23 @@ function Avatar({ name, size = "md" }: { name: string; size?: "sm" | "md" }) {
   );
 }
 
-/* ─── Safety Score ──────────────────────────────────────────────────────────── */
-
-/* ─── Delete Confirm ─────────────────────────────────────────────────────────── */
-
-function DeleteConfirm({
-  driverName,
-  onConfirm,
-  onCancel,
-}: {
-  driverName: string;
-  onConfirm: () => void;
-  onCancel: () => void;
-}) {
-  const reducedMotion = useReducedMotion();
-  return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={reducedMotion ? { duration: 0 } : { duration: 0.15 }}
-      className="flex items-center gap-2 p-2 bg-surface-2 border border-border rounded-lg"
-    >
-      <span className="text-xs text-foreground flex-1 truncate">
-        Hapus <strong>{driverName}</strong>?
-      </span>
-      <Button size="sm" variant="danger" onClick={onConfirm} aria-label="Konfirmasi hapus">
-        Ya
-      </Button>
-      <Button size="sm" variant="ghost" onClick={onCancel} aria-label="Batal hapus">
-        Batal
-      </Button>
-    </motion.div>
-  );
-}
-
-/* ─── Driver Form ───────────────────────────────────────────────────────────── */
-
-interface DriverFormData {
-  name: string;
-  sim_number: string;
-  phone: string;
-  address: string;
-  birth_date: string;
-  vehicle_id: number | null;
-  status: DriverStatus;
-  join_date: string;
-}
-
-const EMPTY_FORM: DriverFormData = {
-  name: "",
-  sim_number: "",
-  phone: "",
-  address: "",
-  birth_date: "",
-  vehicle_id: null,
-  status: "active",
-  join_date: new Date().toISOString().split("T")[0],
-};
-
-function DriverForm({
-  initial,
-  onSubmit,
-  onCancel,
-  vehicles,
-}: {
-  initial?: DriverFormData;
-  onSubmit: (data: DriverFormData) => void;
-  onCancel: () => void;
-  vehicles: typeof FLEET_VEHICLES;
-}) {
-  const [form, setForm] = useState<DriverFormData>(initial ?? EMPTY_FORM);
-
-  function set(field: keyof DriverFormData, value: string | number | null) {
-    setForm((prev) => ({ ...prev, [field]: value }));
-  }
-
-  return (
-    <form
-      onSubmit={(e) => { e.preventDefault(); onSubmit(form); }}
-      className="flex flex-col h-full"
-    >
-      <div className="flex-1 overflow-y-auto">
-        <PanelSection title="Identitas">
-          <div className="space-y-3">
-            <FormField label="Nama Lengkap *" required>
-              <input
-                type="text"
-                value={form.name}
-                onChange={(e) => set("name", e.target.value)}
-                placeholder="Masukkan nama lengkap"
-                className="form-input"
-                autoFocus
-              />
-            </FormField>
-
-            <FormField label="No SIM *" required>
-              <input
-                type="text"
-                value={form.sim_number}
-                onChange={(e) => set("sim_number", e.target.value)}
-                placeholder="SIM B2 1234-5678-9012"
-                className="form-input"
-              />
-            </FormField>
-
-            <FormField label="No Telepon">
-              <input
-                type="tel"
-                value={form.phone}
-                onChange={(e) => set("phone", e.target.value)}
-                placeholder="0812-3456-7890"
-                className="form-input"
-              />
-            </FormField>
-
-            <FormField label="Alamat">
-              <textarea
-                value={form.address}
-                onChange={(e) => set("address", e.target.value)}
-                placeholder="Jl. Merdeka No. 10, Jakarta"
-                rows={2}
-                className="form-input resize-none"
-              />
-            </FormField>
-
-            <div className="grid grid-cols-2 gap-3">
-              <FormField label="Tanggal Lahir">
-                <input
-                  type="date"
-                  value={form.birth_date}
-                  onChange={(e) => set("birth_date", e.target.value)}
-                  className="form-input"
-                />
-              </FormField>
-              <FormField label="Tanggal Bergabung">
-                <input
-                  type="date"
-                  value={form.join_date}
-                  onChange={(e) => set("join_date", e.target.value)}
-                  className="form-input"
-                />
-              </FormField>
-            </div>
-          </div>
-        </PanelSection>
-
-        <PanelDivider />
-
-        <PanelSection title="Penugasan">
-          <div className="space-y-3">
-            <FormField label="Kendaraan Ditugaskan">
-              <select
-                value={form.vehicle_id ?? ""}
-                onChange={(e) => set("vehicle_id", e.target.value ? parseInt(e.target.value) : null)}
-                className="form-input"
-              >
-                <option value="">— Belum Ditugaskan —</option>
-                {vehicles.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {v.plate_number} — {v.brand} {v.model}
-                  </option>
-                ))}
-              </select>
-            </FormField>
-
-            <FormField label="Status">
-              <select
-                value={form.status}
-                onChange={(e) => set("status", e.target.value as DriverStatus)}
-                className="form-input"
-              >
-                <option value="active">Aktif</option>
-                <option value="off-duty">Lepas tugas</option>
-                <option value="on-leave">Cuti</option>
-                <option value="inactive">Nonaktif</option>
-              </select>
-            </FormField>
-          </div>
-        </PanelSection>
-      </div>
-
-      <div className="pt-4 border-t border-border flex items-center gap-2">
-        <Button type="button" variant="ghost" onClick={onCancel} className="flex-1">
-          Batal
-        </Button>
-        <Button type="submit" variant="primary" className="flex-1">
-          {initial ? "Simpan Perubahan" : "Tambah Driver"}
-        </Button>
-      </div>
-    </form>
-  );
-}
-
-function FormField({
-  label,
-  required,
-  children,
-}: {
-  label: string;
-  required?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <div>
-      <label className="block text-sm font-medium text-muted mb-1.5">
-        {label}
-        {required && <span className="text-st-offline ml-0.5">*</span>}
-      </label>
-      {children}
-    </div>
-  );
-}
-
 /* ─── Main Page ─────────────────────────────────────────────────────────────── */
 
 export default function DriversPage() {
-  const { success, error } = useToast();
-  const reducedMotion = useReducedMotion();
   const { vehicles: contextVehicles } = useAppContext();
-  const vehicles = contextVehicles.length > 0 ? contextVehicles : FLEET_VEHICLES;
+  const vehicles = contextVehicles;
 
-  const [drivers, setDrivers] = useState<Driver[]>(INITIAL_DRIVERS);
+  const drivers = useMemo(() => selectDrivers(vehicles), [vehicles]);
   const [search, setSearch] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [filterStatus, setFilterStatus] = useState<DriverStatus | "all">("all");
   const [sortField, setSortField] = useState<"name" | "status">("name");
   const [sortDir, setSortDir] = useState<"asc" | "desc" | "none">("asc");
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [drawerMode, setDrawerMode] = useState<"add" | "edit">("add");
-  const [editDriver, setEditDriver] = useState<Driver | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (searchOpen) searchInputRef.current?.focus();
+  }, [searchOpen]);
 
   // KPI counts
   const counts = useMemo(() => ({
@@ -404,61 +137,6 @@ export default function DriversPage() {
     }
   }
 
-  function openAdd() {
-    setDrawerMode("add");
-    setEditDriver(null);
-    setDrawerOpen(true);
-  }
-
-  function openEdit(d: Driver) {
-    setDrawerMode("edit");
-    setEditDriver(d);
-    setDrawerOpen(true);
-  }
-
-  function closeDrawer() {
-    setDrawerOpen(false);
-    setEditDriver(null);
-  }
-
-  function handleSubmitForm(data: DriverFormData) {
-    if (!data.name.trim()) { error("Nama wajib diisi"); return; }
-    if (!data.sim_number.trim()) { error("No SIM wajib diisi"); return; }
-
-    if (drawerMode === "add") {
-      const newDriver: Driver = {
-        id: `D${String(drivers.length + 1).padStart(2, "0")}`,
-        name: data.name.trim(),
-        sim_number: data.sim_number.trim(),
-        phone: data.phone.trim(),
-        address: data.address.trim(),
-        birth_date: data.birth_date,
-        vehicle_id: data.vehicle_id,
-        status: data.status,
-        join_date: data.join_date,
-      };
-      setDrivers((prev) => [...prev, newDriver]);
-      success(`Driver ${newDriver.name} ditambahkan`);
-      closeDrawer();
-    } else if (editDriver) {
-      setDrivers((prev) =>
-        prev.map((d) =>
-          d.id === editDriver.id
-            ? { ...d, name: data.name.trim(), sim_number: data.sim_number.trim(), phone: data.phone.trim(), address: data.address.trim(), birth_date: data.birth_date, vehicle_id: data.vehicle_id, status: data.status, join_date: data.join_date }
-            : d
-        )
-      );
-      success(`Driver ${data.name} diperbarui`);
-      closeDrawer();
-    }
-  }
-
-  function handleDelete(d: Driver) {
-    setDrivers((prev) => prev.filter((x) => x.id !== d.id));
-    setDeleteConfirm(null);
-    success(`Driver ${d.name} dihapus`);
-  }
-
   function handleExport() {
     downloadCsv(
       "vanguard-pengemudi.csv",
@@ -490,57 +168,57 @@ export default function DriversPage() {
   }, [vehicles]);
 
   return (
-    <div className="h-[calc(100vh-4rem)] flex flex-col overflow-hidden">
-      {/* ─── Header ─────────────────────────────────────────────────────────── */}
-      <header className="shrink-0 px-6 pt-6 pb-4 border-b border-border bg-surface-1">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex items-start gap-6">
-            <div>
-              <p className="text-label uppercase tracking-wide text-muted">Fleet Management</p>
-              <h1 className="text-h1 font-semibold text-foreground mt-0.5">Manajemen Driver</h1>
-              <p className="text-sm text-muted mt-0.5">Master data supir dan penugasan kendaraan</p>
-            </div>
-            {/* KPI inline */}
-            <div className="flex items-center gap-1 mt-6">
-              <KpiStat label="Total" value={counts.total} />
-              <KpiDivider />
-              <KpiStat label="Aktif" value={counts.aktif} accent="text-st-driving" />
-              <KpiDivider />
-              <KpiStat label="Lepas tugas" value={counts.bertugas} accent="text-brand" />
-              <KpiDivider />
-              <KpiStat label="Nonaktif" value={counts.nonaktif} accent="text-muted" />
-            </div>
-          </div>
-          <div className="flex items-center gap-2 mt-1">
-            <span className="text-xs text-muted">Mode baca</span>
-            <Button variant="secondary" size="sm" icon={<Download className="w-4 h-4" />} onClick={handleExport} aria-label="Export data driver">
-              Export
-            </Button>
-          </div>
+    <div className="flex h-[calc(100dvh-3.625rem)] max-h-[calc(100dvh-3.625rem)] min-h-0 flex-col overflow-hidden">
+      <header className="flex h-12 shrink-0 items-center gap-4 overflow-x-auto border-b border-border bg-surface-1 px-4">
+        <div className="flex shrink-0 items-baseline gap-2">
+          <h1 className="text-sm font-semibold text-foreground">Driver</h1>
+          <span className="font-mono text-xs tabular-nums text-muted">{counts.total} pengemudi</span>
+        </div>
+        <div className="flex shrink-0 items-center divide-x divide-border">
+          <SummaryItem label="Total" value={counts.total} />
+          <SummaryItem label="Aktif" value={counts.aktif} color="var(--st-driving)" />
+          <SummaryItem label="Lepas tugas" value={counts.bertugas} color="var(--brand)" />
+          <SummaryItem label="Nonaktif" value={counts.nonaktif} color="var(--text-muted)" />
+        </div>
+        <div className="ml-auto flex shrink-0 items-center">
+          <Button variant="secondary" size="sm" icon={<Download className="h-4 w-4" />} onClick={handleExport} aria-label="Export data driver">
+            Export
+          </Button>
         </div>
       </header>
 
       {/* ─── Toolbar ────────────────────────────────────────────────────────── */}
-      <div className="shrink-0 px-6 py-3 border-b border-border bg-surface-1">
-        <div className="flex flex-wrap items-center gap-3">
-          {/* Search */}
-          <div className="relative flex-1 min-w-[200px] max-w-xs">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted pointer-events-none" />
+      <div className="flex h-11 shrink-0 min-w-0 items-center gap-2 overflow-x-auto border-b border-border bg-surface-1 px-4">
+        {searchOpen ? (
+          <div className="relative flex w-80 shrink-0 items-center gap-2">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted" />
             <input
+              ref={searchInputRef}
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Cari nama, SIM, telepon..."
-              className="w-full pl-9 pr-3 py-1.5 text-sm bg-surface-2 border border-border rounded-lg
-                         placeholder:text-faint text-foreground
-                         focus-visible:outline-2 focus-visible:outline-brand focus-visible:outline-offset-0
-                         transition-colors"
+              onKeyDown={(event) => {
+                if (event.key === "Escape") {
+                  setSearch("");
+                  setSearchOpen(false);
+                }
+              }}
+              placeholder="Cari nama, SIM, atau telepon..."
+              className="h-8 min-w-0 flex-1 border border-border bg-surface-1 pl-8 pr-3 text-xs text-foreground placeholder:text-faint focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
+              aria-label="Cari pengemudi"
             />
+            <button type="button" onClick={() => { setSearch(""); setSearchOpen(false); }} className="flex h-8 w-8 shrink-0 items-center justify-center text-muted transition-colors hover:bg-surface-2 hover:text-foreground focus-visible:outline-2 focus-visible:outline-brand" aria-label="Tutup pencarian">
+              <X className="h-4 w-4" />
+            </button>
           </div>
+        ) : (
+          <button type="button" onClick={() => setSearchOpen(true)} className="flex h-8 w-8 shrink-0 items-center justify-center text-muted transition-colors hover:bg-surface-2 hover:text-foreground focus-visible:outline-2 focus-visible:outline-brand" aria-label="Cari pengemudi">
+            <Search className="h-4 w-4" />
+          </button>
+        )}
 
-          {/* Status filter */}
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-muted">Status:</span>
+        <div className="flex shrink-0 items-center gap-1">
+            {!searchOpen && <span className="mr-1 text-[10px] font-semibold uppercase tracking-widest text-muted">Status</span>}
             {([
               { key: "all", label: "Semua" },
               { key: "active", label: "Aktif" },
@@ -551,34 +229,30 @@ export default function DriversPage() {
               <button
                 key={f.key}
                 onClick={() => setFilterStatus(f.key as DriverStatus | "all")}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors
-                  focus-visible:outline-2 focus-visible:outline-brand
+                className={`h-7 shrink-0 border border-border px-2.5 text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-brand
                   ${filterStatus === f.key
-                    ? "bg-brand text-white"
-                    : "bg-surface-2 text-foreground hover:bg-surface-3 border border-border"}`}
+                    ? "bg-brand text-slate-950"
+                    : "text-muted hover:bg-surface-2 hover:text-foreground"}`}
+                aria-pressed={filterStatus === f.key}
               >
                 {f.label}
               </button>
             ))}
-          </div>
+        </div>
 
           {isFiltered && (
             <button
               onClick={resetFilters}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium
-                         bg-surface-2 border border-border text-foreground
-                         hover:bg-surface-3
-                         focus-visible:outline-2 focus-visible:outline-brand transition-colors"
+              className="flex h-7 shrink-0 items-center gap-1 border border-border px-2.5 text-xs font-medium text-muted transition-colors hover:bg-surface-2 hover:text-foreground focus-visible:outline-2 focus-visible:outline-brand"
             >
-              <X className="w-4 h-4" />
+              <X className="h-3 w-3" />
               Reset
             </button>
           )}
-        </div>
       </div>
 
       {/* ─── Table ─────────────────────────────────────────────────────────── */}
-      <div className="flex-1 overflow-y-auto px-6 py-4">
+      <div className="flex-1 overflow-y-auto px-4 py-3">
         {sorted.length === 0 ? (
           <Card padding="none">
             <EmptyState
@@ -587,7 +261,7 @@ export default function DriversPage() {
               description={
                 isFiltered
                   ? "Tidak ada driver yang cocok dengan filter."
-                  : "Tambahkan driver pertama ke armada."
+                  : "Belum ada driver dalam sumber data armada."
               }
               action={
                 isFiltered ? (
@@ -599,7 +273,7 @@ export default function DriversPage() {
             />
           </Card>
         ) : (
-          <TableContainer className="[&_td]:!py-4 [&_th]:!py-4">
+          <TableContainer className="v2-driver-table [&_td]:!px-3 [&_td]:!py-2 [&_th]:!h-9 [&_th]:!px-3 [&_th]:!py-0">
             <TableHead>
               <tr>
                 <TableHeadCell width={220}
@@ -608,62 +282,61 @@ export default function DriversPage() {
                 >
                   Nama
                 </TableHeadCell>
-                <TableHeadCell width={200}>No SIM</TableHeadCell>
-                <TableHeadCell width={160}>Telepon</TableHeadCell>
+                <TableHeadCell width={190}>No. SIM</TableHeadCell>
+                <TableHeadCell width={150}>Telepon</TableHeadCell>
                 <TableHeadCell width={150}>Kendaraan</TableHeadCell>
-                <TableHeadCell width={100}
+                <TableHeadCell width={112}
                   sortable sorted={sortField === "status" ? sortDir !== "none" ? sortDir : false : false}
                   onClick={() => handleSort("status")}
                 >
                   Status
                 </TableHeadCell>
-                <TableHeadCell width={110}>Bergabung</TableHeadCell>
+                <TableHeadCell width={108}>Bergabung</TableHeadCell>
               </tr>
             </TableHead>
             <TableBody>
               {sorted.map((d) => {
-                const isDeleteConfirming = deleteConfirm === d.id;
                 const assignedVehicle = d.vehicle_id ? vehicleMap.get(d.vehicle_id) : null;
                 return (
                   <TableRow key={d.id}>
                     {/* Nama + avatar */}
                     <TableCell>
-                      <div className="flex items-center gap-3">
-                        <Avatar name={d.name} />
-                        <div className="min-w-0">
-                          <p className="text-base font-bold text-foreground truncate">{d.name}</p>
-                          <p className="text-sm text-muted font-mono">{d.id}</p>
+                      <div className="flex items-center gap-2.5 whitespace-nowrap">
+                        <Avatar name={d.name} size="sm" />
+                        <div className="flex min-w-0 items-baseline gap-2">
+                          <p className="text-sm font-semibold text-foreground truncate">{d.name}</p>
+                          <p className="shrink-0 text-[11px] text-muted font-mono">{d.id}</p>
                         </div>
                       </div>
                     </TableCell>
                     {/* No SIM */}
                     <TableCell>
-                      <span className="font-mono text-sm font-medium text-foreground">{d.sim_number}</span>
+                      <span className="font-mono text-xs font-medium text-foreground whitespace-nowrap">{d.sim_number}</span>
                     </TableCell>
                     {/* Telepon */}
                     <TableCell>
-                      <span className="text-sm font-medium text-foreground">{d.phone || "—"}</span>
+                      <span className="text-xs font-medium text-foreground whitespace-nowrap">{d.phone || "—"}</span>
                     </TableCell>
                     {/* Kendaraan */}
                     <TableCell>
                       {assignedVehicle ? (
-                        <span className="inline-flex items-center gap-2 text-sm font-semibold font-mono text-foreground">
-                          <Truck className="w-4 h-4 text-muted shrink-0" />
+                        <Link href={`/tracking?focus=${d.vehicle_id}`} className="inline-flex items-center gap-1.5 whitespace-nowrap text-xs font-semibold font-mono text-foreground hover:text-brand focus-visible:outline-2 focus-visible:outline-brand">
+                          <Truck className="h-3.5 w-3.5 text-muted shrink-0" />
                           {assignedVehicle}
-                        </span>
+                        </Link>
                       ) : (
-                        <span className="text-sm text-muted">—</span>
+                        <span className="text-xs text-muted">—</span>
                       )}
                     </TableCell>
                     {/* Status badge */}
                     <TableCell>
-                      <Badge variant={toBadgeVariant(d.status)} className="text-sm font-semibold px-3 py-1">
+                      <Badge variant={toBadgeVariant(d.status)} className="whitespace-nowrap px-2 py-0.5 text-[10px]">
                         {statusLabel(d.status)}
                       </Badge>
                     </TableCell>
                     {/* Bergabung */}
                     <TableCell>
-                      <span className="text-sm tabular-nums font-mono font-medium text-foreground">
+                      <span className="whitespace-nowrap text-xs tabular-nums font-mono font-medium text-foreground">
                         {d.join_date ? new Date(d.join_date).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "2-digit" }) : "—"}
                       </span>
                     </TableCell>
@@ -675,34 +348,6 @@ export default function DriversPage() {
         )}
       </div>
 
-      {/* ─── Drawer Panel ──────────────────────────────────────────────────── */}
-      <Panel
-        open={false}
-        onClose={closeDrawer}
-        title={drawerMode === "add" ? "Tambah Driver" : "Edit Driver"}
-        subtitle={drawerMode === "edit" && editDriver ? editDriver.name : undefined}
-        width={420}
-      >
-        <DriverForm
-          initial={
-            drawerMode === "edit" && editDriver
-              ? {
-                  name: editDriver.name,
-                  sim_number: editDriver.sim_number,
-                  phone: editDriver.phone,
-                  address: editDriver.address,
-                  birth_date: editDriver.birth_date,
-                  vehicle_id: editDriver.vehicle_id,
-                  status: editDriver.status,
-                  join_date: editDriver.join_date,
-                }
-              : undefined
-          }
-          onSubmit={handleSubmitForm}
-          onCancel={closeDrawer}
-          vehicles={vehicles}
-        />
-      </Panel>
     </div>
   );
 }

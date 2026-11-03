@@ -1,6 +1,7 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import { motion } from "motion/react";
 import dynamic from "next/dynamic";
 import {
@@ -275,6 +276,13 @@ export default function TaskDetailPage() {
                 <div className="flex justify-between text-xs">
                   <span className="text-muted">Jadwal</span>
                   <span className="text-foreground">{clockTime.format(Date.parse(task.plannedStartAt))} - {clockTime.format(Date.parse(task.plannedEndAt))}</span>
+                </div>
+                <div className="flex items-center justify-between gap-2 border-t border-border pt-2 text-xs">
+                  <span className="text-muted">Bukti visual</span>
+                  <div className="flex items-center gap-2">
+                    <Link href={`/snapshots?task=${task.id}`} className="text-brand hover:underline focus-visible:outline-2 focus-visible:outline-brand">Snapshot</Link>
+                    <Link href={`/dashcam?trip=${trip.id}`} className="text-brand hover:underline focus-visible:outline-2 focus-visible:outline-brand">Dashcam</Link>
+                  </div>
                 </div>
               </div>
             </div>

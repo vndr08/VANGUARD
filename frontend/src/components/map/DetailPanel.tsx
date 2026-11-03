@@ -1,27 +1,23 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
+import Link from "next/link";
 import {
-  X,
+  Check,
+  Compass,
+  Fuel,
+  Layers,
+  MapPin,
+  Route,
   Truck,
   User,
-  Gauge,
-  Compass,
-  MapPin,
-  Navigation,
-  Route,
-  Clock,
-  ChevronDown,
-  ChevronRight,
-  Layers,
-  Fuel,
+  X,
 } from "lucide-react";
-import { STATUS_COLORS, STATUS_BG } from "./types";
-import type { MapVehicle, TaskInfo, VehicleDetail, LayerVisibility } from "./types";
-import { FLEET_TASKS } from "@/lib/fleet-data";
+import { useReducedMotion } from "@/hooks/useReducedMotion";
+import { OPERATIONS_DATASET } from "@/lib/operations-data";
+import { STATUS_BG, STATUS_COLORS } from "./types";
+import type { LayerVisibility, MapVehicle } from "./types";
 
-/* ─── Props ──────────────────────────────────────────────────────────────── */
 interface DetailPanelProps {
   vehicle: MapVehicle | null;
   visibility: LayerVisibility;
@@ -30,301 +26,260 @@ interface DetailPanelProps {
   className?: string;
 }
 
-/* ─── DetailPanel ──────────────────────────────────────────────────────── */
-export function DetailPanel({ vehicle, visibility, onToggleLayer, onClose, className = "" }: DetailPanelProps) {
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(
-    new Set(["identity", "task"])
-  );
-  const [detail, setDetail] = useState<VehicleDetail | null>(null);
+const TASK_STATUS_LABELS: Record<string, string> = {
+  waiting: "Menunggu",
+  assigned: "Ditugaskan",
+  progress: "Berjalan",
+  unloading: "Bongkar",
+  completed: "Selesai",
+  cancelled: "Dibatalkan",
+};
 
-  useEffect(() => {
-    if (!vehicle) {
-      setDetail(null);
-      return;
-    }
+const TRIP_STATUS_LABELS: Record<string, string> = {
+  planned: "Direncanakan",
+  progress: "Berjalan",
+  unloading: "Bongkar",
+  completed: "Selesai",
+  cancelled: "Dibatalkan",
+};
 
-    setExpandedSections(
-      new Set(["identity", "task"])
-    );
-
-    // Build detail from mock data (replace with real API)
-    const task = FLEET_TASKS[vehicle.id];
-    const status = vehicle.displayStatus;
-
-    setDetail({
-      vehicle,
-      task,
-      traveled: {
-        distance: vehicle.odometer / 1000,
-        duration: formatDuration(vehicle.last_update),
-        avgSpeed: status === "driving" ? Math.round(vehicle.speed) : 0,
-      },
-      estimated: {
-        distanceLeft: 23.4,
-        timeLeft: "~18m",
-        arriveAt: "14:32",
-      },
-    });
-  }, [vehicle]);
-
-  function toggleSection(key: string) {
-    setExpandedSections((prev) => {
-      const next = new Set(prev);
-      next.has(key) ? next.delete(key) : next.add(key);
-      return next;
-    });
-  }
+export function DetailPanel({
+  vehicle,
+  visibility,
+  onToggleLayer,
+  onClose,
+  className = "",
+}: DetailPanelProps) {
+  const reducedMotion = useReducedMotion();
 
   if (!vehicle) return null;
 
   const color = STATUS_COLORS[vehicle.displayStatus];
   const bgColor = STATUS_BG[vehicle.displayStatus];
+  const task =
+    OPERATIONS_DATASET.tasks.find(
+      (item) =>
+        item.vehicleId === vehicle.id &&
+        !["completed", "cancelled"].includes(item.status)
+    ) ??
+    OPERATIONS_DATASET.tasks.find((item) => item.vehicleId === vehicle.id);
+  const trip = task
+    ? OPERATIONS_DATASET.trips.find((item) => item.id === task.primaryTripId)
+    : undefined;
 
   return (
     <AnimatePresence>
-      {vehicle && (
-        <motion.div
-          key={vehicle.id}
-          initial={{ opacity: 0, x: 24 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: 24 }}
-          transition={{ type: "spring", stiffness: 320, damping: 30 }}
-          id="tracking-detail-panel"
-          className={`absolute bottom-0 right-0 top-0 z-dock flex w-[360px] max-w-full flex-col overflow-hidden border-l border-border bg-surface-1 shadow-elev-2 ${className}`}
-        >
-          {/* ── Header ──────────────────────────────────────── */}
-          <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-3">
-            <div className="flex items-center gap-2 min-w-0">
-              {/* Status dot */}
-              <span
-                className="h-2.5 w-2.5 shrink-0 rounded-full"
-                style={{ background: color }}
-              />
-              <h2 className="font-mono text-sm font-semibold tabular-nums text-foreground truncate">
-                {vehicle.plate_number}
-              </h2>
-              <span
-                className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
-                style={{ background: bgColor, color }}
-              >
-                {formatVehicleStatus(
-                  vehicle.displayStatus
-                )}
-              </span>
+      <motion.aside
+        initial={reducedMotion ? false : { opacity: 0, x: 20 }}
+        animate={{ opacity: 1, x: 0 }}
+        exit={reducedMotion ? { opacity: 0 } : { opacity: 0, x: 20 }}
+        transition={
+          reducedMotion
+            ? { duration: 0 }
+            : { duration: 0.2, ease: [0.2, 0.8, 0.2, 1] }
+        }
+        id="tracking-detail-panel"
+        aria-label={`Detail unit ${vehicle.plate_number}`}
+        className={`absolute bottom-0 right-0 top-0 z-dock flex w-[360px] max-w-full flex-col overflow-hidden border-l border-border bg-surface-1 shadow-elev-2 ${className}`}
+      >
+        <header className="shrink-0 border-b border-border px-4 py-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <span
+                  className="h-2 w-2 shrink-0 rounded-full"
+                  style={{ background: color }}
+                />
+                <h2 className="truncate font-mono text-base font-bold tabular-nums text-foreground">
+                  {vehicle.plate_number}
+                </h2>
+                <span
+                  className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                  style={{ background: bgColor, color }}
+                >
+                  {formatVehicleStatus(vehicle.displayStatus)}
+                </span>
+              </div>
+              <p className="mt-1 truncate text-xs text-muted">
+                {vehicle.driver_name?.trim() || "Belum ditugaskan"} ·{" "}
+                {vehicle.brand} {vehicle.model}
+              </p>
             </div>
             <button
+              type="button"
               onClick={onClose}
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-foreground focus-visible:outline-2 focus-visible:outline-brand"
+              className="flex h-8 w-8 shrink-0 items-center justify-center text-muted transition-colors hover:bg-surface-2 hover:text-foreground focus-visible:outline-2 focus-visible:outline-brand"
               aria-label="Tutup detail kendaraan"
             >
               <X className="h-4 w-4" />
             </button>
           </div>
+        </header>
 
-          {/* ── Scrollable body ─────────────────────────────── */}
-          <div className="flex-1 overflow-y-auto py-2">
+        <div className="grid shrink-0 grid-cols-3 divide-x divide-border border-b border-border">
+          <SummaryMetric label="Kecepatan" value={`${vehicle.speed} km/j`} />
+          <SummaryMetric
+            label="BBM"
+            value={`${vehicle.fuel_level}%`}
+            icon={<Fuel className="h-3 w-3" />}
+          />
+          <SummaryMetric
+            label="Pembaruan"
+            value={formatTimestamp(vehicle.last_update)}
+          />
+        </div>
 
-            {/* Identity */}
-            <Section
-              title="Identitas"
-              icon={<Truck className="h-3.5 w-3.5" />}
-              expanded={expandedSections.has("identity")}
-              onToggle={() => toggleSection("identity")}
-            >
-              <DetailRow label="Kendaraan" value={`${vehicle.brand} ${vehicle.model}`} mono={false} />
-              <DetailRow label="Pengemudi" value={vehicle.driver_name ?? "—"} mono={false} />
-              <DetailRow
-                label="Status"
-                value={formatVehicleStatus(
-                  vehicle.displayStatus
-                )}
-                color={color}
-              />
-              <DetailRow label="Kecepatan" value={`${vehicle.speed} km/j`} mono />
-              <DetailRow label="Arah" value={`${vehicle.heading.toFixed(0)}°`} mono icon={<Compass className="h-3 w-3" />} />
-              <DetailRow label="Koordinat" value={`${vehicle.latitude?.toFixed(5) ?? "—"}, ${vehicle.longitude?.toFixed(5) ?? "—"}`} mono />
-            </Section>
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <InspectorSection
+            title="Posisi sekarang"
+            icon={<MapPin className="h-3.5 w-3.5" />}
+          >
+            <DetailRow
+              label="Status"
+              value={formatVehicleStatus(vehicle.displayStatus)}
+              color={color}
+            />
+            <DetailRow
+              label="Arah"
+              value={`${vehicle.heading.toFixed(0)}°`}
+              mono
+              icon={<Compass className="h-3 w-3" />}
+            />
+            <DetailRow
+              label="Koordinat"
+              value={`${vehicle.latitude?.toFixed(5) ?? "—"}, ${vehicle.longitude?.toFixed(5) ?? "—"}`}
+              mono
+            />
+            <DetailRow
+              label="Odometer"
+              value={`${vehicle.odometer.toLocaleString("id-ID")} km`}
+              mono
+            />
+          </InspectorSection>
 
-            {/* Task Info */}
-            {detail?.task && (
-              <Section
-                title="Informasi Tugas"
-                icon={<Layers className="h-3.5 w-3.5" />}
-                expanded={expandedSections.has("task")}
-                onToggle={() => toggleSection("task")}
-              >
-                <DetailRow label="Referensi" value={detail.task.taskRef} mono />
-                <DetailRow label="Tugas" value={detail.task.taskName} />
-                <DetailRow label="Jadwal" value={detail.task.scheduleStart} mono />
-                <div className="border-t border-border mt-2 pt-2">
-                  {detail.task.trips.map((trip, i) => (
-                    <div key={i} className="mb-2">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-[10px] font-semibold uppercase tracking-widest text-muted">
-                          {formatTripType(
-                            trip.tripType
-                          )}
-                        </span>
-                        <span
-                          className="rounded-full px-1.5 py-0.5 text-[9px] font-semibold"
-                          style={{ background: STATUS_BG[trip.status === "Completed" ? "driving" : "idle"], color: trip.status === "Completed" ? STATUS_COLORS.driving : STATUS_COLORS.idle }}
-                        >
-                          {formatTripStatus(
-                            trip.status
-                          )}
-                        </span>
-                      </div>
-                      <DetailRow label="Asal" value={trip.origin} mono={false} />
-                      <DetailRow label="Tujuan" value={trip.destination} mono={false} />
-                      <DetailRow label="Jarak" value={`${trip.distance} km`} mono />
-                    </div>
-                  ))}
-                </div>
-              </Section>
-            )}
-
-            {/* Traveled */}
-            <Section
-              title="Perjalanan"
+          {task && trip && (
+            <InspectorSection
+              title="Operasi"
               icon={<Route className="h-3.5 w-3.5" />}
-              expanded={expandedSections.has("traveled")}
-              onToggle={() => toggleSection("traveled")}
             >
-              <div className="grid grid-cols-3 gap-2">
-                <MetricCell label="Jarak" value={detail ? (detail.traveled.distance / 1000).toFixed(1) : "—"} unit="km" />
-                <MetricCell label="Durasi" value={detail?.traveled.duration ?? "—"} unit="" />
-                <MetricCell label="Kecepatan Rata-rata" value={detail ? String(detail.traveled.avgSpeed) : "—"} unit="km/j" />
+              <DetailRow label="Referensi" value={task.reference} mono />
+              <DetailRow label="Tugas" value={task.name} />
+              <DetailRow
+                label="Status tugas"
+                value={TASK_STATUS_LABELS[task.status]}
+              />
+              <DetailRow
+                label="Rute"
+                value={`${trip.origin.name} → ${trip.destination.name}`}
+              />
+              <DetailRow
+                label="Status perjalanan"
+                value={TRIP_STATUS_LABELS[trip.status]}
+              />
+              <DetailRow
+                label="Jarak"
+                value={`${trip.traveledKm} / ${trip.distanceKm} km`}
+                mono
+              />
+              <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 border-t border-border pt-2 text-xs">
+                <Link href={`/tasks/${task.id}`} className="text-brand hover:underline focus-visible:outline-2 focus-visible:outline-brand">Detail tugas</Link>
+                <Link href={`/history?trip=${trip.id}`} className="text-brand hover:underline focus-visible:outline-2 focus-visible:outline-brand">Riwayat</Link>
+                <Link href={`/snapshots?trip=${trip.id}`} className="text-brand hover:underline focus-visible:outline-2 focus-visible:outline-brand">Snapshot</Link>
               </div>
-            </Section>
+            </InspectorSection>
+          )}
 
-            {/* Estimated */}
-            <Section
-              title="Estimasi"
-              icon={<Clock className="h-3.5 w-3.5" />}
-              expanded={expandedSections.has("estimated")}
-              onToggle={() => toggleSection("estimated")}
-            >
-              <div className="grid grid-cols-3 gap-2">
-                <MetricCell label="Sisa Jarak" value={detail ? detail.estimated.distanceLeft.toFixed(1) : "—"} unit="km" />
-                <MetricCell label="Sisa Waktu" value={detail?.estimated.timeLeft ?? "—"} unit="" />
-                <MetricCell label="Perkiraan Tiba" value={detail?.estimated.arriveAt ?? "—"} unit="" />
-              </div>
-            </Section>
+          <InspectorSection
+            title="Identitas"
+            icon={<Truck className="h-3.5 w-3.5" />}
+          >
+            <DetailRow
+              label="Kendaraan"
+              value={`${vehicle.brand} ${vehicle.model}`}
+            />
+            <DetailRow
+              label="Pengemudi saat ini"
+              value={vehicle.driver_name?.trim() || "Belum ditugaskan"}
+              icon={<User className="h-3 w-3" />}
+            />
+          </InspectorSection>
 
-            {/* Layers */}
-            <Section
-              title="Lapisan Peta"
-              icon={<Layers className="h-3.5 w-3.5" />}
-              expanded={expandedSections.has("layers")}
-              onToggle={() => toggleSection("layers")}
-            >
-              <div className="space-y-1.5">
-                {([
+          <InspectorSection
+            title="Lapisan peta"
+            icon={<Layers className="h-3.5 w-3.5" />}
+          >
+            <div className="grid grid-cols-2 gap-px overflow-hidden border border-border bg-border">
+              {(
+                [
                   ["cluster", "Cluster kendaraan"],
                   ["plannedRoute", "Rute rencana"],
                   ["actualRoute", "Rute aktual"],
                   ["geofence", "Zona / geofence"],
-                ] as [keyof LayerVisibility, string][]).map(([key, label]) => (
-                  <button
-                    key={key}
-                    onClick={() => onToggleLayer(key)}
-                    className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-surface-2"
+                ] as [keyof LayerVisibility, string][]
+              ).map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => onToggleLayer(key)}
+                  className="flex min-h-9 items-center gap-2 bg-surface-1 px-2.5 text-left text-xs text-foreground transition-colors hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-brand focus-visible:outline-inset"
+                  aria-pressed={visibility[key]}
+                >
+                  <span
+                    className={`flex h-4 w-4 shrink-0 items-center justify-center border ${
+                      visibility[key]
+                        ? "border-brand bg-brand text-slate-950"
+                        : "border-border-strong text-transparent"
+                    }`}
                   >
-                    <span
-                      className="flex h-4 w-4 items-center justify-center rounded border text-[8px] font-bold transition-colors"
-                      style={{
-                        borderColor: visibility[key] ? "var(--brand)" : "var(--border-strong)",
-                        background: visibility[key] ? "var(--brand)" : "transparent",
-                        color: visibility[key] ? "white" : "var(--text-muted)",
-                      }}
-                    >
-                      {visibility[key] ? "✓" : ""}
-                    </span>
-                    <span className="text-xs text-foreground">{label}</span>
-                  </button>
-                ))}
-              </div>
-            </Section>
-
-            {/* Footer: fuel + odometer */}
-            <div className="mx-4 mt-2 rounded-lg border border-border bg-surface-2 px-3 py-2.5">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-widest text-muted mb-0.5">BBM</p>
-                  <div className="flex items-center gap-1.5">
-                    <div className="flex-1 h-1.5 rounded-full bg-surface-3 overflow-hidden">
-                      <div
-                        className="h-full rounded-full transition-all"
-                        style={{
-                          width: `${vehicle.fuel_level}%`,
-                          background: vehicle.fuel_level < 25 ? "var(--st-offline)" : "var(--st-driving)",
-                        }}
-                      />
-                    </div>
-                    <span className="font-mono text-xs tabular-nums font-semibold text-foreground">
-                      {vehicle.fuel_level}%
-                    </span>
-                  </div>
-                </div>
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-widest text-muted mb-0.5">Odometer</p>
-                  <p className="font-mono text-xs tabular-nums font-semibold text-foreground">
-                    {vehicle.odometer.toLocaleString()} km
-                  </p>
-                </div>
-              </div>
+                    <Check className="h-3 w-3" />
+                  </span>
+                  <span>{label}</span>
+                </button>
+              ))}
             </div>
-          </div>
-        </motion.div>
-      )}
+          </InspectorSection>
+        </div>
+      </motion.aside>
     </AnimatePresence>
   );
 }
 
-/* ─── Sub-components ──────────────────────────────────────────────────── */
-function Section({
+function InspectorSection({
   title,
   icon,
-  expanded,
-  onToggle,
   children,
 }: {
   title: string;
   icon: React.ReactNode;
-  expanded: boolean;
-  onToggle: () => void;
   children: React.ReactNode;
 }) {
   return (
-    <div className="border-b border-border">
-      <button
-        onClick={onToggle}
-        className="flex w-full items-center gap-2 px-4 py-2.5 text-left transition-colors hover:bg-surface-2"
-        aria-expanded={expanded}
-      >
-        <span className="text-muted shrink-0">{icon}</span>
-        <span className="flex-1 text-xs font-semibold tracking-wide text-muted">
-          {title}
-        </span>
-        {expanded ? (
-          <ChevronDown className="h-3.5 w-3.5 text-faint shrink-0" />
-        ) : (
-          <ChevronRight className="h-3.5 w-3.5 text-faint shrink-0" />
-        )}
-      </button>
-      <AnimatePresence>
-        {expanded && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ type: "spring", stiffness: 400, damping: 32 }}
-            className="overflow-hidden px-4 pb-3"
-          >
-            {children}
-          </motion.div>
-        )}
-      </AnimatePresence>
+    <section className="border-b border-border px-4 py-3">
+      <h3 className="mb-2 flex items-center gap-2 text-xs font-semibold text-muted">
+        {icon}
+        {title}
+      </h3>
+      {children}
+    </section>
+  );
+}
+
+function SummaryMetric({
+  label,
+  value,
+  icon,
+}: {
+  label: string;
+  value: string;
+  icon?: React.ReactNode;
+}) {
+  return (
+    <div className="min-w-0 px-3 py-2.5">
+      <p className="text-[10px] font-medium text-muted">{label}</p>
+      <p className="mt-0.5 flex min-w-0 items-center gap-1 truncate font-mono text-xs font-semibold tabular-nums text-foreground">
+        {icon}
+        <span className="truncate">{value}</span>
+      </p>
     </div>
   );
 }
@@ -343,36 +298,22 @@ function DetailRow({
   icon?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between py-1">
+    <div className="grid grid-cols-[116px_minmax(0,1fr)] items-start gap-3 py-1">
       <span className="text-xs text-muted">{label}</span>
       <span
-        className={`flex items-center gap-1 text-xs font-medium ${mono ? "font-mono tabular-nums" : ""}`}
-        style={{ color: color ?? "var(--text)" }}
+        className={`flex min-w-0 items-center justify-end gap-1 text-right text-xs font-medium text-foreground ${
+          mono ? "font-mono tabular-nums" : ""
+        }`}
+        style={color ? { color } : undefined}
       >
         {icon}
-        {value}
+        <span className="min-w-0 break-words">{value}</span>
       </span>
     </div>
   );
 }
 
-function MetricCell({ label, value, unit }: { label: string; value: string; unit: string }) {
-  return (
-    <div>
-      <p className="mb-0.5 text-[10px] font-medium text-muted">
-        {label}
-      </p>
-      <p className="font-mono text-sm font-semibold tabular-nums text-foreground leading-tight">
-        {value}
-        {unit && <span className="text-[10px] text-muted ml-0.5">{unit}</span>}
-      </p>
-    </div>
-  );
-}
-
-function formatVehicleStatus(
-  status: string
-): string {
+function formatVehicleStatus(status: string): string {
   const labels: Record<string, string> = {
     driving: "Berkendara",
     idle: "Diam",
@@ -385,35 +326,13 @@ function formatVehicleStatus(
   return labels[status.toLowerCase()] ?? status;
 }
 
-function formatTripType(
-  value: string
-): string {
-  const labels: Record<string, string> = {
-    "Main Task": "Tugas Utama",
-    "Return Task": "Tugas Kembali",
-  };
+function formatTimestamp(value: string): string {
+  const timestamp = Date.parse(value);
+  if (!Number.isFinite(timestamp)) return "—";
 
-  return labels[value] ?? value;
-}
-
-function formatTripStatus(
-  value: string
-): string {
-  const labels: Record<string, string> = {
-    Completed: "Selesai",
-    Progress: "Berjalan",
-    "In Progress": "Berjalan",
-    Waiting: "Menunggu",
-  };
-
-  return labels[value] ?? value;
-}
-
-/* ─── Helpers ──────────────────────────────────────────────────────────── */
-function formatDuration(lastUpdate: string): string {
-  const diff = Date.now() - new Date(lastUpdate).getTime();
-  const h = Math.floor(diff / 3600000);
-  const m = Math.floor((diff % 3600000) / 60000);
-  if (h > 0) return `${h}h ${m}m`;
-  return `${m}m`;
+  return new Intl.DateTimeFormat("id-ID", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Asia/Jakarta",
+  }).format(timestamp);
 }

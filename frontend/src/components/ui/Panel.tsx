@@ -1,6 +1,12 @@
 "use client";
 
-import { type ReactNode, useEffect, useCallback } from "react";
+import {
+  type ReactNode,
+  useEffect,
+  useCallback,
+  useId,
+  useRef,
+} from "react";
 import { cx } from "./utils";
 import { IconButton } from "./Button";
 
@@ -31,11 +37,39 @@ export function Panel({
   width = 400,
   className,
 }: PanelProps) {
+  const panelRef = useRef<HTMLElement>(null);
+  const titleId = useId();
+
   // Handle escape key
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       if (e.key === "Escape" && open) {
         onClose();
+        return;
+      }
+
+      if (e.key === "Tab" && open && panelRef.current) {
+        const focusable = Array.from(
+          panelRef.current.querySelectorAll<HTMLElement>(
+            'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+          )
+        ).filter((element) => !element.hasAttribute("hidden"));
+
+        if (focusable.length === 0) {
+          e.preventDefault();
+          panelRef.current.focus();
+          return;
+        }
+
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
       }
     },
     [open, onClose]
@@ -45,6 +79,17 @@ export function Panel({
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [handleKeyDown]);
+
+  useEffect(() => {
+    if (!open || !panelRef.current) return;
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    const firstFocusable = panelRef.current.querySelector<HTMLElement>(
+      'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    );
+    (firstFocusable ?? panelRef.current).focus();
+
+    return () => previouslyFocused?.focus();
+  }, [open]);
 
   // Prevent body scroll when open
   useEffect(() => {
@@ -71,6 +116,7 @@ export function Panel({
 
       {/* Panel */}
       <aside
+        ref={panelRef}
         className={cx(
           "fixed top-0 right-0 bottom-0 z-50",
           "bg-surface-1 border-l border-border",
@@ -84,13 +130,14 @@ export function Panel({
         }}
         role="dialog"
         aria-modal="true"
-        aria-labelledby={title ? "panel-title" : undefined}
+        aria-labelledby={title ? titleId : undefined}
+        tabIndex={-1}
       >
         {/* Header */}
         <header className="flex items-start justify-between gap-4 px-4 py-3 border-b border-border shrink-0">
           <div className="min-w-0 flex-1">
             {title && (
-              <h2 id="panel-title" className="text-h2 font-semibold text-foreground truncate">
+              <h2 id={titleId} className="text-h2 font-semibold text-foreground truncate">
                 {title}
               </h2>
             )}
@@ -101,7 +148,7 @@ export function Panel({
           <IconButton
             icon={<CloseIcon />}
             onClick={onClose}
-            aria-label="Close panel"
+            aria-label="Tutup panel"
             variant="ghost"
           />
         </header>

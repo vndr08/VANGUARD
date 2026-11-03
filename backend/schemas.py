@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from .models import VehicleStatus
 
@@ -31,13 +31,13 @@ class VehicleResponse(VehicleBase):
 
 
 class TelemetryInput(BaseModel):
-    vehicle_id: int
-    latitude: float
-    longitude: float
-    speed: float = 0
-    heading: float = 0
+    vehicle_id: int = Field(gt=0)
+    latitude: float = Field(ge=-90, le=90)
+    longitude: float = Field(ge=-180, le=180)
+    speed: float = Field(default=0, ge=0, le=300)
+    heading: float = Field(default=0, ge=0, lt=360)
     engine_on: bool = False
-    fuel_level: Optional[float] = None
+    fuel_level: Optional[float] = Field(default=None, ge=0, le=100)
 
 
 class DashboardStats(BaseModel):

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useMemo, useState } from "react";
 import maplibregl, { Map as MLMap, Marker } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { GRAPHITE_DARK_RASTER } from "./types";
+import { GRAPHITE_DARK_STYLE } from "./types";
 import { toLngLat, toLngLatArray, isValidLngLat, buildFitBounds } from "@/lib/geo";
 
 /* ─── TaskRouteMap ──────────────────────────────────────────────────────── */
@@ -58,7 +58,7 @@ export default function TaskRouteMap({ task }: TaskRouteMapProps) {
 
     const map = new MLMap({
       container: containerRef.current,
-      style: GRAPHITE_DARK_RASTER,
+      style: GRAPHITE_DARK_STYLE,
       center: defaultCenter,
       zoom: 10,
       maxZoom: 18,

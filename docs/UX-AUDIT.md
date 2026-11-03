@@ -1,5 +1,7 @@
 # VANGUARD — UX Audit
 
+> **Arsip historis (2026-08-04).** Temuan dan nomor baris di dokumen ini menggambarkan implementasi lama. Gunakan `docs/PRODUCT-TRUTH.md` untuk status kemampuan saat ini dan lakukan audit source baru sebelum menjadikannya backlog.
+
 **Tanggal:** 2026-08-04
 **Auditor:** Claude Code
 **Scope:** 14 halaman, source code valid, mock data nyata

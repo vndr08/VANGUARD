@@ -1,4 +1,3 @@
-import { FLEET_VEHICLES } from "@/lib/fleet-data";
 import type { Vehicle } from "@/types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -18,6 +17,6 @@ async function fetchApi<T>(endpoint: string): Promise<T | null> {
   }
 }
 
-export async function getVehicles(): Promise<Vehicle[]> {
-  return (await fetchApi<Vehicle[]>("/api/vehicles/")) ?? FLEET_VEHICLES;
+export async function getVehicles(): Promise<Vehicle[] | null> {
+  return fetchApi<Vehicle[]>("/api/vehicles/");
 }

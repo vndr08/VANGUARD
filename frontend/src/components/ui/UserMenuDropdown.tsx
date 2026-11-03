@@ -22,6 +22,7 @@ export function UserMenuDropdown({ userName, userRole, userInitials, onClose }: 
   function handleLogout() {
     sessionStorage.removeItem("vanguard:logged-in");
     sessionStorage.removeItem("vanguard:user");
+    document.cookie = "vanguard-local-session=; Path=/; Max-Age=0; SameSite=Lax";
     onClose();
     router.push("/");
   }

@@ -27,6 +27,11 @@ export default function RootLayout({
   return (
     <html lang="id" data-theme="dark" data-density="comfortable" suppressHydrationWarning>
       <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var r=document.documentElement;var t=localStorage.getItem("vanguard:theme");var d=localStorage.getItem("vanguard:density");var a=localStorage.getItem("vanguard:accent");if(t==="light"||t==="dark"){r.dataset.theme=t;r.classList.toggle("dark",t==="dark")}else{r.classList.add("dark")}if(d==="compact"||d==="comfortable")r.dataset.density=d;if(a==="orange"||a==="steel")r.dataset.accent=a;else r.removeAttribute("data-accent")}catch(e){document.documentElement.classList.add("dark")}})();`,
+          }}
+        />
         {/* Favicon - Signal yellow truck icon */}
         <link
           rel="icon"

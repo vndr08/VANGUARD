@@ -1,5 +1,7 @@
 # VANGUARD — Product Demo Blueprint
 
+> **Blueprint historis.** Skenario ini tetap berguna sebagai referensi presentasi, tetapi angka, nama unit, dan status implementasi tidak boleh dianggap sebagai kontrak runtime. Kontrak terkini berada di `docs/PRODUCT-TRUTH.md`.
+
 **Tanggal:** 2026-08-04
 **Status:** Draft untuk review internal
 **Tujuan:** Sales-ready product demo menggunakan synthetic/mock data

@@ -1,7 +1,8 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   AlertTriangle,
@@ -21,7 +22,7 @@ import { EmptyState } from "@/components/ui/Card";
 import { StatusPill } from "@/components/ui/Badge";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
 import { lerp, lerpAngle } from "@/lib/motion";
-import { GRAPHITE_DARK_RASTER } from "@/components/map/types";
+import { GRAPHITE_DARK_STYLE } from "@/components/map/types";
 import { FLEET_VEHICLES } from "@/lib/fleet-data";
 import { useAppContext } from "@/components/context/AppContext";
 import {
@@ -255,7 +256,7 @@ const TripReplayMap = dynamic(
 
         const map = new mod.Map({
           container: containerRef.current,
-          style: GRAPHITE_DARK_RASTER,
+          style: GRAPHITE_DARK_STYLE,
           center: firstCoord ? [firstCoord.lng, firstCoord.lat] : [106.8, -6.2],
           zoom: 10,
           maxZoom: 18,
@@ -526,7 +527,7 @@ function EventsTab({ events }: { events: HistoryEvent[] }) {
 }
 
 /* ─── Main Page ────────────────────────────────────────────────────────────── */
-export default function HistoryPage() {
+function HistoryPageContent() {
   const searchParams = useSearchParams();
   const reducedMotion = useReducedMotion();
 
@@ -683,6 +684,13 @@ export default function HistoryPage() {
             }}
             className="h-8 rounded-lg border border-border bg-surface-1 px-2.5 text-xs text-foreground focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand-soft"
           />
+
+          {!tripNotFound && visibleTrips.length > 0 && (
+            <div className="flex items-center gap-2 text-xs">
+              <Link href={`/snapshots?trip=${selectedVehicle.id}`} className="text-brand hover:underline focus-visible:outline-2 focus-visible:outline-brand">Snapshot</Link>
+              <Link href={`/dashcam?trip=${selectedVehicle.id}`} className="text-brand hover:underline focus-visible:outline-2 focus-visible:outline-brand">Dashcam</Link>
+            </div>
+          )}
 
           {/* Export */}
           <button
@@ -857,5 +865,13 @@ export default function HistoryPage() {
       </div>
       )}
     </div>
+  );
+}
+
+export default function HistoryPage() {
+  return (
+    <Suspense fallback={null}>
+      <HistoryPageContent />
+    </Suspense>
   );
 }

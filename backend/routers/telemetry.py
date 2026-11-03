@@ -1,7 +1,7 @@
 import logging
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -78,7 +78,9 @@ async def receive_telemetry(data: TelemetryInput, db: AsyncSession = Depends(get
 
 @router.get("/history/{vehicle_id}")
 async def get_telemetry_history(
-    vehicle_id: int, limit: int = 100, db: AsyncSession = Depends(get_db)
+    vehicle_id: int,
+    limit: int = Query(default=100, ge=1, le=1000),
+    db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
         select(TelemetryLog)

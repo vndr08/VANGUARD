@@ -1,22 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { motion } from "motion/react";
 import {
   Download,
-  Edit2,
-  Eye,
-  EyeOff,
   MapPin,
   MapPinned,
-  Plus,
   Search,
-  Trash2,
   X,
 } from "lucide-react";
-import { useToast } from "@/components/ui/Toast";
-import { Badge } from "@/components/ui/Badge";
 import {
   TableContainer,
   TableHead,
@@ -25,245 +17,24 @@ import {
   TableRow,
   TableCell,
 } from "@/components/ui/Table";
-import { Button, IconButton } from "@/components/ui/Button";
-import { Panel, PanelSection, PanelDivider } from "@/components/ui/Panel";
+import { Button } from "@/components/ui/Button";
 import { Card, EmptyState } from "@/components/ui/Card";
-import { useReducedMotion } from "@/hooks/useReducedMotion";
 import { downloadCsv } from "@/lib/csv";
+import { DEFAULT_LAYER_VISIBILITY } from "@/components/map/types";
+import {
+  GEOFENCE_ZONES,
+  type GeofenceZone,
+  type ZoneStatus,
+  type ZoneType,
+} from "@/lib/safety-data";
 
 /* ─── Types ─────────────────────────────────────────────────────────────────── */
 
-type ZoneType = "Depot" | "Customer" | "Port" | "Checkpoint";
-type ZoneStatus = "active" | "inactive";
-type ZoneShape = "circle" | "polygon";
-
-interface Geofence {
-  id: string;
-  name: string;
-  type: ZoneType;
-  shape: ZoneShape;
-  lat: number;
-  lng: number;
-  radius: number; // meters
-  color: string;
-  status: ZoneStatus;
-  units: number;
-  notes: string;
-}
-
-/* ─── Type config ───────────────────────────────────────────────────────────── */
-
-const TYPE_COLORS: Record<ZoneType, string> = {
-  Depot: "bg-st-driving",
-  Customer: "bg-brand",
-  Port: "bg-st-idle",
-  Checkpoint: "bg-st-stop",
-};
-
-const ZONE_COLORS = [
-  "#10B981",
-  "#3B82F6",
-  "#8B5CF6",
-  "#F59E0B",
-  "#EF4444",
-  "#EC4899",
-  "#06B6D4",
-  "#84CC16",
-];
-
-/* ─── Initial mock data ─────────────────────────────────────────────────────── */
-
-const INITIAL_ZONES: Geofence[] = [
-  { id: "1", name: "Warehouse Cikarang",    type: "Depot",      shape: "circle", lat: -6.4523, lng: 107.1234, radius: 650,  color: "#10B981", status: "active",   units: 7, notes: "Gudang utama Cikarang" },
-  { id: "2", name: "Jababeka Customer Area", type: "Customer",  shape: "circle", lat: -6.4256, lng: 107.1567, radius: 420,  color: "#3B82F6", status: "active",   units: 4, notes: "Area customer Jababeka" },
-  { id: "3", name: "Tanjung Priok Gate 4",   type: "Port",      shape: "circle", lat: -6.0989, lng: 106.8901, radius: 900,  color: "#8B5CF6", status: "active",   units: 3, notes: "Gerbang masuk pelabuhan" },
-  { id: "4", name: "Rest Area KM57",          type: "Checkpoint",shape: "circle", lat: -6.7234, lng: 108.4567, radius: 300,  color: "#F59E0B", status: "inactive", units: 2, notes: "Rest area Km57 Tol Cipali" },
-  { id: "5", name: "MM2100 Industrial",       type: "Customer",  shape: "circle", lat: -6.3823, lng: 107.0890, radius: 550,  color: "#EF4444", status: "active",   units: 5, notes: "Kawasan industri MM2100" },
-  { id: "6", name: "Sentul City Depot",       type: "Depot",     shape: "circle", lat: -6.5678, lng: 106.8234, radius: 400,  color: "#EC4899", status: "active",   units: 3, notes: "Depot Sentul City" },
-  { id: "7", name: "Bintaro Trade Center",    type: "Customer",  shape: "circle", lat: -6.2256, lng: 106.7456, radius: 350,  color: "#06B6D4", status: "active",   units: 6, notes: "Pusat niaga Bintaro" },
-  { id: "8", name: "Tangerang Logistik Hub",  type: "Depot",     shape: "circle", lat: -6.1789, lng: 106.6234, radius: 700,  color: "#84CC16", status: "active",   units: 9, notes: "Hub logistik Tangerang" },
-];
-
-/* ─── KPI Components ────────────────────────────────────────────────────────── */
-
-function KpiStat({ label, value, accent }: { label: string; value: number; accent?: string }) {
-  const reducedMotion = useReducedMotion();
+function SummaryItem({ label, value, color }: { label: string; value: number; color?: string }) {
   return (
-    <div className="flex flex-col items-center px-4 py-2 rounded-lg bg-surface-2 border border-border min-w-[72px]">
-      <motion.span
-        key={value}
-        initial={{ opacity: 0.6, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={reducedMotion ? { duration: 0 } : { duration: 0.2 }}
-        className={"text-xl font-bold tabular-nums " + (accent ?? "text-foreground")}
-      >
-        {value}
-      </motion.span>
-      <span className="text-label text-muted">{label}</span>
-    </div>
-  );
-}
-
-function KpiDivider() {
-  return <div className="w-px h-8 bg-border self-center" />;
-}
-
-/* ─── Delete Confirm ─────────────────────────────────────────────────────────── */
-
-function DeleteConfirm({
-  zoneName,
-  onConfirm,
-  onCancel,
-}: {
-  zoneName: string;
-  onConfirm: () => void;
-  onCancel: () => void;
-}) {
-  const reducedMotion = useReducedMotion();
-  return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={reducedMotion ? { duration: 0 } : { duration: 0.15 }}
-      className="flex items-center gap-2 p-2 bg-surface-2 border border-border rounded-lg"
-    >
-      <span className="text-sm text-foreground flex-1 truncate">
-        Hapus <strong>{zoneName}</strong>?
-      </span>
-      <Button size="sm" variant="danger" onClick={onConfirm} aria-label="Konfirmasi hapus">
-        Ya
-      </Button>
-      <Button size="sm" variant="ghost" onClick={onCancel} aria-label="Batal hapus">
-        Batal
-      </Button>
-    </motion.div>
-  );
-}
-
-/* ─── Zone Form ─────────────────────────────────────────────────────────────── */
-
-interface ZoneFormData {
-  name: string;
-  type: ZoneType;
-  shape: ZoneShape;
-  lat: string;
-  lng: string;
-  radius: string;
-  color: string;
-  status: ZoneStatus;
-  notes: string;
-}
-
-const EMPTY_FORM: ZoneFormData = {
-  name: "", type: "Depot", shape: "circle",
-  lat: "-6.2000", lng: "106.8000", radius: "500",
-  color: "#10B981", status: "active", notes: "",
-};
-
-function ZoneForm({
-  initial,
-  onSubmit,
-  onCancel,
-}: {
-  initial?: ZoneFormData;
-  onSubmit: (data: ZoneFormData) => void;
-  onCancel: () => void;
-}) {
-  const [form, setForm] = useState<ZoneFormData>(initial ?? EMPTY_FORM);
-
-  function set(field: keyof ZoneFormData, value: string) {
-    setForm((prev) => ({ ...prev, [field]: value }));
-  }
-
-  return (
-    <form onSubmit={(e) => { e.preventDefault(); onSubmit(form); }} className="flex flex-col h-full">
-      <div className="flex-1 overflow-y-auto">
-        <PanelSection title="Info Zona">
-          <div className="space-y-3">
-            <FormField label="Nama Zona *" required>
-              <input type="text" value={form.name} onChange={(e) => set("name", e.target.value)}
-                placeholder="cth: Warehouse Cikarang" className="form-input" autoFocus />
-            </FormField>
-            <div className="grid grid-cols-2 gap-3">
-              <FormField label="Tipe">
-                <select value={form.type} onChange={(e) => set("type", e.target.value)} className="form-input">
-                  <option value="Depot">Depot</option>
-                  <option value="Customer">Customer</option>
-                  <option value="Port">Port</option>
-                  <option value="Checkpoint">Checkpoint</option>
-                </select>
-              </FormField>
-              <FormField label="Bentuk">
-                <select value={form.shape} onChange={(e) => set("shape", e.target.value)} className="form-input">
-                  <option value="circle">Lingkaran</option>
-                  <option value="polygon">Poligon</option>
-                </select>
-              </FormField>
-            </div>
-            <div className="grid grid-cols-3 gap-3">
-              <FormField label="Latitude *">
-                <input type="number" step="0.0001" value={form.lat}
-                  onChange={(e) => set("lat", e.target.value)} className="form-input" />
-              </FormField>
-              <FormField label="Longitude *">
-                <input type="number" step="0.0001" value={form.lng}
-                  onChange={(e) => set("lng", e.target.value)} className="form-input" />
-              </FormField>
-              <FormField label="Radius (m)">
-                <input type="number" min="1" value={form.radius}
-                  onChange={(e) => set("radius", e.target.value)} className="form-input" />
-              </FormField>
-            </div>
-          </div>
-        </PanelSection>
-
-        <PanelDivider />
-
-        <PanelSection title="Tampilan">
-          <div className="space-y-3">
-            <FormField label="Warna Zona">
-              <div className="flex flex-wrap gap-2">
-                {ZONE_COLORS.map((c) => (
-                  <button key={c} type="button"
-                    onClick={() => set("color", c)}
-                    className={"w-7 h-7 rounded-full border-2 transition-all " + (form.color === c ? "border-foreground scale-110" : "border-border hover:scale-105")}
-                    style={{ backgroundColor: c }}
-                    aria-label={"Pilih warna " + c}
-                  />
-                ))}
-              </div>
-            </FormField>
-            <FormField label="Status">
-              <select value={form.status} onChange={(e) => set("status", e.target.value)} className="form-input">
-                <option value="active">Aktif</option>
-                <option value="inactive">Nonaktif</option>
-              </select>
-            </FormField>
-            <FormField label="Catatan">
-              <textarea value={form.notes} onChange={(e) => set("notes", e.target.value)}
-                placeholder="Keterangan tambahan..." rows={2} className="form-input resize-none" />
-            </FormField>
-          </div>
-        </PanelSection>
-      </div>
-
-      <div className="pt-4 border-t border-border flex items-center gap-2">
-        <Button type="button" variant="ghost" onClick={onCancel} className="flex-1">Batal</Button>
-        <Button type="submit" variant="primary" className="flex-1">
-          {initial ? "Simpan Perubahan" : "Tambah Zona"}
-        </Button>
-      </div>
-    </form>
-  );
-}
-
-function FormField({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
-  return (
-    <div>
-      <label className="block text-sm font-medium text-muted mb-1.5">
-        {label}{required && <span className="text-st-offline ml-0.5">*</span>}
-      </label>
-      {children}
+    <div className="flex items-baseline gap-2 px-3 first:pl-0 last:pr-0">
+      <span className="text-[10px] font-semibold uppercase tracking-widest text-muted">{label}</span>
+      <span className="font-mono text-sm font-semibold tabular-nums" style={color ? { color } : undefined}>{value}</span>
     </div>
   );
 }
@@ -271,13 +42,14 @@ function FormField({ label, required, children }: { label: string; required?: bo
 /* ─── Geofence Map Preview (lazy, SSR-safe) ─────────────────────────────────── */
 
 const GeofenceMapPreview = dynamic(() => import("@/components/map/MapView").then((m) => {
-  return function GeofenceMapInner({ zones, selectedId }: { zones: Geofence[]; selectedId: string | null }) {
+  return function GeofenceMapInner({ zones, selectedId }: { zones: GeofenceZone[]; selectedId: string | null }) {
+    const selectedZone = zones.find((zone) => zone.id === selectedId);
     // Convert zones to MapVehicle shape — cast to any to bypass strict Vehicle extension fields
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const vehicles: any[] = zones
       .filter((z) => z.status === "active")
       .map((z) => ({
-        id: parseInt(z.id) || 0,
+        id: zones.findIndex((zone) => zone.id === z.id) + 1,
         plate_number: z.name.slice(0, 12),
         status: "stop" as const,
         displayStatus: "stop" as const,
@@ -303,11 +75,14 @@ const GeofenceMapPreview = dynamic(() => import("@/components/map/MapView").then
 
     return (
       <m.default
+        key={selectedZone?.id ?? "all-zones"}
         vehicles={vehicles}
-        selectedId={selectedId ? parseInt(selectedId) : null}
+        selectedId={selectedZone ? zones.findIndex((zone) => zone.id === selectedZone.id) + 1 : null}
         className="w-full h-full"
-        zoom={8}
-        pitch={30}
+        center={selectedZone ? [selectedZone.lng, selectedZone.lat] : [107, -6.5]}
+        zoom={selectedZone ? 12 : 8}
+        pitch={0}
+        visibility={{ ...DEFAULT_LAYER_VISIBILITY, geofence: true, cluster: false }}
       />
     );
   };
@@ -316,18 +91,17 @@ const GeofenceMapPreview = dynamic(() => import("@/components/map/MapView").then
 /* ─── Main Page ─────────────────────────────────────────────────────────────── */
 
 export default function GeofencesPage() {
-  const { success, error } = useToast();
-  const reducedMotion = useReducedMotion();
-
-  const [zones, setZones] = useState<Geofence[]>(INITIAL_ZONES);
-  const [selected, setSelected] = useState<Geofence | null>(INITIAL_ZONES[0] ?? null);
+  const zones = GEOFENCE_ZONES;
+  const [selected, setSelected] = useState<GeofenceZone | null>(GEOFENCE_ZONES[0] ?? null);
   const [search, setSearch] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [filterType, setFilterType] = useState<ZoneType | "all">("all");
   const [filterStatus, setFilterStatus] = useState<ZoneStatus | "all">("all");
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [drawerMode, setDrawerMode] = useState<"add" | "edit">("add");
-  const [editZone, setEditZone] = useState<Geofence | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (searchOpen) searchInputRef.current?.focus();
+  }, [searchOpen]);
 
   const counts = useMemo(() => ({
     total: zones.length,
@@ -346,70 +120,6 @@ export default function GeofencesPage() {
     });
   }, [zones, search, filterType, filterStatus]);
 
-  function openAdd() {
-    setDrawerMode("add");
-    setEditZone(null);
-    setDrawerOpen(true);
-  }
-
-  function openEdit(z: Geofence) {
-    setDrawerMode("edit");
-    setEditZone(z);
-    setDrawerOpen(true);
-  }
-
-  function closeDrawer() {
-    setDrawerOpen(false);
-    setEditZone(null);
-  }
-
-  function handleSubmitForm(data: ZoneFormData) {
-    if (!data.name.trim()) { error("Nama zona wajib diisi"); return; }
-    const lat = parseFloat(data.lat);
-    const lng = parseFloat(data.lng);
-    if (isNaN(lat) || isNaN(lng)) { error("Koordinat pusat wajib diisi"); return; }
-
-    if (drawerMode === "add") {
-      const newZone: Geofence = {
-        id: String(zones.length + 1),
-        name: data.name.trim(),
-        type: data.type,
-        shape: data.shape,
-        lat, lng,
-        radius: parseInt(data.radius) || 500,
-        color: data.color,
-        status: data.status,
-        units: 0,
-        notes: data.notes.trim(),
-      };
-      setZones((prev) => [...prev, newZone]);
-      success("Zona " + newZone.name + " ditambahkan");
-      closeDrawer();
-    } else if (editZone) {
-      setZones((prev) =>
-        prev.map((z) =>
-          z.id === editZone.id
-            ? { ...z, name: data.name.trim(), type: data.type, shape: data.shape, lat, lng, radius: parseInt(data.radius) || 500, color: data.color, status: data.status, notes: data.notes.trim() }
-            : z
-        )
-      );
-      success("Zona " + data.name + " diperbarui");
-      closeDrawer();
-    }
-  }
-
-  function handleDelete(z: Geofence) {
-    setZones((prev) => prev.filter((x) => x.id !== z.id));
-    if (selected?.id === z.id) setSelected(null);
-    setDeleteConfirm(null);
-    success("Zona " + z.name + " dihapus");
-  }
-
-  function handleToggle(z: Geofence) {
-    const newStatus: ZoneStatus = z.status === "active" ? "inactive" : "active";
-    setZones((prev) => prev.map((x) => x.id === z.id ? { ...x, status: newStatus } : x));
-  }
-
   function handleExport() {
     downloadCsv(
       "vanguard-geofence.csv",
@@ -427,86 +137,78 @@ export default function GeofencesPage() {
   const isFiltered = search !== "" || filterType !== "all" || filterStatus !== "all";
 
   return (
-    <div className="h-[calc(100vh-4rem)] flex flex-col overflow-hidden">
-      {/* ─── Header ─────────────────────────────────────────────────────────── */}
-      <header className="shrink-0 px-6 pt-6 pb-4 border-b border-border bg-surface-1">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex items-start gap-6">
-            <div>
-              <p className="text-label uppercase tracking-wide text-muted">Fleet Management</p>
-              <h1 className="text-h1 font-semibold text-foreground mt-0.5">Manajemen Geofence</h1>
-              <p className="text-sm text-muted mt-0.5">Zona monitoring arrival, departure &amp; dwell time</p>
-            </div>
-            <div className="flex items-center gap-1 mt-6">
-              <KpiStat label="Total" value={counts.total} />
-              <KpiDivider />
-              <KpiStat label="Aktif" value={counts.aktif} accent="text-st-driving" />
-              <KpiDivider />
-              <KpiStat label="Lingkaran" value={counts.circle} />
-              <KpiDivider />
-              <KpiStat label="Poligon" value={counts.polygon} />
-            </div>
-          </div>
-          <div className="flex items-center gap-2 mt-1">
-            <span className="text-xs text-muted">Mode baca</span>
-            <Button variant="secondary" size="sm" icon={<Download className="w-4 h-4" />} onClick={handleExport} aria-label="Export data geofence">
-              Export
-            </Button>
-          </div>
+    <div className="flex h-[calc(100dvh-3.625rem)] max-h-[calc(100dvh-3.625rem)] min-h-0 flex-col overflow-hidden">
+      <header className="flex h-12 shrink-0 items-center gap-4 overflow-x-auto border-b border-border bg-surface-1 px-4">
+        <div className="flex shrink-0 items-baseline gap-2">
+          <h1 className="text-sm font-semibold text-foreground">Geofence</h1>
+          <span className="font-mono text-xs tabular-nums text-muted">{counts.total} zona</span>
+        </div>
+        <div className="flex shrink-0 items-center divide-x divide-border">
+          <SummaryItem label="Total" value={counts.total} />
+          <SummaryItem label="Aktif" value={counts.aktif} color="var(--st-driving)" />
+          <SummaryItem label="Lingkaran" value={counts.circle} />
+          <SummaryItem label="Poligon" value={counts.polygon} />
+        </div>
+        <div className="ml-auto flex shrink-0 items-center">
+          <Button variant="secondary" size="sm" icon={<Download className="h-4 w-4" />} onClick={handleExport} aria-label="Export data geofence">
+            Export
+          </Button>
         </div>
       </header>
 
       {/* ─── Toolbar ────────────────────────────────────────────────────────── */}
-      <div className="shrink-0 px-6 py-3 border-b border-border bg-surface-1">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="relative flex-1 min-w-[200px] max-w-xs">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted pointer-events-none" />
-            <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
-              placeholder="Cari nama zona..."
-              className="w-full pl-9 pr-3 py-1.5 text-sm bg-surface-2 border border-border rounded-lg placeholder:text-faint text-foreground focus-visible:outline-2 focus-visible:outline-brand focus-visible:outline-offset-0 transition-colors" />
+      <div className="flex h-11 shrink-0 min-w-0 items-center gap-2 overflow-x-auto border-b border-border bg-surface-1 px-4">
+        {searchOpen ? (
+          <div className="relative flex w-72 shrink-0 items-center gap-2">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted" />
+            <input ref={searchInputRef} type="text" value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(event) => {
+              if (event.key === "Escape") { setSearch(""); setSearchOpen(false); }
+            }} placeholder="Cari nama zona..." aria-label="Cari zona"
+              className="h-8 min-w-0 flex-1 border border-border bg-surface-1 pl-8 pr-3 text-xs text-foreground placeholder:text-faint focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20" />
+            <button type="button" onClick={() => { setSearch(""); setSearchOpen(false); }} className="flex h-8 w-8 shrink-0 items-center justify-center text-muted transition-colors hover:bg-surface-2 hover:text-foreground focus-visible:outline-2 focus-visible:outline-brand" aria-label="Tutup pencarian"><X className="h-4 w-4" /></button>
           </div>
+        ) : (
+          <button type="button" onClick={() => setSearchOpen(true)} className="flex h-8 w-8 shrink-0 items-center justify-center text-muted transition-colors hover:bg-surface-2 hover:text-foreground focus-visible:outline-2 focus-visible:outline-brand" aria-label="Cari zona"><Search className="h-4 w-4" /></button>
+        )}
 
-          {/* Type filter */}
-          <div className="flex items-center gap-1">
-            <span className="text-sm text-muted mr-2">Tipe:</span>
+        <div className="flex shrink-0 items-center gap-1">
+            {!searchOpen && <span className="mr-1 text-[10px] font-semibold uppercase tracking-widest text-muted">Tipe</span>}
             {(["all", "Depot", "Customer", "Port", "Checkpoint"] as (ZoneType | "all")[]).map((f) => (
               <button key={f} onClick={() => setFilterType(f)}
-                className={"px-3 py-1.5 rounded-md text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-brand " + (filterType === f ? "bg-brand text-white" : "bg-surface-2 text-muted hover:bg-surface-3 hover:text-foreground border border-border")}>
+                className={"h-7 shrink-0 border border-border px-2.5 text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-brand " + (filterType === f ? "bg-brand text-slate-950" : "text-muted hover:bg-surface-2 hover:text-foreground")} aria-pressed={filterType === f}>
                 {f === "all" ? "Semua" : f}
               </button>
             ))}
-          </div>
+        </div>
 
-          {/* Status filter */}
-          <div className="flex items-center gap-1">
-            <span className="text-sm text-muted mr-2">Status:</span>
+        <div className="flex shrink-0 items-center gap-1 border-l border-border pl-2">
+            <span className="mr-1 text-[10px] font-semibold uppercase tracking-widest text-muted">Status</span>
             {(["all", "active", "inactive"] as (ZoneStatus | "all")[]).map((f) => (
               <button key={f} onClick={() => setFilterStatus(f)}
-                className={"px-3 py-1.5 rounded-md text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-brand " + (filterStatus === f ? "bg-brand text-white" : "bg-surface-2 text-muted hover:bg-surface-3 hover:text-foreground border border-border")}>
+                className={"h-7 shrink-0 border border-border px-2.5 text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-brand " + (filterStatus === f ? "bg-brand text-slate-950" : "text-muted hover:bg-surface-2 hover:text-foreground")} aria-pressed={filterStatus === f}>
                 {f === "all" ? "Semua" : f === "active" ? "Aktif" : "Nonaktif"}
               </button>
             ))}
-          </div>
+        </div>
 
           {isFiltered && (
             <button onClick={resetFilters}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium bg-surface-2 border border-border text-muted hover:bg-surface-3 hover:text-foreground focus-visible:outline-2 focus-visible:outline-brand transition-colors">
-              <X className="w-4 h-4" />Reset
+              className="flex h-7 shrink-0 items-center gap-1 border border-border px-2.5 text-xs font-medium text-muted transition-colors hover:bg-surface-2 hover:text-foreground focus-visible:outline-2 focus-visible:outline-brand">
+              <X className="h-3 w-3" />Reset
             </button>
           )}
-        </div>
       </div>
 
       {/* ─── Content: 2-column ────────────────────────────────────────────── */}
       <div className="flex-1 overflow-hidden flex">
         {/* ── LEFT: Zone list ──────────────────────────────────────────────── */}
-        <div className="w-[420px] shrink-0 border-r border-border flex flex-col overflow-hidden bg-surface-1">
+        <div className="flex w-[360px] shrink-0 flex-col overflow-hidden border-r border-border bg-surface-1">
           {rows.length === 0 ? (
             <div className="flex-1 flex items-center justify-center p-6">
               <EmptyState
                 icon={<MapPinned className="w-8 h-8 opacity-40" />}
                 title={isFiltered ? "Tidak ada zona" : "Belum ada zona"}
-                description={isFiltered ? "Tidak ada zona yang cocok dengan filter." : "Tambahkan zona pertama."}
+                description={isFiltered ? "Tidak ada zona yang cocok dengan filter." : "Belum ada zona dalam sumber data geofence."}
                 action={isFiltered ? (
                   <Button variant="secondary" size="sm" onClick={resetFilters}>Reset Filter</Button>
                 ) : undefined}
@@ -514,12 +216,12 @@ export default function GeofencesPage() {
             </div>
           ) : (
             <div className="flex-1 overflow-y-auto">
-              <TableContainer scrollable={false} className="[&_td]:!py-4 [&_th]:!py-4">
+              <TableContainer scrollable={false} className="v2-geofence-table border-0 [&_td]:!px-3 [&_td]:!py-2 [&_th]:!h-9 [&_th]:!px-3 [&_th]:!py-0">
                 <TableHead>
                   <tr>
-                    <TableHeadCell width={160}>Nama Zona</TableHeadCell>
-                    <TableHeadCell width={80}>Tipe</TableHeadCell>
-                    <TableHeadCell width={80}>Radius</TableHeadCell>
+                    <TableHeadCell width={160}>Zona</TableHeadCell>
+                    <TableHeadCell width={76}>Tipe</TableHeadCell>
+                    <TableHeadCell width={64}>Radius</TableHeadCell>
                     <TableHeadCell width={60} className="text-right">Unit</TableHeadCell>
                   </tr>
                 </TableHead>
@@ -536,28 +238,25 @@ export default function GeofencesPage() {
                         {/* Nama */}
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: z.color }} />
+                            <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: z.color }} />
                             <div className="min-w-0">
-                              <p className="text-base font-bold text-foreground truncate">{z.name}</p>
-                              <p className="text-sm font-mono tabular-nums text-muted">
-                                {z.lat.toFixed(4)}, {z.lng.toFixed(4)}
-                              </p>
+                              <p className="text-sm font-semibold text-foreground truncate">{z.name}</p>
                             </div>
                           </div>
                         </TableCell>
                         {/* Tipe */}
                         <TableCell>
-                          <Badge variant={TYPE_COLORS[z.type].replace("bg-", "") as "brand" | "success" | "warning" | "default"} className="text-sm font-medium">
+                          <span className="whitespace-nowrap text-[10px] font-semibold uppercase tracking-wide text-muted">
                             {z.type}
-                          </Badge>
+                          </span>
                         </TableCell>
                         {/* Radius */}
                         <TableCell>
-                          <span className="text-sm font-mono tabular-nums font-medium text-foreground">{z.radius}m</span>
+                          <span className="text-xs font-mono tabular-nums font-medium text-foreground">{z.radius}m</span>
                         </TableCell>
                         {/* Units */}
                         <TableCell className="text-right">
-                          <span className="text-sm font-mono tabular-nums font-semibold text-foreground">{z.units}</span>
+                          <span className="text-xs font-mono tabular-nums font-semibold text-foreground">{z.units}</span>
                         </TableCell>
                       </TableRow>
                     );
@@ -574,8 +273,8 @@ export default function GeofencesPage() {
             <>
               <GeofenceMapPreview zones={zones} selectedId={selected.id} />
               {/* Selected zone overlay card */}
-              <div className="absolute top-4 right-4 z-dock w-[320px]">
-                <Card padding="md">
+              <div className="absolute right-3 top-3 z-dock w-[288px]">
+                <Card padding="sm">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-2 min-w-0">
                       <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: selected.color }} />
@@ -585,36 +284,16 @@ export default function GeofencesPage() {
                       <X className="w-4 h-4" />
                     </button>
                   </div>
-                  <div className="mt-3 grid grid-cols-2 gap-2">
-                    <div className="rounded bg-surface-2 border border-border px-2.5 py-1.5">
-                      <p className="text-[9px] font-semibold uppercase tracking-widest text-muted">Tipe</p>
-                      <p className="text-xs font-medium text-foreground mt-0.5">{selected.type}</p>
-                    </div>
-                    <div className="rounded bg-surface-2 border border-border px-2.5 py-1.5">
-                      <p className="text-[9px] font-semibold uppercase tracking-widest text-muted">Radius</p>
-                      <p className="text-xs font-mono tabular-nums font-medium text-foreground mt-0.5">{selected.radius}m</p>
-                    </div>
-                    <div className="rounded bg-surface-2 border border-border px-2.5 py-1.5">
-                      <p className="text-[9px] font-semibold uppercase tracking-widest text-muted">Unit</p>
-                      <p className="text-xs font-semibold text-foreground mt-0.5">{selected.units} kendaraan</p>
-                    </div>
-                    <div className="rounded bg-surface-2 border border-border px-2.5 py-1.5">
-                      <p className="text-[9px] font-semibold uppercase tracking-widest text-muted">Status</p>
-                      <Badge variant={selected.status === "active" ? "success" : "default"} className="mt-0.5">
-                        {selected.status === "active" ? "Aktif" : "Nonaktif"}
-                      </Badge>
-                    </div>
-                  </div>
-                  <div className="mt-2 rounded bg-surface-2 border border-border px-2.5 py-1.5">
-                    <p className="text-[9px] font-semibold uppercase tracking-widest text-muted">Koordinat</p>
-                    <p className="text-xs font-mono tabular-nums text-foreground mt-0.5">
-                      {selected.lat.toFixed(6)}, {selected.lng.toFixed(6)}
-                    </p>
-                  </div>
+                  <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 border-y border-border py-2 text-xs">
+                    <div><dt className="text-[10px] uppercase tracking-wide text-muted">Tipe</dt><dd className="mt-0.5 font-medium text-foreground">{selected.type}</dd></div>
+                    <div><dt className="text-[10px] uppercase tracking-wide text-muted">Radius</dt><dd className="mt-0.5 font-mono tabular-nums font-medium text-foreground">{selected.radius}m</dd></div>
+                    <div><dt className="text-[10px] uppercase tracking-wide text-muted">Unit</dt><dd className="mt-0.5 font-medium text-foreground">{selected.units} kendaraan</dd></div>
+                    <div><dt className="text-[10px] uppercase tracking-wide text-muted">Status</dt><dd className="mt-0.5 font-medium text-foreground">{selected.status === "active" ? "Aktif" : "Nonaktif"}</dd></div>
+                  </dl>
+                  <p className="mt-2 text-[11px] font-mono tabular-nums text-muted">{selected.lat.toFixed(6)}, {selected.lng.toFixed(6)}</p>
                   {selected.notes && (
-                    <div className="mt-2 rounded bg-surface-2 border border-border px-2.5 py-1.5">
-                      <p className="text-[9px] font-semibold uppercase tracking-widest text-muted">Catatan</p>
-                      <p className="text-xs text-muted mt-0.5">{selected.notes}</p>
+                    <div className="mt-2 border-t border-border pt-2">
+                      <p className="text-xs text-muted">{selected.notes}</p>
                     </div>
                   )}
                 </Card>
@@ -632,34 +311,6 @@ export default function GeofencesPage() {
         </div>
       </div>
 
-      {/* ─── Drawer Panel ──────────────────────────────────────────────────── */}
-      <Panel
-        open={false}
-        onClose={closeDrawer}
-        title={drawerMode === "add" ? "Tambah Zona" : "Edit Zona"}
-        subtitle={drawerMode === "edit" && editZone ? editZone.name : undefined}
-        width={420}
-      >
-        <ZoneForm
-          initial={
-            drawerMode === "edit" && editZone
-              ? {
-                  name: editZone.name,
-                  type: editZone.type,
-                  shape: editZone.shape,
-                  lat: String(editZone.lat),
-                  lng: String(editZone.lng),
-                  radius: String(editZone.radius),
-                  color: editZone.color,
-                  status: editZone.status,
-                  notes: editZone.notes,
-                }
-              : undefined
-          }
-          onSubmit={handleSubmitForm}
-          onCancel={closeDrawer}
-        />
-      </Panel>
     </div>
   );
 }

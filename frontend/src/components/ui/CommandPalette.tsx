@@ -33,7 +33,7 @@ const PAGES: SearchResult[] = [
   { id: "p-accidents", type: "page", label: "Accident Log", sublabel: "Log kejadian", href: "/accidents" },
   { id: "p-reports", type: "page", label: "Reports", sublabel: "Analitik operasional", href: "/reports" },
   { id: "p-snapshots", type: "page", label: "Camera Snapshot", sublabel: "Bukti foto", href: "/snapshots" },
-  { id: "p-dashcam", type: "page", label: "Dashcam Monitor", sublabel: "Live video", href: "/dashcam" },
+  { id: "p-dashcam", type: "page", label: "Dashcam Monitor", sublabel: "Rekaman arsip", href: "/dashcam" },
   { id: "p-control", type: "page", label: "Control Panel", sublabel: "Remote commands", href: "/control" },
   { id: "p-settings", type: "page", label: "Settings", sublabel: "Pengaturan", href: "/settings" },
 ];

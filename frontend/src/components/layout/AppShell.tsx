@@ -58,7 +58,7 @@ const PAGE_TITLES: Record<string, { title: string; summary: string }> = {
   "/accidents": { title: "Accident Log", summary: "Incident records" },
   "/reports": { title: "Reports", summary: "Operational analytics" },
   "/snapshots": { title: "Camera Snapshot", summary: "Photo evidence" },
-  "/dashcam": { title: "Dashcam Monitor", summary: "Live video" },
+  "/dashcam": { title: "Dashcam Monitor", summary: "Rekaman arsip" },
   "/control": { title: "Control Panel", summary: "Administration" },
   "/settings": { title: "Settings", summary: "Preferences" },
 };
@@ -249,7 +249,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
           </div>
 
           {/* Kanan: data context + notifikasi + avatar */}
-          <div className="flex shrink-0 items-center gap-1.5">
+          <div className="ml-auto flex shrink-0 items-center gap-1.5">
             <span className="hidden bg-brand px-2 py-0.5 font-mono text-[9px] font-semibold tracking-[0.08em] text-slate-950 tabular-nums sm:inline">{clock}</span>
 
             {/* Bell notifikasi — opens dropdown */}

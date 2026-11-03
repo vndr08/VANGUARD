@@ -4,6 +4,10 @@ venv/
 __pycache__/
 *.db
 .next/
+frontend/.next-playwright/
+frontend/.next-build/
+frontend/test-results/
+frontend/playwright-report/
 .DS_Store
 docs/_backup/
 .env

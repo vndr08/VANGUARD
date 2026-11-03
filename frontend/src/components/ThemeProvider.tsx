@@ -153,20 +153,6 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     [theme, toggleTheme, setTheme, density, setDensity, accent, setAccent, reducedMotion]
   );
 
-  // Avoid flash of wrong theme — show nothing until mounted
-  if (!mounted) {
-    return (
-      <div
-        style={{
-          backgroundColor: "var(--road, #0E1211)",
-          minHeight: "100vh",
-          position: "fixed",
-          inset: 0,
-        }}
-      />
-    );
-  }
-
   return (
     <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
   );

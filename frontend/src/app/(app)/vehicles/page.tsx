@@ -1,21 +1,14 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
-import { motion } from "motion/react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import {
   Download,
-  Edit2,
-  Plus,
   Search,
-  Trash2,
   Truck,
   X,
 } from "lucide-react";
-import { FLEET_VEHICLES, createFleetVehicles } from "@/lib/fleet-data";
-import { getVehicles } from "@/hooks/useTelemetry";
 import { useAppContext } from "@/components/context/AppContext";
-import type { Vehicle } from "@/types";
-import { useToast } from "@/components/ui/Toast";
 import { StatusPill } from "@/components/ui/Badge";
 import {
   TableContainer,
@@ -27,10 +20,8 @@ import {
   PlateCell,
   StatusCell,
 } from "@/components/ui/Table";
-import { Button, IconButton } from "@/components/ui/Button";
-import { Panel, PanelSection, PanelDivider } from "@/components/ui/Panel";
-import { Card, Skeleton, EmptyState } from "@/components/ui/Card";
-import { useReducedMotion } from "@/hooks/useReducedMotion";
+import { Button } from "@/components/ui/Button";
+import { Card, EmptyState } from "@/components/ui/Card";
 import { downloadCsv } from "@/lib/csv";
 
 /* ─── Types ─────────────────────────────────────────────────────────────────── */
@@ -48,14 +39,15 @@ function toBadgeStatus(s: VehicleStatus): "driving" | "idle" | "stop" | "offline
   return s === "stopped" ? "stop" : (s as "driving" | "idle" | "offline");
 }
 
-/* ─── KPI Helpers ───────────────────────────────────────────────────────────── */
-
-function KpiValue({ value }: { value: number }) {
-  return (
-    <span className="tabular-nums font-semibold text-foreground">
-      {value}
-    </span>
-  );
+function formatVehicleType(type: FilterType): string {
+  const labels: Record<FilterType, string> = {
+    all: "Semua tipe",
+    truck: "Truk",
+    van: "Van",
+    pickup: "Pickup",
+    trailer: "Trailer",
+  };
+  return labels[type];
 }
 
 /* ─── Fuel Mini Bar ─────────────────────────────────────────────────────────── */
@@ -67,7 +59,7 @@ function FuelMiniBar({ level }: { level: number }) {
     "bg-st-offline";
   return (
     <div className="flex items-center gap-2">
-      <div className="w-14 h-1.5 rounded-full bg-surface-3 overflow-hidden">
+      <div className="w-12 h-1.5 rounded-full bg-surface-3 overflow-hidden">
         <div
           className={`h-full rounded-full ${color} transition-all`}
           style={{ width: `${Math.min(100, Math.max(0, level))}%` }}
@@ -80,286 +72,25 @@ function FuelMiniBar({ level }: { level: number }) {
   );
 }
 
-/* ─── Confirm Dialog (inline) ───────────────────────────────────────────────── */
-
-function DeleteConfirm({
-  vehiclePlate: plate,
-  onConfirm,
-  onCancel,
-}: {
-  vehiclePlate: string;
-  onConfirm: () => void;
-  onCancel: () => void;
-}) {
-  const reducedMotion = useReducedMotion();
-  return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={reducedMotion ? { duration: 0 } : { duration: 0.15 }}
-      className="flex items-center gap-3 p-3 bg-surface-2 border border-border rounded-lg"
-    >
-      <span className="text-sm text-foreground flex-1">
-        Hapus <span className="font-semibold font-mono">{plate}</span>?
-      </span>
-      <Button size="sm" variant="danger" onClick={onConfirm} aria-label="Konfirmasi hapus">
-        Ya
-      </Button>
-      <Button size="sm" variant="ghost" onClick={onCancel} aria-label="Batal hapus">
-        Batal
-      </Button>
-    </motion.div>
-  );
-}
-
-/* ─── Vehicle Form ──────────────────────────────────────────────────────────── */
-
-interface VehicleFormData {
-  plate_number: string;
-  brand: string;
-  model: string;
-  vehicle_type: string;
-  year: number;
-  driver_name: string;
-  status: VehicleStatus;
-  fuel_level: number;
-  odometer: number;
-}
-
-const DRIVER_NAMES = [
-  "Ahmad Sudirman", "Budi Santoso", "Cahyo Wibowo", "Dedi Kurniawan",
-  "Eko Prasetyo", "Fajar Ramadhan", "Gunawan Hadi", "Hendra Wijaya",
-  "Irfan Hakim", "Joko Susilo", "Kurnia Adi", "Lukman Hakim",
-  "Muhammad Rizki", "Nur Hidayat", "Oscar Pranata", "Putra Mahendra",
-  "Rudi Hartono", "Sugeng Priyanto", "Teguh Waluyo", "Umar Faruq",
-];
-
-const EMPTY_FORM: VehicleFormData = {
-  plate_number: "",
-  brand: "",
-  model: "",
-  vehicle_type: "truck",
-  year: new Date().getFullYear(),
-  driver_name: "",
-  status: "stopped",
-  fuel_level: 50,
-  odometer: 0,
-};
-
-function VehicleForm({
-  initial,
-  onSubmit,
-  onCancel,
-  title,
-}: {
-  initial?: VehicleFormData;
-  onSubmit: (data: VehicleFormData) => void;
-  onCancel: () => void;
-  title: string;
-}) {
-  const [form, setForm] = useState<VehicleFormData>(initial ?? EMPTY_FORM);
-
-  function set(field: keyof VehicleFormData, value: string | number) {
-    setForm((prev) => ({ ...prev, [field]: value }));
-  }
-
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    onSubmit(form);
-  }
-
-  return (
-    <form onSubmit={handleSubmit} className="flex flex-col h-full">
-      {/* Panel body scrollable */}
-      <div className="flex-1 overflow-y-auto">
-        <PanelSection title="Info Kendaraan">
-          <div className="space-y-3">
-            <FormField label="Plat Nomor *" required>
-              <input
-                type="text"
-                value={form.plate_number}
-                onChange={(e) => set("plate_number", e.target.value.toUpperCase())}
-                placeholder="B 1234 KJT"
-                className="form-input"
-                autoFocus
-              />
-            </FormField>
-
-            <div className="grid grid-cols-2 gap-3">
-              <FormField label="Brand *">
-                <input
-                  type="text"
-                  value={form.brand}
-                  onChange={(e) => set("brand", e.target.value)}
-                  placeholder="Hino"
-                  className="form-input"
-                />
-              </FormField>
-              <FormField label="Model">
-                <input
-                  type="text"
-                  value={form.model}
-                  onChange={(e) => set("model", e.target.value)}
-                  placeholder="Ranger FL"
-                  className="form-input"
-                />
-              </FormField>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <FormField label="Tipe">
-                <select
-                  value={form.vehicle_type}
-                  onChange={(e) => set("vehicle_type", e.target.value)}
-                  className="form-input"
-                >
-                  <option value="truck">Truck</option>
-                  <option value="van">Van</option>
-                  <option value="pickup">Pickup</option>
-                  <option value="trailer">Trailer</option>
-                </select>
-              </FormField>
-              <FormField label="Tahun">
-                <input
-                  type="number"
-                  value={form.year}
-                  onChange={(e) => set("year", parseInt(e.target.value) || 0)}
-                  min={1990}
-                  max={2030}
-                  className="form-input"
-                />
-              </FormField>
-            </div>
-          </div>
-        </PanelSection>
-
-        <PanelDivider />
-
-        <PanelSection title="Operasional">
-          <div className="space-y-3">
-            <FormField label="Driver">
-              <select
-                value={form.driver_name}
-                onChange={(e) => set("driver_name", e.target.value)}
-                className="form-input"
-              >
-                <option value="">— Belum Ditugaskan —</option>
-                {DRIVER_NAMES.map((d) => (
-                  <option key={d} value={d}>{d}</option>
-                ))}
-              </select>
-            </FormField>
-
-            <FormField label="Status">
-              <select
-                value={form.status}
-                onChange={(e) => set("status", e.target.value as VehicleStatus)}
-                className="form-input"
-              >
-                <option value="driving">Driving</option>
-                <option value="idle">Idle</option>
-                <option value="stopped">Stop</option>
-                <option value="offline">Offline</option>
-              </select>
-            </FormField>
-
-            <div className="grid grid-cols-2 gap-3">
-              <FormField label="Kapasitas BBM (%)">
-                <input
-                  type="number"
-                  value={form.fuel_level}
-                  onChange={(e) => set("fuel_level", Math.min(100, Math.max(0, parseInt(e.target.value) || 0)))}
-                  min={0}
-                  max={100}
-                  className="form-input"
-                />
-              </FormField>
-              <FormField label="Odometer (km)">
-                <input
-                  type="number"
-                  value={form.odometer}
-                  onChange={(e) => set("odometer", Math.max(0, parseInt(e.target.value) || 0))}
-                  min={0}
-                  className="form-input"
-                />
-              </FormField>
-            </div>
-          </div>
-        </PanelSection>
-      </div>
-
-      {/* Panel footer — sticky */}
-      <div className="pt-4 border-t border-border flex items-center gap-2">
-        <Button type="button" variant="ghost" onClick={onCancel} className="flex-1">
-          Batal
-        </Button>
-        <Button type="submit" variant="primary" className="flex-1">
-          {initial ? "Simpan Perubahan" : "Tambah Kendaraan"}
-        </Button>
-      </div>
-    </form>
-  );
-}
-
-function FormField({
-  label,
-  required,
-  children,
-}: {
-  label: string;
-  required?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <div>
-      <label className="block text-sm font-medium text-muted mb-1.5">
-        {label}
-        {required && <span className="text-st-offline ml-0.5">*</span>}
-      </label>
-      {children}
-    </div>
-  );
-}
-
 /* ─── Main Page ─────────────────────────────────────────────────────────────── */
 
 export default function VehiclesPage() {
-  const { success, error } = useToast();
-  const reducedMotion = useReducedMotion();
   const { vehicles: contextVehicles } = useAppContext();
-
-  // Local state for vehicle list (allows add/edit/delete)
-  const [localVehicles, setLocalVehicles] = useState<Vehicle[]>([]);
-  const [initialized, setInitialized] = useState(false);
-
-  // Initialize local vehicles from context or fallback
-  useEffect(() => {
-    if (!initialized && contextVehicles.length > 0) {
-      setLocalVehicles(contextVehicles);
-      setInitialized(true);
-    } else if (!initialized && contextVehicles.length === 0) {
-      setLocalVehicles(FLEET_VEHICLES);
-      setInitialized(true);
-    }
-  }, [contextVehicles, initialized]);
-
-  // Use local vehicles if initialized, otherwise fallback
-  const vehicles = localVehicles;
+  const vehicles = contextVehicles;
 
   // UI state
   const [search, setSearch] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
   const [filterType, setFilterType] = useState<FilterType>("all");
   const [sortField, setSortField] = useState<SortField>("plate_number");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
 
-  // Drawer state
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [drawerMode, setDrawerMode] = useState<"add" | "edit">("add");
-  const [editVehicle, setEditVehicle] = useState<Vehicle | null>(null);
+  useEffect(() => {
+    if (searchOpen) searchInputRef.current?.focus();
+  }, [searchOpen]);
 
-  // Delete confirm state — keyed by vehicle id
-  const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
 
   // ─── KPI counts
   const counts = useMemo(() => ({
@@ -407,92 +138,6 @@ export default function VehiclesPage() {
     }
   }
 
-  // ─── Open add drawer
-  function openAdd() {
-    setDrawerMode("add");
-    setEditVehicle(null);
-    setDrawerOpen(true);
-  }
-
-  // ─── Open edit drawer
-  function openEdit(v: Vehicle) {
-    setDrawerMode("edit");
-    setEditVehicle(v);
-    setDrawerOpen(true);
-  }
-
-  // ─── Close drawer
-  function closeDrawer() {
-    setDrawerOpen(false);
-    setEditVehicle(null);
-  }
-
-  // ─── Submit form
-  function handleSubmitForm(data: VehicleFormData) {
-    if (!data.plate_number.trim()) {
-      error("Plat Nomor wajib diisi");
-      return;
-    }
-    if (!data.brand.trim()) {
-      error("Brand wajib diisi");
-      return;
-    }
-
-    if (drawerMode === "add") {
-      const newVehicle: Vehicle = {
-        id: Math.max(...vehicles.map((v) => v.id), 0) + 1,
-        plate_number: data.plate_number.trim(),
-        brand: data.brand.trim(),
-        model: data.model.trim(),
-        vehicle_type: data.vehicle_type,
-        year: data.year,
-        driver_name: data.driver_name || null,
-        status: data.status,
-        speed: 0,
-        latitude: null,
-        longitude: null,
-        heading: 0,
-        engine_on: data.status !== "offline",
-        fuel_level: data.fuel_level,
-        odometer: data.odometer,
-        last_update: new Date().toISOString(),
-      };
-      setLocalVehicles((prev) => [...prev, newVehicle]);
-      success(`Kendaraan ${newVehicle.plate_number} ditambahkan`);
-      closeDrawer();
-    } else if (editVehicle) {
-      setLocalVehicles((prev) =>
-        prev.map((v) =>
-          v.id === editVehicle.id
-            ? {
-                ...v,
-                plate_number: data.plate_number.trim(),
-                brand: data.brand.trim(),
-                model: data.model.trim(),
-                vehicle_type: data.vehicle_type,
-                year: data.year,
-                driver_name: data.driver_name || null,
-                status: data.status,
-                engine_on: data.status !== "offline",
-                fuel_level: data.fuel_level,
-                odometer: data.odometer,
-                last_update: new Date().toISOString(),
-              }
-            : v
-        )
-      );
-      success(`Kendaraan ${data.plate_number} diperbarui`);
-      closeDrawer();
-    }
-  }
-
-  // ─── Delete vehicle
-  function handleDelete(v: Vehicle) {
-    setLocalVehicles((prev) => prev.filter((x) => x.id !== v.id));
-    setDeleteConfirm(null);
-    success(`Kendaraan ${v.plate_number} dihapus`);
-  }
-
   // ─── Export
   function handleExport() {
     downloadCsv(
@@ -523,126 +168,125 @@ export default function VehiclesPage() {
   const isFiltered = search !== "" || filterStatus !== "all" || filterType !== "all";
 
   return (
-    <div className="h-[calc(100vh-4rem)] flex flex-col overflow-hidden">
-      {/* ─── Header ─────────────────────────────────────────────────────────── */}
-      <header className="shrink-0 px-6 pt-6 pb-4 border-b border-border bg-surface-1">
-        <div className="flex items-start justify-between gap-4">
-          {/* Title + KPIs */}
-          <div className="flex items-start gap-6">
-            <div>
-              <p className="text-label uppercase tracking-wide text-muted">
-                Fleet Management
-              </p>
-              <h1 className="text-h1 font-semibold text-foreground mt-0.5">
-                Manajemen Kendaraan
-              </h1>
-              <p className="text-sm text-muted mt-0.5">
-                Master data kendaraan dan aset armada
-              </p>
-            </div>
-
-            {/* KPI inline */}
-            <div className="flex items-center gap-1 mt-6">
-              <KpiStat label="Total" value={counts.total} />
-              <KpiDivider />
-              <KpiStat label="Aktif" value={counts.aktif} accent="text-st-driving" />
-              <KpiDivider />
-              <KpiStat label="Stop" value={counts.maintenance} accent="text-st-stop" />
-              <KpiDivider />
-              <KpiStat label="Offline" value={counts.offline} accent="text-st-offline" />
-            </div>
-          </div>
-
-          {/* CTA */}
-          <div className="flex items-center gap-2 mt-1">
-            <span className="text-xs text-muted">Mode baca</span>
-            <Button
-              variant="secondary"
-              size="sm"
-              icon={<Download className="w-4 h-4" />}
-              onClick={handleExport}
-              aria-label="Export data kendaraan"
-            >
-              Export
-            </Button>
-          </div>
+    <div className="flex h-[calc(100dvh-3.625rem)] max-h-[calc(100dvh-3.625rem)] min-h-0 flex-col overflow-hidden">
+      {/* ─── Compact fleet summary ─────────────────────────────────────────── */}
+      <header className="flex h-12 shrink-0 items-center gap-4 overflow-x-auto border-b border-border bg-surface-1 px-4">
+        <div className="flex shrink-0 items-baseline gap-2">
+          <h1 className="text-sm font-semibold text-foreground">Kendaraan</h1>
+          <span className="font-mono text-xs tabular-nums text-muted">{counts.total} unit</span>
+        </div>
+        <div className="flex shrink-0 items-center divide-x divide-border text-xs">
+          <SummaryItem label="Total" value={counts.total} />
+          <SummaryItem label="Aktif" value={counts.aktif} color="var(--st-driving)" />
+          <SummaryItem label="Berhenti" value={counts.maintenance} color="var(--st-stop)" />
+          <SummaryItem label="Offline" value={counts.offline} color="var(--st-offline)" />
+        </div>
+        <div className="ml-auto flex shrink-0 items-center">
+          <Button
+            variant="secondary"
+            size="sm"
+            icon={<Download className="h-4 w-4" />}
+            onClick={handleExport}
+            aria-label="Export data kendaraan"
+          >
+            Export
+          </Button>
         </div>
       </header>
 
-      {/* ─── Toolbar ────────────────────────────────────────────────────────── */}
-      <div className="shrink-0 px-6 py-3 border-b border-border bg-surface-1">
-        <div className="flex flex-wrap items-center gap-3">
-          {/* Search */}
-          <div className="relative flex-1 min-w-[200px] max-w-xs">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted pointer-events-none" />
+      {/* ─── Compact toolbar ───────────────────────────────────────────────── */}
+      <div className="flex h-11 shrink-0 min-w-0 items-center gap-2 overflow-x-auto border-b border-border bg-surface-1 px-4">
+        {searchOpen ? (
+          <div className="relative flex w-80 shrink-0 items-center gap-2">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted" />
             <input
+              ref={searchInputRef}
               type="text"
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Cari plat, brand, model, driver..."
-              className="w-full pl-9 pr-3 py-1.5 text-sm bg-surface-2 border border-border rounded-lg
-                         placeholder:text-faint text-foreground
-                         focus-visible:outline-2 focus-visible:outline-brand focus-visible:outline-offset-0
-                         transition-colors"
+              onChange={(event) => setSearch(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") {
+                  setSearch("");
+                  setSearchOpen(false);
+                }
+              }}
+              placeholder="Cari plat, brand, model, atau pengemudi..."
+              className="h-8 min-w-0 flex-1 border border-border bg-surface-1 pl-8 pr-3 text-xs text-foreground placeholder:text-faint focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
+              aria-label="Cari kendaraan"
             />
+            <button
+              type="button"
+              onClick={() => {
+                setSearch("");
+                setSearchOpen(false);
+              }}
+              className="flex h-8 w-8 shrink-0 items-center justify-center text-muted transition-colors hover:bg-surface-2 hover:text-foreground focus-visible:outline-2 focus-visible:outline-brand"
+              aria-label="Tutup pencarian"
+            >
+              <X className="h-4 w-4" />
+            </button>
           </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setSearchOpen(true)}
+            className="flex h-8 w-8 shrink-0 items-center justify-center text-muted transition-colors hover:bg-surface-2 hover:text-foreground focus-visible:outline-2 focus-visible:outline-brand"
+            aria-label="Cari kendaraan"
+          >
+            <Search className="h-4 w-4" />
+          </button>
+        )}
 
-          {/* Status filter */}
-          <div className="flex items-center gap-1">
-            <span className="text-xs text-muted mr-1">Status:</span>
+        <div className="flex shrink-0 items-center gap-1">
+          {!searchOpen && <span className="mr-1 text-[10px] font-semibold uppercase tracking-widest text-muted">Status</span>}
             {([
               { key: "all", label: "Semua" },
-              { key: "driving", label: "Driving" },
-              { key: "idle", label: "Idle" },
-              { key: "stopped", label: "Stop" },
+              { key: "driving", label: "Berkendara" },
+              { key: "idle", label: "Diam" },
+              { key: "stopped", label: "Berhenti" },
               { key: "offline", label: "Offline" },
             ] as { key: FilterStatus; label: string }[]).map((f) => (
               <button
                 key={f.key}
                 onClick={() => setFilterStatus(f.key)}
-                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors
-                  focus-visible:outline-2 focus-visible:outline-brand
+                className={`h-7 shrink-0 border border-border px-2.5 text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-brand
                   ${filterStatus === f.key
-                    ? "bg-brand text-white"
-                    : "bg-surface-2 text-muted hover:bg-surface-3 hover:text-foreground border border-border"}`}
+                    ? "bg-brand text-slate-950"
+                    : "text-muted hover:bg-surface-2 hover:text-foreground"}`}
+                aria-pressed={filterStatus === f.key}
               >
                 {f.label}
               </button>
             ))}
-          </div>
 
-          {/* Type filter */}
-          <select
+        </div>
+
+        <select
             value={filterType}
             onChange={(e) => setFilterType(e.target.value as FilterType)}
-            className="text-xs bg-surface-2 border border-border rounded-md px-2.5 py-1.5
-                       text-foreground focus-visible:outline-2 focus-visible:outline-brand
-                       cursor-pointer"
+            className="h-7 shrink-0 border border-border bg-surface-1 px-2 text-xs text-foreground focus-visible:outline-2 focus-visible:outline-brand"
           >
             <option value="all">Semua Tipe</option>
             <option value="truck">Truck</option>
             <option value="van">Van</option>
             <option value="pickup">Pickup</option>
             <option value="trailer">Trailer</option>
-          </select>
+        </select>
 
-          {isFiltered && (
-            <button
-              onClick={resetFilters}
-              className="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium
-                         bg-surface-2 border border-border text-muted
-                         hover:bg-surface-3 hover:text-foreground
-                         focus-visible:outline-2 focus-visible:outline-brand transition-colors"
-            >
-              <X className="w-3 h-3" />
-              Reset
-            </button>
-          )}
-        </div>
+        {isFiltered && (
+          <button
+            type="button"
+            onClick={resetFilters}
+            className="flex h-7 shrink-0 items-center gap-1 border border-border px-2.5 text-xs font-medium text-muted transition-colors hover:bg-surface-2 hover:text-foreground focus-visible:outline-2 focus-visible:outline-brand"
+          >
+            <X className="h-3 w-3" />
+            Reset
+          </button>
+        )}
       </div>
 
       {/* ─── Table ─────────────────────────────────────────────────────────── */}
-      <div className="flex-1 overflow-y-auto px-6 py-4">
+      <div className="flex-1 overflow-y-auto px-4 py-3">
         {sorted.length === 0 ? (
           <Card padding="none">
             <EmptyState
@@ -651,7 +295,7 @@ export default function VehiclesPage() {
               description={
                 isFiltered
                   ? "Tidak ada kendaraan yang cocok dengan filter."
-                  : "Tambahkan kendaraan pertama ke armada."
+                  : "Belum ada kendaraan dalam sumber data armada."
               }
               action={
                 isFiltered ? (
@@ -663,7 +307,7 @@ export default function VehiclesPage() {
             />
           </Card>
         ) : (
-          <TableContainer>
+          <TableContainer className="v2-vehicle-table">
             <TableHead>
               <tr>
                 <TableHeadCell
@@ -671,6 +315,7 @@ export default function VehiclesPage() {
                   sorted={sortField === "plate_number" ? sortDir !== "none" ? sortDir : false : false}
                   onClick={() => handleSort("plate_number")}
                   width={140}
+                  className="!h-9 !px-3 !py-0"
                 >
                   Plat
                 </TableHeadCell>
@@ -678,73 +323,78 @@ export default function VehiclesPage() {
                   sortable
                   sorted={sortField === "brand" ? sortDir !== "none" ? sortDir : false : false}
                   onClick={() => handleSort("brand")}
+                  className="!h-9 !px-3 !py-0"
                 >
                   Brand / Model
                 </TableHeadCell>
-                <TableHeadCell width={90}>Tipe</TableHeadCell>
-                <TableHeadCell width={140}>Driver</TableHeadCell>
+                <TableHeadCell width={84} className="!h-9 !px-3 !py-0">Tipe</TableHeadCell>
+                <TableHeadCell width={132} className="!h-9 !px-3 !py-0">Pengemudi</TableHeadCell>
                 <TableHeadCell
                   sortable
                   sorted={sortField === "status" ? sortDir !== "none" ? sortDir : false : false}
                   onClick={() => handleSort("status")}
-                  width={110}
+                  width={120}
+                  className="!h-9 !px-3 !py-0"
                 >
                   Status
                 </TableHeadCell>
-                <TableHeadCell width={120}>BBM</TableHeadCell>
+                <TableHeadCell width={112} className="!h-9 !px-3 !py-0">BBM</TableHeadCell>
                 <TableHeadCell
                   sortable
                   sorted={sortField === "odometer" ? sortDir !== "none" ? sortDir : false : false}
                   onClick={() => handleSort("odometer")}
-                  className="text-right"
+                  className="!h-9 !px-3 !py-0 text-right"
                   width={120}
                 >
                   Odometer
                 </TableHeadCell>
-                <TableHeadCell width={90}>Tahun</TableHeadCell>
+                <TableHeadCell width={78} className="!h-9 !px-3 !py-0">Tahun</TableHeadCell>
               </tr>
             </TableHead>
             <TableBody>
               {sorted.map((v) => {
-                const isDeleteConfirming = deleteConfirm === v.id;
                 return (
                   <TableRow key={v.id}>
-                    <PlateCell>
-                      <span className="font-mono text-sm font-semibold tabular-nums text-foreground">
+                    <PlateCell className="!px-3 !py-2 whitespace-nowrap">
+                      <Link href={`/tracking?focus=${v.id}`} className="font-mono text-xs font-semibold tabular-nums text-foreground hover:text-brand focus-visible:outline-2 focus-visible:outline-brand">
                         {v.plate_number}
-                      </span>
+                      </Link>
                     </PlateCell>
-                    <TableCell>
+                    <TableCell className="!px-3 !py-2 whitespace-nowrap">
                       <span className="text-sm font-medium text-foreground">
                         {v.brand}
                       </span>
                       {v.model && (
-                        <span className="text-muted"> · {v.model}</span>
+                        <span className="text-sm text-muted"> · {v.model}</span>
                       )}
                     </TableCell>
-                    <TableCell>
-                      <span className="text-xs font-medium uppercase text-muted">
-                        {v.vehicle_type}
+                    <TableCell className="!px-3 !py-2 whitespace-nowrap">
+                      <span className="text-xs font-medium text-muted">
+                        {formatVehicleType(v.vehicle_type as FilterType)}
                       </span>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="!px-3 !py-2 whitespace-nowrap">
                       <span className="text-sm text-muted">
                         {v.driver_name || "—"}
                       </span>
                     </TableCell>
-                    <StatusCell>
-                      <StatusPill status={toBadgeStatus(v.status as VehicleStatus)} />
+                    <StatusCell className="!px-3 !py-2 whitespace-nowrap">
+                      <StatusPill
+                        status={toBadgeStatus(v.status as VehicleStatus)}
+                        showIcon={false}
+                        className="!px-2 !py-0.5 !text-xs"
+                      />
                     </StatusCell>
-                    <TableCell>
+                    <TableCell className="!px-3 !py-2">
                       <FuelMiniBar level={v.fuel_level} />
                     </TableCell>
-                    <TableCell className="text-right">
-                      <span className="text-sm tabular-nums font-mono text-muted">
+                    <TableCell className="!px-3 !py-2 text-right whitespace-nowrap">
+                      <span className="text-xs tabular-nums font-mono text-muted">
                         {Math.round(v.odometer).toLocaleString("id-ID")} km
                       </span>
                     </TableCell>
-                    <TableCell>
-                      <span className="text-sm tabular-nums font-mono text-muted">
+                    <TableCell className="!px-3 !py-2 whitespace-nowrap">
+                      <span className="text-xs tabular-nums font-mono text-muted">
                         {v.year}
                       </span>
                     </TableCell>
@@ -756,59 +406,21 @@ export default function VehiclesPage() {
         )}
       </div>
 
-      {/* ─── Drawer Panel ──────────────────────────────────────────────────── */}
-      <Panel
-        open={false}
-        onClose={closeDrawer}
-        title={drawerMode === "add" ? "Tambah Kendaraan" : "Edit Kendaraan"}
-        subtitle={drawerMode === "edit" && editVehicle ? editVehicle.plate_number : undefined}
-        width={420}
-      >
-        <VehicleForm
-          initial={
-            drawerMode === "edit" && editVehicle
-              ? {
-                  plate_number: editVehicle.plate_number,
-                  brand: editVehicle.brand,
-                  model: editVehicle.model,
-                  vehicle_type: editVehicle.vehicle_type,
-                  year: editVehicle.year,
-                  driver_name: editVehicle.driver_name ?? "",
-                  status: editVehicle.status as VehicleStatus,
-                  fuel_level: editVehicle.fuel_level,
-                  odometer: editVehicle.odometer,
-                }
-              : undefined
-          }
-          onSubmit={handleSubmitForm}
-          onCancel={closeDrawer}
-          title={drawerMode === "add" ? "Tambah Kendaraan" : "Edit Kendaraan"}
-        />
-      </Panel>
     </div>
   );
 }
 
-/* ─── KPI Stat Components ─────────────────────────────────────────────────── */
-
-function KpiStat({ label, value, accent }: { label: string; value: number; accent?: string }) {
-  const reducedMotion = useReducedMotion();
+function SummaryItem({ label, value, color = "var(--text)" }: {
+  label: string;
+  value: number;
+  color?: string;
+}) {
   return (
-    <div className="flex flex-col items-center px-4 py-2 rounded-lg bg-surface-2 border border-border min-w-[72px]">
-      <motion.span
-        key={value}
-        initial={{ opacity: 0.6, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={reducedMotion ? { duration: 0 } : { duration: 0.2 }}
-        className={`text-xl font-bold tabular-nums ${accent ?? "text-foreground"}`}
-      >
+    <div className="flex items-center gap-1.5 px-3">
+      <span className="text-[10px] font-semibold uppercase tracking-wide text-muted">{label}</span>
+      <span className="font-mono text-sm font-bold tabular-nums" style={{ color }}>
         {value}
-      </motion.span>
-      <span className="text-label text-muted">{label}</span>
+      </span>
     </div>
   );
-}
-
-function KpiDivider() {
-  return <div className="w-px h-8 bg-border self-center" />;
 }

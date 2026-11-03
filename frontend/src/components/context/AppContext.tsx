@@ -72,21 +72,24 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
   const [telemetriIntervalKey, setTelemetriIntervalKey] = useState<TelemetriInterval>("10");
   const [isConnected, setIsConnected] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
-  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const shouldReconnectRef = useRef(false);
+
+  const normalizePlate = useCallback(
+    (plate: string) => plate.trim().replace(/\s+/g, " ").toUpperCase(),
+    []
+  );
 
   // Fetch vehicles from API
   const fetchVehicles = useCallback(async () => {
     try {
       const data = await getVehicles();
-      if (data && data.length > 0) {
+      if (data) {
         const apiByPlate = new Map(
-          data.map((vehicle) => [vehicle.plate_number.trim().toUpperCase(), vehicle])
+          data.map((vehicle) => [normalizePlate(vehicle.plate_number), vehicle])
         );
         setVehiclesState((current) =>
           current.map((vehicle) => {
             const apiVehicle = apiByPlate.get(
-              vehicle.plate_number.trim().toUpperCase()
+              normalizePlate(vehicle.plate_number)
             );
 
             if (!apiVehicle) return vehicle;
@@ -99,16 +102,20 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
             };
           })
         );
+        return true;
       }
     } catch {
-      // Keep using mock data on error
+      // The deterministic local fleet remains available while the API is offline.
     }
-  }, []);
+    return false;
+  }, [normalizePlate]);
 
   // Connect to WebSocket for real-time updates
   const connectWebSocket = useCallback(() => {
-    if (!shouldReconnectRef.current) return;
-    if (wsRef.current?.readyState === WebSocket.OPEN) return;
+    if (
+      wsRef.current?.readyState === WebSocket.OPEN ||
+      wsRef.current?.readyState === WebSocket.CONNECTING
+    ) return;
 
     try {
       const ws = new WebSocket(TELEMETRY_WS_URL);
@@ -120,8 +127,9 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
       ws.onmessage = (event) => {
         try {
           const update = JSON.parse(event.data) as WsVehicleUpdate;
+          const updatePlate = normalizePlate(update.plate_number);
           setVehiclesState(prev => prev.map(v => {
-            if (v.id === update.vehicle_id) {
+            if (normalizePlate(v.plate_number) === updatePlate) {
               return {
                 ...v,
                 latitude: update.latitude,
@@ -144,11 +152,6 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
       ws.onclose = () => {
         setIsConnected(false);
         wsRef.current = null;
-        if (shouldReconnectRef.current) {
-          reconnectTimeoutRef.current = setTimeout(() => {
-            connectWebSocket();
-          }, 5000);
-        }
       };
 
       ws.onerror = () => {
@@ -159,15 +162,10 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
     } catch {
       // WebSocket connection failed
     }
-  }, []);
+  }, [normalizePlate]);
 
   // Disconnect WebSocket
   const disconnectWebSocket = useCallback(() => {
-    shouldReconnectRef.current = false;
-    if (reconnectTimeoutRef.current) {
-      clearTimeout(reconnectTimeoutRef.current);
-      reconnectTimeoutRef.current = null;
-    }
     if (wsRef.current) {
       wsRef.current.onclose = null;
       wsRef.current.close();
@@ -176,23 +174,24 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
     setIsConnected(false);
   }, []);
 
-  // Connect to WebSocket on mount
+  // Probe the REST API first. A successful probe enables or restores realtime.
   useEffect(() => {
-    shouldReconnectRef.current = true;
-    connectWebSocket();
+    let cancelled = false;
+
+    const refresh = async () => {
+      const apiAvailable = await fetchVehicles();
+      if (!cancelled && apiAvailable) connectWebSocket();
+    };
+
+    void refresh();
+
+    const id = setInterval(refresh, INTERVAL_MS[telemetriIntervalKey]);
     return () => {
+      cancelled = true;
+      clearInterval(id);
       disconnectWebSocket();
     };
-  }, [connectWebSocket, disconnectWebSocket]);
-
-  // Refresh vehicles data periodically as backup
-  useEffect(() => {
-    // Initial fetch
-    fetchVehicles();
-
-    const id = setInterval(fetchVehicles, INTERVAL_MS[telemetriIntervalKey]);
-    return () => clearInterval(id);
-  }, [telemetriIntervalKey, fetchVehicles]);
+  }, [telemetriIntervalKey, fetchVehicles, connectWebSocket, disconnectWebSocket]);
 
   const setTelemetriInterval = useCallback((v: TelemetriInterval) => {
     setTelemetriIntervalKey(v);

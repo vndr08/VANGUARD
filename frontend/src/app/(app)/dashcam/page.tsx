@@ -1,21 +1,21 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { motion } from "motion/react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   Camera,
   Maximize2,
   Minimize2,
-  Radio,
   Search,
   Video,
   X,
 } from "lucide-react";
 import { StatusPill } from "@/components/ui/Badge";
 import { Button, IconButton } from "@/components/ui/Button";
-import { Card, EmptyState } from "@/components/ui/Card";
+import { EmptyState } from "@/components/ui/Card";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
 import { FLEET_VEHICLES } from "@/lib/fleet-data";
+import { DASHCAM_ARCHIVES, type DashcamArchive } from "@/lib/evidence-data";
 import type { Vehicle } from "@/types";
 
 /* ─── Types ─────────────────────────────────────────────────────────────────── */
@@ -26,6 +26,7 @@ type ViewMode = "grid" | "focus";
 /** Unit with available cameras */
 interface CameraUnit {
   vehicle: Vehicle;
+  archive: DashcamArchive;
   cameras: Record<CameraPos, boolean>; // available
 }
 
@@ -36,37 +37,27 @@ function toBadgeStatus(s: Vehicle["status"]): "driving" | "idle" | "stop" | "off
 
 /* ─── Build camera units from FLEET_VEHICLES ──────────────────────────────────── */
 
-const CAMERA_UNIT_LIST: CameraUnit[] = FLEET_VEHICLES.slice(0, 15).map((v) => ({
-  vehicle: v,
-  cameras: {
-    Depan: true,
-    Kabin: v.status !== "offline",
-    Belakang: v.status !== "offline",
-  },
-}));
+const vehicleById = new Map(FLEET_VEHICLES.map((vehicle) => [vehicle.id, vehicle]));
+const CAMERA_UNIT_LIST: CameraUnit[] = DASHCAM_ARCHIVES.flatMap((archive) => {
+  const vehicle = vehicleById.get(archive.vehicleId);
+  return vehicle ? [{
+    vehicle,
+    archive,
+    cameras: {
+      Depan: true,
+      Kabin: vehicle.status !== "offline",
+      Belakang: vehicle.status !== "offline",
+    },
+  }] : [];
+});
 
-/* ─── KPI Components ─────────────────────────────────────────────────────────── */
-
-function KpiStat({ label, value, accent }: { label: string; value: number; accent?: string }) {
-  const reducedMotion = useReducedMotion();
+function SummaryItem({ label, value, color }: { label: string; value: number; color?: string }) {
   return (
-    <div className="flex flex-col items-center px-4 py-2 rounded-lg bg-surface-2 border border-border min-w-[72px]">
-      <motion.span
-        key={value}
-        initial={{ opacity: 0.6, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={reducedMotion ? { duration: 0 } : { duration: 0.2 }}
-        className={"text-xl font-bold tabular-nums " + (accent ?? "text-foreground")}
-      >
-        {value}
-      </motion.span>
-      <span className="text-label text-muted">{label}</span>
+    <div className="flex items-baseline gap-2 px-3 first:pl-0 last:pr-0">
+      <span className="text-[10px] font-semibold uppercase tracking-widest text-muted">{label}</span>
+      <span className="font-mono text-sm font-semibold tabular-nums" style={color ? { color } : undefined}>{value}</span>
     </div>
   );
-}
-
-function KpiDivider() {
-  return <div className="w-px h-8 bg-border self-center" />;
 }
 
 /* ─── Camera Feed Placeholder ───────────────────────────────────────────────── */
@@ -84,34 +75,34 @@ function CameraFeed({
   onFullscreen: () => void;
   onSwap?: () => void;
 }) {
-  const CAMERA_GRADIENTS: Record<CameraPos, string> = {
-    Depan: "from-zinc-900 via-zinc-800 to-zinc-950",
-    Kabin: "from-zinc-800 via-zinc-900 to-zinc-950",
-    Belakang: "from-zinc-950 via-zinc-800 to-zinc-900",
-  };
-
-  const CAMERA_ICON_BG: Record<CameraPos, string> = {
-    Depan: "bg-brand",
-    Kabin: "bg-st-idle",
-    Belakang: "bg-st-driving",
-  };
-
-  const now = new Date();
-  const timeStr = now.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-  const dateStr = now.toLocaleDateString("id-ID", { day: "2-digit", month: "short" });
+  const reducedMotion = useReducedMotion();
+  const mediaSource = unit.archive.videoSrc;
 
   return (
     <div
       className={
-        "v2-camera-feed relative w-full flex flex-col bg-gradient-to-br " + CAMERA_GRADIENTS[camera] +
-        (isMain ? " aspect-[16/10]" : " aspect-video")
+        "v2-camera-feed relative flex w-full flex-col bg-black " +
+        (isMain ? "aspect-[16/10]" : "aspect-video")
       }
       onClick={onSwap}
       role={onSwap ? "button" : undefined}
       tabIndex={onSwap ? 0 : undefined}
       aria-label={onSwap ? `Jadikan ${camera} utama` : undefined}
     >
-      {/* Overlay gradient */}
+      <video
+        key={mediaSource}
+        autoPlay={!reducedMotion}
+        muted
+        loop
+        playsInline
+        preload="metadata"
+        poster="/media/truck/driver-dashboard.jpg"
+        className="absolute inset-0 h-full w-full object-cover"
+        aria-hidden="true"
+      >
+        <source src={mediaSource} type="video/webm" />
+      </video>
+
       <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20 pointer-events-none" />
 
       {/* Top overlay: unit identity */}
@@ -120,26 +111,20 @@ function CameraFeed({
           <span className="px-2 py-0.5 rounded bg-black/70 backdrop-blur-sm text-[10px] font-bold text-white uppercase tracking-wider">
             {camera}
           </span>
+          <span className="border border-white/25 bg-black/60 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white/80">Arsip visual</span>
           <span className="font-mono text-xs font-semibold text-white/90">
             {unit.vehicle.plate_number}
           </span>
         </div>
       </div>
 
-      {/* Center: camera icon */}
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-        <div className={"w-12 h-12 rounded-full " + CAMERA_ICON_BG[camera] + " flex items-center justify-center opacity-50"}>
-          <Camera className="w-6 h-6 text-white" />
-        </div>
-      </div>
-
       {/* Bottom overlay: timestamp */}
       <div className="absolute bottom-0 inset-x-0 flex items-center justify-between px-3 py-2 pointer-events-none">
         <span className="font-mono text-[10px] text-white/70 tabular-nums">
-          {dateStr}
+          Rekaman referensi
         </span>
         <span className="font-mono text-[10px] text-white/70 tabular-nums">
-          {timeStr}
+          Loop
         </span>
       </div>
 
@@ -160,12 +145,28 @@ function CameraFeed({
 
 /* ─── Main Page ─────────────────────────────────────────────────────────────── */
 
-export default function DashcamPage() {
+function DashcamPageContent() {
+  const searchParams = useSearchParams();
   const [search, setSearch] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [filterStatus, setFilterStatus] = useState<"all" | Vehicle["status"]>("all");
-  const [selectedIdx, setSelectedIdx] = useState<number>(0);
+  const [selectedVehicleId, setSelectedVehicleId] = useState<number | null>(CAMERA_UNIT_LIST[0]?.vehicle.id ?? null);
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [fullscreenFeed, setFullscreenFeed] = useState<CameraPos | null>(null);
+
+  useEffect(() => {
+    if (searchOpen) searchInputRef.current?.focus();
+  }, [searchOpen]);
+  useEffect(() => {
+    const tripId = searchParams.get("trip");
+    const archive = DASHCAM_ARCHIVES.find((item) => item.tripId === tripId);
+    if (!archive) return;
+    if (CAMERA_UNIT_LIST.some((unit) => unit.vehicle.id === archive.vehicleId)) {
+      setSelectedVehicleId(archive.vehicleId);
+      setViewMode("focus");
+    }
+  }, [searchParams]);
   // KPI counts
   const counts = useMemo(() => ({
     unitOnline: CAMERA_UNIT_LIST.filter((u) => u.vehicle.status !== "offline").length,
@@ -184,10 +185,10 @@ export default function DashcamPage() {
     });
   }, [search, filterStatus]);
 
-  const selectedUnit = rows[selectedIdx] ?? rows[0] ?? null;
+  const selectedUnit = rows.find((unit) => unit.vehicle.id === selectedVehicleId) ?? rows[0] ?? null;
 
-  function handleSelectUnit(idx: number) {
-    setSelectedIdx(idx);
+  function handleSelectUnit(vehicleId: number) {
+    setSelectedVehicleId(vehicleId);
   }
 
   function handleFullscreen(camera: CameraPos) {
@@ -204,52 +205,42 @@ export default function DashcamPage() {
   const CAMERA_ORDER: CameraPos[] = ["Depan", "Kabin", "Belakang"];
 
   return (
-    <div className="h-[calc(100vh-4rem)] flex flex-col overflow-hidden">
-      {/* ─── Header ─────────────────────────────────────────────────────────── */}
-      <header className="shrink-0 px-6 pt-6 pb-4 border-b border-border bg-surface-1">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex items-start gap-6">
-            <div>
-              <p className="text-label uppercase tracking-wide text-muted">Fleet Management</p>
-              <h1 className="text-h1 font-semibold text-foreground mt-0.5">Dashcam Monitor</h1>
-              <p className="text-sm text-muted mt-0.5">Live feed multi-kamera kendaraan armada</p>
-            </div>
-            <div className="flex items-center gap-1 mt-6">
-              <KpiStat label="Unit Online" value={counts.unitOnline} accent="text-st-driving" />
-              <KpiDivider />
-              <KpiStat label="Kamera Aktif" value={counts.kameraAktif} accent="text-brand" />
-              <KpiDivider />
-              <KpiStat label="Offline" value={counts.offline} accent="text-st-offline" />
-            </div>
-          </div>
-
-          {/* View mode toggle */}
-          <div className="flex items-center gap-2 mt-1">
-            <div className="flex items-center rounded-lg bg-surface-2 p-0.5">
+    <div className="flex h-[calc(100dvh-3.625rem)] max-h-[calc(100dvh-3.625rem)] min-h-0 flex-col overflow-hidden">
+      <header className="flex h-12 shrink-0 items-center gap-4 overflow-x-auto border-b border-border bg-surface-1 px-4">
+        <div className="flex shrink-0 items-baseline gap-2">
+          <h1 className="text-sm font-semibold text-foreground">Dashcam</h1>
+          <span className="font-mono text-xs tabular-nums text-muted">{CAMERA_UNIT_LIST.length} unit</span>
+        </div>
+        <div className="flex shrink-0 items-center divide-x divide-border">
+          <SummaryItem label="Online" value={counts.unitOnline} color="var(--st-driving)" />
+          <SummaryItem label="Kamera" value={counts.kameraAktif} color="var(--brand)" />
+          <SummaryItem label="Offline" value={counts.offline} color="var(--st-offline)" />
+        </div>
+        <div className="ml-auto flex shrink-0 items-center">
+            <div className="flex h-8 items-center border border-border bg-surface-2 p-0.5">
               <button
                 onClick={() => setViewMode("grid")}
-                className={"flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all focus-visible:outline-2 focus-visible:outline-brand " +
+                className={"flex h-7 items-center gap-1.5 px-2.5 text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-brand " +
                   (viewMode === "grid"
-                    ? "bg-surface-1 text-foreground shadow-sm"
+                    ? "bg-surface-1 text-foreground"
                     : "text-muted hover:text-foreground")}
                 aria-pressed={viewMode === "grid"}
               >
-                <Video className="w-3.5 h-3.5" />
+                <Video className="h-3.5 w-3.5" />
                 Grid
               </button>
               <button
                 onClick={() => setViewMode("focus")}
-                className={"flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all focus-visible:outline-2 focus-visible:outline-brand " +
+                className={"flex h-7 items-center gap-1.5 px-2.5 text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-brand " +
                   (viewMode === "focus"
-                    ? "bg-surface-1 text-foreground shadow-sm"
+                    ? "bg-surface-1 text-foreground"
                     : "text-muted hover:text-foreground")}
                 aria-pressed={viewMode === "focus"}
               >
-                <Maximize2 className="w-3.5 h-3.5" />
+                <Maximize2 className="h-3.5 w-3.5" />
                 Fokus
               </button>
             </div>
-          </div>
         </div>
       </header>
 
@@ -259,34 +250,28 @@ export default function DashcamPage() {
         <div className="w-[320px] shrink-0 border-r border-border flex flex-col overflow-hidden bg-surface-1">
 
           {/* Search */}
-          <div className="shrink-0 px-4 py-3 border-b border-border">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted pointer-events-none" />
+          <div className="flex h-11 shrink-0 items-center gap-1 overflow-x-auto border-b border-border px-3">
+            {searchOpen ? (
+              <div className="relative flex min-w-0 flex-1 items-center gap-1">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted" />
               <input
+                ref={searchInputRef}
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
+                onKeyDown={(event) => { if (event.key === "Escape") { setSearch(""); setSearchOpen(false); } }}
                 placeholder="Plat atau driver..."
-                className="w-full pl-9 pr-3 py-1.5 text-sm bg-surface-2 border border-border rounded-lg
+                className="h-8 min-w-0 flex-1 border border-border bg-surface-2 pl-8 pr-3 text-xs
                            placeholder:text-faint text-foreground
                            focus-visible:outline-2 focus-visible:outline-brand focus-visible:outline-offset-0
                            transition-colors"
                 aria-label="Cari unit"
               />
-              {search && (
-                <button
-                  onClick={() => setSearch("")}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded text-muted
-                             hover:text-foreground focus-visible:outline-2 focus-visible:outline-brand"
-                  aria-label="Hapus pencarian"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
-
-            {/* Status filter */}
-            <div className="flex items-center gap-1 mt-2">
+                <button type="button" onClick={() => { setSearch(""); setSearchOpen(false); }} className="flex h-8 w-8 shrink-0 items-center justify-center text-muted hover:bg-surface-2 hover:text-foreground focus-visible:outline-2 focus-visible:outline-brand" aria-label="Tutup pencarian"><X className="h-4 w-4" /></button>
+              </div>
+            ) : (
+              <>
+                <button type="button" onClick={() => setSearchOpen(true)} className="flex h-8 w-8 shrink-0 items-center justify-center text-muted hover:bg-surface-2 hover:text-foreground focus-visible:outline-2 focus-visible:outline-brand" aria-label="Cari unit"><Search className="h-4 w-4" /></button>
               {([
                 { key: "all" as const, label: "Semua" },
                 { key: "driving" as const, label: "Driving" },
@@ -296,20 +281,21 @@ export default function DashcamPage() {
                 <button
                   key={f.key}
                   onClick={() => setFilterStatus(f.key)}
-                  className={"px-3 py-1.5 rounded-lg text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-brand " +
+                  className={"h-7 shrink-0 border border-border px-2.5 text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-brand " +
                     (filterStatus === f.key
-                      ? "bg-brand text-white"
-                      : "bg-surface-2 text-muted hover:bg-surface-3 hover:text-foreground border border-border")}
+                      ? "bg-brand text-slate-950"
+                      : "text-muted hover:bg-surface-2 hover:text-foreground")}
                 >
                   {f.label}
                 </button>
               ))}
-            </div>
+              </>
+            )}
           </div>
 
           {/* Count */}
-          <div className="shrink-0 px-4 py-2 border-b border-border">
-            <p className="text-sm text-muted">
+          <div className="shrink-0 border-b border-border px-3 py-1">
+            <p className="text-xs text-muted">
               {rows.length} unit
               {isFiltered && (
                 <button onClick={resetFilters} className="ml-2 text-brand hover:underline focus-visible:outline-2 focus-visible:outline-brand">
@@ -336,17 +322,16 @@ export default function DashcamPage() {
               </div>
             ) : (
               <div className="p-2 space-y-1">
-                {rows.map((unit, idx) => {
-                  const listIdx = idx;
+                {rows.map((unit) => {
                   const isSelected = selectedUnit?.vehicle.id === unit.vehicle.id;
                   const camCount = Object.values(unit.cameras).filter(Boolean).length;
 
                   return (
                     <button
                       key={unit.vehicle.id}
-                      onClick={() => handleSelectUnit(listIdx)}
+                      onClick={() => handleSelectUnit(unit.vehicle.id)}
                       className={
-                        "w-full rounded-lg border p-3 text-left transition-all focus-visible:outline-2 focus-visible:outline-brand " +
+                        "w-full rounded-lg border px-3 py-2 text-left transition-colors focus-visible:outline-2 focus-visible:outline-brand " +
                         (isSelected
                           ? "bg-brand/10 border-brand"
                           : "bg-surface-2 border-border hover:bg-surface-3 hover:border-border-strong")
@@ -356,26 +341,26 @@ export default function DashcamPage() {
                     >
                       {/* Unit identity */}
                       <div className="flex items-center justify-between">
-                        <span className={"font-mono font-bold text-base tabular-nums " + (isSelected ? "text-brand" : "text-foreground")}>
+                        <span className={"font-mono text-sm font-semibold tabular-nums " + (isSelected ? "text-brand" : "text-foreground")}>
                           {unit.vehicle.plate_number}
                         </span>
                       </div>
 
                       {/* Driver */}
-                      <p className={"mt-1 text-sm " + (isSelected ? "text-brand/70" : "text-muted")}>
+                      <p className={"mt-0.5 text-xs " + (isSelected ? "text-brand/70" : "text-muted")}>
                         {unit.vehicle.driver_name || "— belum ditugaskan"}
                       </p>
 
                       {/* Status + cameras */}
-                      <div className="mt-1.5 flex items-center gap-2">
+                      <div className="mt-1 flex items-center gap-2">
                         <StatusPill
                           status={toBadgeStatus(unit.vehicle.status)}
                           showIcon={false}
                           showDot={true}
                           live={unit.vehicle.status === "driving"}
-                          className={"text-xs px-2 py-0.5 " + (isSelected ? "bg-brand/20 text-brand" : "")}
+                          className={"px-2 py-0.5 text-[10px] " + (isSelected ? "bg-brand/20 text-brand" : "")}
                         />
-                        <span className={"text-xs " + (isSelected ? "text-brand/60" : "text-muted")}>
+                        <span className={"text-[10px] " + (isSelected ? "text-brand/60" : "text-muted")}>
                           {camCount} kamera
                         </span>
                       </div>
@@ -411,15 +396,15 @@ export default function DashcamPage() {
               </div>
 
               {/* Feeds */}
-              <div className="flex-1 overflow-hidden p-3">
+              <div className="flex-1 overflow-y-auto p-3">
                 {viewMode === "grid" ? (
                   /* Grid: 3 equal panels */
-                  <div className="grid grid-cols-3 gap-3 h-full">
+                  <div className="grid grid-cols-3 gap-3">
                     {CAMERA_ORDER.map((camera) => {
                       const available = selectedUnit.cameras[camera];
                       if (!available) return null;
                       return (
-                        <div key={camera} className="flex flex-col overflow-hidden rounded-lg border border-border">
+                        <div key={camera} className="overflow-hidden rounded-lg border border-border">
                           <CameraFeed
                             camera={camera}
                             unit={selectedUnit}
@@ -432,9 +417,9 @@ export default function DashcamPage() {
                   </div>
                 ) : (
                   /* Focus: 1 main + 2 thumbnails */
-                  <div className="grid grid-cols-5 gap-3 h-full">
+                  <div className="grid grid-cols-5 gap-3">
                     {/* Main: col-span-3 */}
-                    <div className="col-span-3 flex flex-col overflow-hidden rounded-lg border border-border">
+                    <div className="col-span-3 overflow-hidden rounded-lg border border-border">
                       <CameraFeed
                         camera="Depan"
                         unit={selectedUnit}
@@ -448,7 +433,7 @@ export default function DashcamPage() {
                         const available = selectedUnit.cameras[cam];
                         if (!available) return null;
                         return (
-                          <div key={cam} className="flex-1 flex flex-col overflow-hidden rounded-lg border border-border cursor-pointer hover:border-brand transition-colors">
+                          <div key={cam} className="overflow-hidden rounded-lg border border-border cursor-pointer hover:border-brand transition-colors">
                             <CameraFeed
                               camera={cam}
                               unit={selectedUnit}
@@ -495,5 +480,13 @@ export default function DashcamPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function DashcamPage() {
+  return (
+    <Suspense fallback={null}>
+      <DashcamPageContent />
+    </Suspense>
   );
 }
